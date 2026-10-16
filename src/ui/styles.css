@@ -1,0 +1,90 @@
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap');
+
+:root {
+  --ink: #fffaf2;
+  --muted: #c9d6e8;
+  --panel: rgba(20, 34, 58, 0.82);
+  --accent: #e8424f;
+  --accent-2: #2f9e6b;
+  --gold: #ffd25a;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #0d1626; }
+body { font-family: 'Fredoka', system-ui, sans-serif; color: var(--ink); user-select: none; }
+#game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
+#ui { position: fixed; inset: 0; pointer-events: none; }
+#ui button, #ui .card { pointer-events: auto; }
+.hidden { display: none !important; }
+.muted { color: var(--muted); opacity: 0.8; }
+.small { font-size: 0.9rem; }
+
+.fade { position: absolute; inset: 0; background: #0d1626; opacity: 0; transition: opacity 0.35s; }
+.fade.on { opacity: 1; }
+
+.loading { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; gap: 1rem;
+  background: radial-gradient(circle at 50% 30%, #1f3a63, #0d1626); transition: opacity 0.8s; pointer-events: auto; }
+.loading.gone { opacity: 0; pointer-events: none; }
+.loading h1 { font-size: clamp(2.5rem, 8vw, 5rem); margin: 0; letter-spacing: 0.04em; text-shadow: 0 4px 0 #b3263a; }
+.loading .bar { width: min(320px, 70vw); height: 12px; border-radius: 6px; background: rgba(255,255,255,0.15); overflow: hidden; }
+.loading .bar > div { height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--gold)); transition: width 0.2s; }
+
+.tracker { position: absolute; top: 16px; left: 16px; background: var(--panel); padding: 8px 12px; border-radius: 14px; display: flex; gap: 12px; align-items: center; }
+.tracker .slots { display: flex; gap: 6px; }
+.tracker .slot { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 16px; color: var(--muted); border: 2px solid rgba(255,255,255,0.2); }
+.tracker .slot.got { border-color: var(--gold); box-shadow: 0 0 10px var(--gold); }
+.tracker .stars { font-weight: 600; }
+
+.prompt { position: absolute; bottom: 18%; left: 50%; transform: translateX(-50%); background: var(--panel); padding: 10px 20px; border-radius: 999px;
+  font-size: 1.15rem; border: 2px solid var(--gold); white-space: nowrap; animation: bob 1.4s ease-in-out infinite; }
+.prompt kbd { background: var(--gold); color: #3a2400; border-radius: 6px; padding: 0 8px; font-family: inherit; font-weight: 700; }
+@keyframes bob { 50% { transform: translate(-50%, -4px); } }
+
+.hint { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); font-size: 0.85rem; background: var(--panel); padding: 4px 14px; border-radius: 999px; white-space: nowrap; }
+
+.gamebar { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); background: var(--panel); padding: 8px 20px; border-radius: 14px;
+  display: flex; gap: 24px; font-size: 1.3rem; font-weight: 600; white-space: nowrap; }
+.gamebar .warn { color: #ff8b8b; }
+
+.toasts { position: absolute; top: 70px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.toast { background: var(--panel); padding: 8px 18px; border-radius: 12px; border-left: 4px solid var(--gold); animation: pop 0.3s ease-out; transition: opacity 0.5s, transform 0.5s; }
+.toast.out { opacity: 0; transform: translateY(-10px); }
+@keyframes pop { from { transform: scale(0.8); opacity: 0; } }
+
+.card-wrap { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(5, 10, 20, 0.45); pointer-events: auto; padding: 16px; }
+.card { background: linear-gradient(180deg, #23406b, #172b4a); border: 3px solid rgba(255,255,255,0.15); border-radius: 22px; padding: 24px 28px;
+  width: min(520px, 100%); text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.5); animation: pop 0.25s ease-out; }
+.card h1 { font-size: clamp(2rem, 6vw, 3rem); margin: 0 0 8px; text-shadow: 0 3px 0 #b3263a; }
+.card h2 { margin: 4px 0 10px; }
+.card .lead { line-height: 1.45; }
+.card .emoji { font-size: 3rem; }
+.card .row { display: flex; gap: 12px; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
+.card button { font: inherit; font-size: 1.15rem; font-weight: 600; color: #fff; background: var(--accent); border: none; border-radius: 999px; padding: 10px 28px;
+  cursor: pointer; box-shadow: 0 4px 0 #8f1d29; transition: transform 0.08s; }
+.card button:hover { transform: translateY(-2px); }
+.card button:active { transform: translateY(2px); box-shadow: 0 2px 0 #8f1d29; }
+.card button.ghost { background: transparent; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.4); }
+.card .soon { font-size: 1.1rem; }
+.bigstars { font-size: 3.4rem; letter-spacing: 8px; color: rgba(255,255,255,0.2); }
+.bigstars .on { color: var(--gold); display: inline-block; animation: star 0.5s backwards; text-shadow: 0 0 18px rgba(255,210,90,0.8); }
+@keyframes star { from { transform: scale(2.5) rotate(-40deg); opacity: 0; } }
+.score { font-size: 1.3rem; }
+.ornament { color: var(--gold); font-weight: 600; font-size: 1.15rem; }
+
+.map { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(5, 10, 20, 0.55); padding: 16px; }
+.map-inner { background: #e9f1fa; color: #233; border-radius: 20px; padding: 16px 20px; width: min(560px, 100%); text-align: center; }
+.map-inner h2 { margin: 0 0 8px; }
+.map-inner .muted { color: #5a6b80; }
+.map-area { position: relative; aspect-ratio: 1; background: radial-gradient(circle, #fff 0%, #dbe8f5 70%, #b9cde3 100%); border-radius: 14px; border: 3px dashed #9db4cf; }
+.pin { position: absolute; transform: translate(-50%, -50%); text-align: center; }
+.pin span { font-size: 1.6rem; display: block; }
+.pin label { font-size: 0.75rem; font-weight: 600; white-space: nowrap; background: rgba(255,255,255,0.8); padding: 0 6px; border-radius: 6px; }
+.pin.unknown { opacity: 0.6; }
+.pin.me span { animation: bob2 1s infinite; }
+@keyframes bob2 { 50% { transform: translateY(-4px); } }
+
+@media (max-width: 640px) {
+  .hint { display: none; }
+  .gamebar { font-size: 1rem; gap: 12px; }
+  .tracker .slot { width: 20px; height: 20px; font-size: 12px; }
+}

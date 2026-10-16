@@ -1,0 +1,211 @@
+import * as THREE from 'three';
+import { assets } from '../core/AssetLoader';
+import type { Engine } from '../core/Engine';
+import type { Input } from '../core/Input';
+import type { Overworld as OverworldContract, SceneManager } from '../core/SceneManager';
+import { MINI_GAME_IDS, type MiniGameId } from '../minigames/MiniGame';
+import { MINI_GAMES } from '../minigames/registry';
+import type { Hud } from '../ui/hud';
+import { Burst } from '../vfx/Burst';
+import { Snowfall } from '../vfx/Snowfall';
+import { World } from '../world/World';
+import { FollowCamera } from './FollowCamera';
+import { GameZone } from './GameZone';
+import { gameState } from './GameState';
+import { Player } from './Player';
+
+/** Ornament hook positions on the Great Tree (tree is ~14 m tall at its scale). */
+const ORNAMENT_SPOTS: [number, number, number][] = [
+  [2.6, 4.2, 1.2], [-2.4, 5.6, 1.4], [1.6, 7.4, -1.8], [-1.8, 3.4, -2.6], [0.4, 9.2, 1.4], [-1.2, 8.2, -0.6],
+];
+
+/** The explorable village: world + player + camera + zones. */
+export class Overworld implements OverworldContract {
+  readonly world = new World();
+  readonly player = new Player();
+  readonly cam = new FollowCamera();
+  private zones: GameZone[] = [];
+  private snow!: Snowfall;
+  private fireworks!: Burst;
+  private ornaments = new THREE.Group();
+  private ornamentMat = new THREE.MeshStandardMaterial({ color: '#ffcc33', emissive: '#a86b00', emissiveIntensity: 0.6, metalness: 0.8, roughness: 0.25 });
+  private paused = true;
+  private saveTimer = 0;
+  private finaleTime = -1;
+  sceneManager!: SceneManager;
+
+  constructor(
+    private readonly engine: Engine,
+    private readonly input: Input,
+    private readonly hud: Hud,
+  ) {}
+
+  async load(onStep: (label: string) => void) {
+    await this.world.load(onStep);
+    onStep('Waking up the villagers…');
+    await this.player.load();
+    const [snowflake, sparkle, glow] = await Promise.all([
+      assets.texture('vfx/snowflake.png'),
+      assets.texture('vfx/sparkle.png'),
+      assets.texture('vfx/glow.png'),
+    ]);
+
+    const d = this.world.data;
+    const saved = gameState.data.playerPosition;
+    const spawn = new THREE.Vector3(...(saved ?? d.spawn));
+    spawn.y = this.world.groundY(spawn.x, spawn.z);
+    this.player.attach(this.world.physics.world, spawn);
+    this.world.scene.add(this.player.object);
+    if (!saved) this.player.faceTowards(Math.PI);
+    this.cam.snapBehind(saved ? 0 : Math.PI);
+    const s = gameState.data.settings;
+    this.cam.sensitivity = s.sensitivity;
+    this.cam.invertY = s.invertY;
+
+    for (const z of d.zones) {
+      const pos = new THREE.Vector3(z.position[0], 0, z.position[2]);
+      pos.y = this.world.groundY(pos.x, pos.z);
+      const zone = new GameZone(z.id, pos, z.radius, sparkle, glow);
+      zone.beacon.setCompleted(gameState.hasOrnament(z.id));
+      this.zones.push(zone);
+      this.world.scene.add(zone.beacon.group);
+    }
+
+    this.snow = new Snowfall(snowflake, gameState.data.settings.quality === 'low' ? 3000 : 7000);
+    this.fireworks = new Burst(sparkle, 1500, true, -5);
+    this.world.scene.add(this.snow.points, this.fireworks.points, this.ornaments);
+    this.refreshOrnaments();
+    this.engine.track(this.cam.camera);
+  }
+
+  private refreshOrnaments() {
+    this.ornaments.clear();
+    const geo = new THREE.SphereGeometry(0.45, 20, 14);
+    MINI_GAME_IDS.forEach((id, i) => {
+      if (!gameState.hasOrnament(id)) return;
+      const m = new THREE.Mesh(geo, this.ornamentMat);
+      m.position.set(...ORNAMENT_SPOTS[i]);
+      m.position.y += this.world.groundY(0, 0);
+      this.ornaments.add(m);
+    });
+  }
+
+  pause() {
+    this.paused = true;
+    this.hud.hidePrompt();
+    this.zones.forEach((z) => (z.inside = false));
+  }
+
+  resume() {
+    this.paused = false;
+    this.input.lockPointer();
+  }
+
+  onReturn(id: MiniGameId, newOrnament: boolean) {
+    this.zones.find((z) => z.id === id)?.beacon.setCompleted(gameState.hasOrnament(id));
+    if (newOrnament) {
+      this.refreshOrnaments();
+      this.player.playOnce('Cheering');
+      this.hud.toast(`🟡 ${MINI_GAMES[id].title} ornament hung on the Great Tree! (${gameState.ornamentCount}/6)`, 4000);
+      if (gameState.ornamentCount === MINI_GAME_IDS.length && !gameState.data.finaleSeen) this.startFinale();
+    }
+  }
+
+  private startFinale() {
+    gameState.data.finaleSeen = true;
+    gameState.save();
+    this.finaleTime = 0;
+    this.hud.toast('🎄 The Great Tree is lit! Merry Christmas, Frostvale! 🎆', 8000);
+  }
+
+  private nearestZone(): GameZone | undefined {
+    return this.zones.find((z) => z.inside);
+  }
+
+  update(dt: number, time: number) {
+    const input = this.input;
+    if (!this.paused && !this.hud.cardOpen) {
+      if (input.justPressed('map')) {
+        this.hud.toggleMap(
+          this.zones.map((z) => ({ id: z.id, x: z.position.x, z: z.position.z })),
+          { x: this.player.position.x, z: this.player.position.z },
+          this.world.data.half,
+        );
+      }
+      if (input.justPressed('pause')) {
+        this.openPause();
+      }
+    }
+
+    const active = !this.paused && !this.hud.cardOpen && !this.hud.mapOpen;
+    if (active) {
+      this.player.update(dt, input, this.cam.yaw);
+    } else {
+      this.player.animate(dt);
+    }
+    this.world.update(dt, this.player.position, time);
+    this.player.syncObject();
+    this.cam.update(dt, active ? input : { look: { x: 0, y: 0 }, wheel: 0 } as Input, this.player.position, this.world.physics.world, this.player.collider, (x, z) => this.world.groundY(x, z), this.player.speed);
+
+    const pr = this.engine.renderer.getPixelRatio();
+    this.snow.update(time, this.cam.camera.position, pr);
+    this.fireworks.update(dt, pr);
+    for (const z of this.zones) {
+      z.beacon.update(time, pr);
+      if (!active) continue;
+      const ev = z.check(this.player.position);
+      if (ev === 'enter') {
+        const info = MINI_GAMES[z.id];
+        const firstTime = !gameState.isDiscovered(z.id);
+        gameState.discover(z.id);
+        if (firstTime) this.hud.toast(`✨ Discovered: ${info.emoji} ${info.title}`);
+      }
+    }
+    const zone = active ? this.nearestZone() : undefined;
+    if (zone) {
+      const info = MINI_GAMES[zone.id];
+      this.hud.showPrompt(`Press <kbd>E</kbd> to play ${info.emoji} ${info.title}`);
+      if (input.justPressed('interact')) {
+        this.hud.hidePrompt();
+        void this.sceneManager.enter(zone.id);
+      }
+    } else if (active) {
+      this.hud.hidePrompt();
+    }
+
+    if (this.finaleTime >= 0) {
+      this.finaleTime += dt;
+      if (Math.random() < dt * 3) {
+        const p = new THREE.Vector3((Math.random() - 0.5) * 30, 16 + Math.random() * 10, (Math.random() - 0.5) * 30);
+        const palette = [['#ff4d4d', '#ffd25a'], ['#5affb0', '#ffffff'], ['#6fb6ff', '#ffd25a'], ['#ff7ad9', '#ffffff']];
+        this.fireworks.emit(p, 80, { color: palette[Math.floor(Math.random() * palette.length)], speed: 12, up: 0, size: 1.6, life: 1.6 });
+      }
+      if (this.finaleTime > 20) this.finaleTime = -1;
+    }
+
+    this.saveTimer += dt;
+    if (active && this.saveTimer > 5) {
+      this.saveTimer = 0;
+      const p = this.player.position;
+      gameState.setPlayerPosition([+p.x.toFixed(2), +p.y.toFixed(2), +p.z.toFixed(2)]);
+    }
+  }
+
+  private openPause() {
+    this.paused = true;
+    this.input.unlockPointer();
+    this.hud
+      .showCard(
+        `<h2>⏸ Paused</h2>
+         <p>Ornaments: ${gameState.ornamentCount}/6 · ⭐ ${gameState.totalStars}/18</p>
+         <p class="small muted">WASD move · Mouse look · Shift sprint · Space jump · E play · M map</p>
+         <div class="row"><button data-ok autofocus>Resume</button></div>`,
+      )
+      .catch(() => {})
+      .finally(() => this.resume());
+  }
+
+  render(engine: Engine) {
+    engine.render(this.world.scene, this.cam.camera);
+  }
+}
