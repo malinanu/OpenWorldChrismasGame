@@ -43,20 +43,20 @@ export class Beacon {
     const pts = new THREE.Points(geo, this.material);
     pts.frustumCulled = false;
     this.glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glow, color, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
-    this.glow.scale.setScalar(6);
-    this.glow.position.y = 1;
+    this.glow.scale.setScalar(4);
+    this.glow.position.y = 1.2;
     this.group.add(pts, this.glow);
   }
 
   /** Completed zones keep a smaller, calmer beacon. */
   setCompleted(done: boolean) {
     this.material.uniforms.uHeight.value = done ? 5 : 14;
-    this.glow.scale.setScalar(done ? 3 : 6);
+    this.glow.scale.setScalar(done ? 2.5 : 4);
   }
 
   update(time: number, pixelRatio: number) {
     this.material.uniforms.uTime.value = time;
     this.material.uniforms.uPR.value = pixelRatio;
-    this.glow.material.opacity = 0.55 + 0.25 * Math.sin(time * 2.5);
+    this.glow.material.opacity = 0.35 + 0.2 * Math.sin(time * 2.5);
   }
 }

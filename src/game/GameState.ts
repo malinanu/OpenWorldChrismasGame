@@ -1,6 +1,6 @@
 import { EventBus } from '../core/EventBus';
 import { loadSave, writeSave, type SaveData } from '../core/Save';
-import { MINI_GAME_IDS, type MiniGameId, type MiniGameResult } from '../minigames/MiniGame';
+import { MINI_GAME_IDS, type MiniGameId, type Stars } from '../minigames/MiniGame';
 
 type Events = {
   change: GameState;
@@ -38,11 +38,11 @@ export class GameState {
   }
 
   /** Returns true if this result earned the ornament for the first time. */
-  recordResult(id: MiniGameId, r: MiniGameResult): boolean {
+  recordResult(id: MiniGameId, score: number, stars: Stars): boolean {
     const d = this.data;
-    d.bestStars[id] = Math.max(d.bestStars[id] ?? 0, r.stars);
-    d.bestScore[id] = Math.max(d.bestScore[id] ?? 0, r.score);
-    const newOrnament = r.stars >= 1 && !d.ornaments[id];
+    d.bestStars[id] = Math.max(d.bestStars[id] ?? 0, stars);
+    d.bestScore[id] = Math.max(d.bestScore[id] ?? 0, score);
+    const newOrnament = stars >= 1 && !d.ornaments[id];
     if (newOrnament) d.ornaments[id] = true;
     this.save();
     if (newOrnament) {

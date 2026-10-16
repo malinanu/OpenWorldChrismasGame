@@ -2,7 +2,7 @@ import type { Engine } from './Engine';
 import type { Input } from './Input';
 import type { Hud } from '../ui/hud';
 import { gameState } from '../game/GameState';
-import type { MiniGame, MiniGameContext, MiniGameId } from '../minigames/MiniGame';
+import { starsFor, type MiniGame, type MiniGameContext, type MiniGameId } from '../minigames/MiniGame';
 import { MINI_GAMES } from '../minigames/registry';
 
 export interface Overworld {
@@ -17,6 +17,7 @@ export interface Overworld {
 /** Switches rendering + updates between the overworld and a running mini-game. */
 export class SceneManager {
   private active: MiniGame | null = null;
+  private confirming = false;
   busy = false;
 
   constructor(
@@ -24,7 +25,9 @@ export class SceneManager {
     private readonly input: Input,
     private readonly hud: Hud,
     private readonly world: Overworld,
-  ) {}
+  ) {
+    hud.onQuit = () => void this.confirmQuit();
+  }
 
   get inMiniGame() {
     return this.active !== null;
@@ -44,9 +47,10 @@ export class SceneManager {
     }
 
     await this.hud.fadeOut();
-    const ctx: MiniGameContext = { input: this.input, hud: this.hud, engine: this.engine };
-    const game = info.create(ctx);
+    const ctx: MiniGameContext = { input: this.input, hud: this.hud, engine: this.engine, thresholds: info.thresholds };
+    let game: MiniGame;
     try {
+      game = await info.create(ctx);
       await game.load();
     } catch (e) {
       console.error(e);
@@ -60,12 +64,15 @@ export class SceneManager {
     this.hud.setWorldHudVisible(false);
     game.start();
     this.active = game;
+    this.hud.setQuitVisible(true);
     await this.hud.fadeIn();
 
     const result = await game.finished;
-    const newOrnament = gameState.recordResult(id, result);
+    this.hud.setQuitVisible(false);
+    const stars = result.quit ? 0 : starsFor(result.score, info.thresholds);
+    const newOrnament = gameState.recordResult(id, result.score, stars);
     this.input.unlockPointer();
-    await this.hud.showResults(id, result, newOrnament);
+    await this.hud.showResults(id, result, stars, newOrnament);
 
     await this.hud.fadeOut();
     this.active = null;
@@ -79,10 +86,25 @@ export class SceneManager {
     this.busy = false;
   }
 
+  /** Esc or the ✕ button: ask first, since a misplaced tap shouldn't throw a round away. */
+  private async confirmQuit() {
+    if (!this.active || this.confirming || this.hud.cardOpen) return;
+    this.confirming = true;
+    const leave = await this.hud
+      .showCard(
+        `<h2>Leave the game?</h2><p>This round won't count towards your stars.</p>
+         <div class="row"><button data-cancel class="ghost" autofocus>Keep playing</button><button data-ok>Leave</button></div>`,
+      )
+      .then(() => true, () => false);
+    this.confirming = false;
+    if (leave) this.active?.quit();
+  }
+
   update(dt: number, time: number) {
     if (this.active) {
-      if (this.input.justPressed('pause') && !this.hud.cardOpen) this.active.quit();
-      this.active.update(dt);
+      if (this.input.justPressed('pause')) void this.confirmQuit();
+      // The game is frozen while a card (quit confirm, results) is open.
+      if (!this.hud.cardOpen) this.active.update(dt);
       this.engine.render(this.active.scene, this.active.camera);
     } else {
       this.world.update(dt, time);

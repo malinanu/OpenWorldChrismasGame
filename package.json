@@ -8,7 +8,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "manifest": "node tools/build-manifest.mjs"
+    "manifest": "node tools/build-manifest.mjs",
+    "check-levels": "node --experimental-strip-types --no-warnings tools/check-levels.mjs"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.21.0",

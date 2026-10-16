@@ -26,9 +26,12 @@ export class FollowCamera {
       Math.sin(this.pitch),
       Math.cos(this.yaw) * Math.cos(this.pitch),
     );
+    // Portrait screens get a wider lens and a longer boom so the player sees around them.
+    const portrait = this.camera.aspect < 1;
+    const distance = this.distance * (portrait ? 1.25 : 1);
     // Pull in when something is between the player and the camera.
-    let want = this.distance;
-    const hit = world.castRay(new RAPIER.Ray(this.target, dir), this.distance, true, undefined, undefined, exclude);
+    let want = distance;
+    const hit = world.castRay(new RAPIER.Ray(this.target, dir), distance, true, undefined, undefined, exclude);
     if (hit) want = Math.max(1.5, hit.timeOfImpact - 0.3);
     this.current = want < this.current ? want : THREE.MathUtils.lerp(this.current, want, 1 - Math.exp(-dt * 4));
 
@@ -37,7 +40,7 @@ export class FollowCamera {
     this.camera.position.copy(pos);
     this.camera.lookAt(this.target);
 
-    const fov = 60 + Math.min(Math.max(speed - 6, 0), 4) * 1.5;
+    const fov = (portrait ? 74 : 60) + Math.min(Math.max(speed - 6, 0), 4) * 1.5;
     if (Math.abs(this.camera.fov - fov) > 0.05) {
       this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, fov, 1 - Math.exp(-dt * 5));
       this.camera.updateProjectionMatrix();

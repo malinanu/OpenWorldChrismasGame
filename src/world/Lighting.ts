@@ -7,7 +7,8 @@ export class Lighting {
   readonly sky: THREE.Mesh;
   private readonly sunOffset = new THREE.Vector3(-40, 60, 30);
 
-  constructor(scene: THREE.Scene) {
+  /** `shadowSize` 0 disables the sun's shadow (low quality). */
+  constructor(scene: THREE.Scene, shadowSize = 2048) {
     scene.fog = new THREE.FogExp2('#c6d6ec', 0.0085);
     scene.background = new THREE.Color('#c6d6ec');
 
@@ -15,10 +16,12 @@ export class Lighting {
     scene.add(this.hemi);
 
     this.sun = new THREE.DirectionalLight('#ffe2c0', 2.4);
-    this.sun.castShadow = true;
-    this.sun.shadow.mapSize.set(2048, 2048);
+    this.sun.castShadow = shadowSize > 0;
+    this.sun.shadow.mapSize.set(Math.max(shadowSize, 256), Math.max(shadowSize, 256));
     const c = this.sun.shadow.camera;
-    c.left = -45; c.right = 45; c.top = 45; c.bottom = -45; c.near = 1; c.far = 200;
+    // Smaller shadow maps cover a smaller area so shadows stay crisp.
+    const half = shadowSize >= 2048 ? 45 : 30;
+    c.left = -half; c.right = half; c.top = half; c.bottom = -half; c.near = 1; c.far = 200;
     this.sun.shadow.bias = -0.0005;
     this.sun.shadow.normalBias = 0.04;
     scene.add(this.sun, this.sun.target);

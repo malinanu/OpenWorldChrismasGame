@@ -6,7 +6,7 @@
 |---|---|
 | **Genre** | Cozy open-world / mini-game collection |
 | **Perspective** | 3rd-person, orbit-follow camera |
-| **Platform** | Web browser (desktop first, mobile-friendly) |
+| **Platform** | Web browser, **mobile-first** (phones in portrait or landscape), also desktop with mouse/keyboard or gamepad |
 | **Rendering** | three.js (WebGL 2) |
 | **Language / tooling** | TypeScript + Vite |
 | **Physics** | Rapier (`@dimforge/rapier3d-compat`, WASM) |
@@ -16,14 +16,18 @@
 
 ---
 
-## ✅ Current status (vertical slice)
+## ✅ Current status
 
 | Area | State |
 |---|---|
 | Vite + TS + three.js + Rapier project | ✅ |
 | All 10 asset packs imported (`public/assets/`) | ✅ glTF straight from the zips (not optimised yet) |
+| **Mobile-first controls**: floating joystick, drag-to-look, jump/map/pause buttons, tappable "▶ Play" prompt, big thumb-side action button and ✕ quit in mini-games | ✅ |
+| Portrait **and** landscape: every camera reframes on rotate; safe-area (notch) padding; phone-sized HUD | ✅ |
+| Installable: web manifest + icons; "Add to Home Screen" launches full-screen (also on iPhone); fullscreen on Android | ✅ |
+| Graphics presets (Fast / Balanced / Pretty) in the pause menu; phones default to Balanced | ✅ |
 | Player: KayKit *Rogue (Hooded)* + idle/walk/run/jump/cheer clips on a Rapier kinematic capsule | ✅ |
-| Orbit-follow camera (pointer lock, wheel zoom, pulls in when something blocks the view) | ✅ |
+| Orbit-follow camera (pointer lock or touch drag, wheel zoom, pulls in when something blocks the view) | ✅ |
 | Snowy heightmap terrain, trodden paths, frozen lake, rim of hills | ✅ |
 | Instanced, snow-covered forest (~880 trees/rocks/bushes) placed from seeded JSON rules | ✅ |
 | Town square, village street, train station, workshop, cellar entrance, game parlour | ✅ first-pass dressing |
@@ -32,10 +36,12 @@
 | Save to `localStorage` (ornaments, stars, discovered zones, position) | ✅ |
 | Great Tree ornaments + fireworks finale | ✅ basic version |
 | **Game 1: Snowball Showdown** | ✅ playable |
-| Games 2–6 | ⏳ zones exist and say "coming soon" |
-| Audio, touch controls, settings menu, GLB/KTX2 optimisation | ⏳ |
+| **Game 3: Santa's Express** (5 solver-checked levels) | ✅ playable |
+| **Game 6: Advent Dice Race** (physics dice vs. 3 AI elves) | ✅ playable |
+| Games 2, 4, 5 | ⏳ zones exist and say "coming soon" |
+| Audio, GLB/KTX2 optimisation | ⏳ |
 
-Run it with `npm install && npm run dev`, then open http://localhost:5173.
+Run it with `npm install && npm run dev`, then open http://localhost:5173. To try it on your phone, run `npm run dev -- --host` and open the printed network address on a phone on the same Wi-Fi.
 
 ---
 
@@ -73,6 +79,7 @@ The player arrives by toy train, explores freely, finds each challenge, plays it
 - **Bite-sized games**: each mini-game takes 1–4 minutes and can be replayed for a better star rating.
 - **One coherent look**: every model comes from KayKit, so the whole world shares one palette and scale.
 - **Instant to play**: opens from a link, loads in seconds, no install.
+- **Mobile first**: designed for a phone held in either orientation and played with thumbs. Everything also works with mouse/keyboard and gamepad, but no feature may require them.
 
 ---
 
@@ -148,12 +155,12 @@ Customers order cookies, hot chocolate and treats. Grab ingredients, prepare the
 **Tech:** fixed top-down camera, click-to-interact via `Raycaster`, model swap per food state
 **Stars:** based on orders served and tips earned
 
-### 3. 🚂 Santa's Express (*Toy Train Station*)
+### 3. 🚂 Santa's Express (*Toy Train Station*), ✅ playable
 **Type:** track-switching puzzle (5 levels)
-Presents must reach the right houses. Rotate track pieces and flip switches so the toy train delivers each colour of present to the matching chimney.
-**Assets:** Holiday Bits (locomotive, tenders, wagon, `tracks_straight/curve/crossing/split_left/split_right`, presents in 5 colours)
-**Tech:** grid-based logic (no physics); the train follows a `CatmullRomCurve3` built from the solved path
-**Stars:** based on moves used and delivery time
+Presents must reach the right houses. Tap the glowing track pieces to turn them, then send the toy train; each present in the queue must reach the house of its colour. Wrong houses, derailments and loops count as mishaps.
+**Assets:** Holiday Bits (locomotive, empty tender carrying the present, wagon, `tracks_straight/curve/crossing/straight_station`, decorated gingerbread houses, presents in 5 colours)
+**Tech:** pure grid logic in `logic.ts` (no physics). Levels are text grids in `levels.ts`, and `npm run check-levels` brute-forces each one to prove it is solvable and compute its par (fewest taps). The train follows a polyline of straight segments and quarter arcs traced through the tiles. In portrait the camera views the board from the station's side, so the board runs up the screen.
+**Stars:** each level scores 3 (no mishaps, at or under par), 2 (≤1 mishap, ≤ par + 4) or 1; game stars at 5 / 10 / 14 of 15
 
 ### 4. 🔨 Elf Workshop (*Pine Forest edge*)
 **Type:** crafting / memory (3 rounds)
@@ -169,11 +176,11 @@ Krampus has stolen a sack of presents and hidden it below ground. Navigate a sma
 **Tech:** reuses the player controller; patrol "vision cone" = angle + distance check plus a raycast for line of sight
 **Stars:** based on presents collected and escape time
 
-### 6. 🎲 Advent Dice Race (*Game Parlour*)
-**Type:** board game vs. 3 AI elves (5 minutes)
-A Christmas board game on a table. Roll dice and move your pawn along a 24-square advent track; squares give bonus moves, gifts, or "snow drifts" (lose a turn). First to square 24 wins.
-**Assets:** Board Game Bits (D6/D8/D20 dice, pawns, meeples, tokens, coins, flags, tiles) · Holiday Bits (presents and candy as decoration)
-**Tech:** physics dice roll in Rapier; read the top face from the die's final rotation
+### 6. 🎲 Advent Dice Race (*Game Parlour*), ✅ playable
+**Type:** board game vs. 3 AI elves (2–4 minutes)
+Race Jingle, Tinsel and Sprinkle round a 24-door advent track. 🎁 squares give 2 bonus steps, 🍬 candy canes roll again, ❄️ snow drifts make you miss a turn. First to door 23 wins.
+**Assets:** Board Game Bits (coloured `D6_A` dice, `pawn_B` pawns, coloured tiles) · Holiday Bits (presents, snowball piles, candy canes, trees as square markers and decoration)
+**Tech:** each roll is a real Rapier rigid body thrown into the board's centre; once it rests, the face is read from which local axis points up (KayKit D6: +X=2, −X=5, +Y=6, −Y=1, +Z=3, −Z=4)
 **Stars:** 1st place = 3★ · 2nd = 2★ · 3rd = 1★
 
 ---
@@ -224,7 +231,7 @@ The snow ground is generated in code (heightmap + vertex colours), so no terrain
 | Animation | `THREE.AnimationMixer` | Idle / walk / run / jump / cheer cross-fades |
 | Audio | `THREE.AudioListener` + `PositionalAudio` (or Howler.js) | 3D-positioned chimney crackle, train whistle |
 | UI / HUD | Plain HTML + CSS overlay above the canvas | Easy to style, accessible, no extra library |
-| Input | Keyboard/mouse + Gamepad API (touch joystick later) | One `Input` module mapped to actions |
+| Input | Pointer Events (mouse + touch in one path), keyboard, Gamepad API, on-screen controls | One `Input` module mapped to actions |
 | Save | `localStorage` (JSON) | No backend required |
 | Asset optimisation | **glTF-Transform** CLI | Merge, dedupe, compress to `.glb` |
 
@@ -238,9 +245,10 @@ npm run dev        # http://localhost:5173
 npm run build      # type-check + static site in dist/
 npm run preview    # serve the production build locally
 npm run manifest   # list every model id → public/assets/models/manifest.json
+npm run check-levels  # prove every Santa's Express level is solvable, print par
 ```
 
-A debug handle is exposed as `window.frostvale` (`engine`, `overworld`, `scenes`, `gameState`, `hud`). For example, `frostvale.scenes.enter('snowball-showdown')` jumps straight into a game, and `localStorage.clear()` resets progress.
+A debug handle is exposed as `window.frostvale` (`engine`, `overworld`, `scenes`, `gameState`, `hud`, `input`). For example, `frostvale.scenes.enter('snowball-showdown')` jumps straight into a game, and `localStorage.clear()` resets progress.
 
 ---
 
@@ -249,8 +257,12 @@ A debug handle is exposed as `window.frostvale` (`engine`, `overworld`, `scenes`
 ```
 ├── index.html                  # <canvas> + HUD overlay root
 ├── vite.config.ts              # base: './' for sub-folder hosting
-├── tools/build-manifest.mjs    # lists model ids
+├── tools/
+│   ├── build-manifest.mjs      # lists model ids
+│   └── check-levels.mjs        # Santa's Express solver check
 ├── public/
+│   ├── manifest.webmanifest    # installable web app (Add to Home Screen)
+│   ├── icons/                  # app icons rendered from the game's tree model
 │   ├── assets/
 │   │   ├── models/<pack>/      # KayKit glTF + .bin + atlas png (one folder per zip)
 │   │   └── textures/vfx/       # selected Brackeys textures
@@ -283,11 +295,14 @@ A debug handle is exposed as `window.frostvale` (`engine`, `overworld`, `scenes`
     ├── shaders/snow.ts         # onBeforeCompile snow-on-top patch
     ├── minigames/
     │   ├── MiniGame.ts         # contract + star helper
-    │   ├── registry.ts         # titles, blurbs, thresholds, factories
-    │   └── snowball-showdown/
+    │   ├── registry.ts         # titles, blurbs, thresholds, lazy factories
+    │   ├── snowball-showdown/
+    │   ├── santas-express/     # logic.ts (pure puzzle rules), levels.ts, SantasExpress.ts
+    │   └── advent-dice-race/
     └── ui/
-        ├── hud.ts              # loading, title, prompt, tracker, cards, map
-        └── styles.css
+        ├── hud.ts              # loading, title, prompt, tracker, cards, map, action/quit buttons
+        ├── touch.ts            # joystick, drag-to-look, jump/map/pause buttons
+        └── styles.css          # mobile-first: phone styles are the base, desktop is the media query
 ```
 
 ---
@@ -322,7 +337,13 @@ export interface MiniGame {
 }
 ```
 
-To add a game, implement the interface and add `create: (ctx) => new MyGame(ctx)` to its entry in `src/minigames/registry.ts`. The zone, intro card, results card, save and ornament all work automatically.
+Games report only a score; the scene manager turns it into stars using the thresholds in the registry. To add a game, implement the interface and add `create: async (ctx) => new (await import('./my-game/MyGame')).MyGame(ctx)` to its entry in `src/minigames/registry.ts`. The dynamic import keeps each game out of the initial download. The zone, intro card, quit button, results card, save and ornament all work automatically.
+
+**Mobile rules for every mini-game:**
+- Read taps through `input.pointer` + `input.justPressed('fire')` (mouse clicks arrive the same way).
+- Put the main action on `hud.setAction(...)`, the big thumb-side button, rather than a key.
+- Reframe the camera when `camera.aspect` changes, so portrait and landscape both work.
+- Never require hover, right-click, or a key with no on-screen equivalent.
 
 ### Game zones
 
@@ -382,30 +403,49 @@ Seven textures were picked from the 73 MB bundle and resized (≈ 550 KB total):
 | Frame rate | 60 fps desktop · 30+ fps mid-range mobile |
 | Shadow-casting lights | 1 (the sun) |
 
-**Already in place:** `InstancedMesh` for every repeated model · fog hides the far edge · pixel ratio capped by a quality setting (low/medium/high) · only 4 real `PointLight`s, reassigned to the nearest lanterns each frame · game time pauses when the tab is hidden.
-**Still to do:** the JS bundle is ~1.8 MB gzipped (mostly Rapier's inlined WASM). Lazy-load each mini-game with `import()`.
+**Graphics presets** (pause menu; phones default to *Balanced*, desktops to *Pretty*):
+
+| Preset | Max pixel ratio | Sun shadow map | Snow particles | Forest density |
+|---|---|---|---|---|
+| Fast | 1 | off | 2,500 | 50% |
+| Balanced | 1.5 | 1024 (smaller area) | 4,500 | 75% |
+| Pretty | 2 | 2048 | 7,000 | 100% |
+
+**Already in place:**
+- `InstancedMesh` for every repeated model, with trees split into a 3×3 chunk grid so off-screen chunks and chunks outside the shadow box are skipped.
+- Fog hides the far edge.
+- Only 4 real `PointLight`s, reassigned to the nearest lanterns each frame.
+- Game time pauses when the tab is hidden.
+- Each mini-game is lazy-loaded (8–15 kB of code each).
+
+**Still to do:** the main bundle is ~1.8 MB gzipped, mostly Rapier's inlined WASM.
 
 ---
 
 ## 🎮 Controls
 
-| Action | Keyboard & mouse | Gamepad |
-|---|---|---|
-| Move | W A S D / arrows | Left stick |
-| Camera | Mouse (click to lock pointer), wheel to zoom | Right stick |
-| Sprint | Shift | LB / L1 |
-| Jump | Space | A / Cross |
-| Interact / play | E or Enter | X / Square |
-| Map | M | Select / Back |
-| Pause / quit mini-game | Esc or P | Start |
+| Action | Touch (primary) | Keyboard & mouse | Gamepad |
+|---|---|---|---|
+| Move | Left thumb: floating joystick anywhere on the left side | W A S D / arrows | Left stick |
+| Run | Push the joystick to its edge | Shift | LB / L1 |
+| Camera | Right thumb: drag anywhere on the right side | Mouse (click to lock pointer), wheel to zoom | Right stick |
+| Jump | ⤒ button | Space | A / Cross |
+| Play a game | Tap the **▶ Play** prompt | E or Enter | X / Square |
+| Map | 🗺️ button (tap to close) | M | Select / Back |
+| Pause / settings | ⏸ button | Esc or P | Start |
+| Leave a mini-game | ✕ button (asks first) | Esc (asks first) | Start |
 
-Snowball Showdown: move the mouse to aim, click (or hold) to throw. Touch controls are planned for week 8.
+**In mini-games:**
+- **Snowball Showdown:** tap where the snowball should land; hold and drag to keep throwing.
+- **Santa's Express:** tap the glowing tracks, then 🚂 Go!
+- **Advent Dice Race:** tap 🎲 Roll.
+- **Haptics:** hits, deliveries and rolls give a short buzz on phones that support it (Android).
 
 ---
 
 ## 🌐 Deployment
 
-The build output (`dist/`) is a fully static site, and `base: './'` makes it work from a sub-folder.
+The build output (`dist/`) is a fully static site, and `base: './'` makes it work from a sub-folder. It includes a web app manifest, so phones can **Add to Home Screen** and launch full-screen. That's the only way to hide Safari's bars on iPhone; Android also goes fullscreen when you press Start.
 
 - **itch.io**: zip `dist/` and upload it as an HTML5 game.
 - **Cloudflare Pages / GitHub Pages / any static host**: deploy `dist/` and serve `.gltf`, `.bin` and `.png` with long-cache headers.
@@ -421,14 +461,14 @@ It's mid-October 2026, so there are about **9 weeks** left. Weeks 1–3 are done
 | ~~1~~ | 19–25 Oct | ~~Vite + TS + three.js setup, Rapier, player + follow camera, character + animations~~ ✅ |
 | ~~2~~ | 26 Oct–1 Nov | ~~Terrain + snow shader, world JSON loader, instanced forest, town square, snowfall, loading screen~~ ✅ |
 | ~~3~~ | 2–8 Nov | ~~`GameZone`, `SceneManager`, `GameState` + save, HUD, **Game 1**~~ ✅ (first deploy still to do) |
-| 4 | 9–15 Nov | Game 6 (Advent Dice Race) + Game 3 (Santa's Express) |
+| ~~4~~ | 9–15 Nov | ~~Game 6 (Advent Dice Race) + Game 3 (Santa's Express)~~ ✅ + **mobile-first pass** (pulled forward from week 8) ✅ |
 | 5 | 16–22 Nov | Game 2 (Gingerbread Bakery Rush) |
 | 6 | 23–29 Nov | Game 4 (Elf Workshop) + Game 5 (Krampus' Cellar) |
 | 7 | 30 Nov–6 Dec | Asset optimisation (GLB), VFX polish, audio, finale cutscene |
-| 8 | 7–13 Dec | Touch controls, settings menu, browser testing (Chrome, Firefox, Safari), perf tuning |
+| 8 | 7–13 Dec | Real-device testing (iPhone Safari, Android Chrome, iPad), perf tuning on a mid-range phone, Firefox/desktop Safari |
 | 9 | 14–20 Dec | Bug fixing, itch.io page, final deploy: **release ~20 Dec** |
 
-**Cut list if time runs short:** drop touch controls (desktop-only) → cut bloom → reduce Santa's Express to 3 levels → make Krampus' Cellar a single room.
+**Cut list if time runs short:** cut bloom → reduce Santa's Express to 3 levels → make Krampus' Cellar a single room. Touch controls are **not** on the cut list: the game is mobile-first.
 
 ---
 

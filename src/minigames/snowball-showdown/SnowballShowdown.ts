@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { assets } from '../../core/AssetLoader';
+import { haptic } from '../../core/Input';
 import { Physics, RAPIER } from '../../core/Physics';
 import { buildInstanced, modelBounds, type Placement } from '../../world/Instancing';
 import { Lighting } from '../../world/Lighting';
@@ -26,8 +27,6 @@ interface Ball {
   age: number;
 }
 
-/** Score needed for 1, 2 and 3 stars. */
-export const THRESHOLDS: [number, number, number] = [10, 20, 30];
 const ROUND = 60;
 const COUNTDOWN = 3;
 const POINTS: Record<Kind, number> = { snowman: 1, golden: 3, present: -2 };
@@ -65,6 +64,9 @@ export class SnowballShowdown implements MiniGame {
   private oops = 0;
   private throws = 0;
   private over = false;
+  private framedAspect = 0;
+  /** Targets spawn within ±halfWidth on x; narrower on portrait screens so they stay big enough to tap. */
+  private halfWidth = 14;
 
   constructor(private readonly ctx: MiniGameContext) {
     this.finished = new Promise((r) => (this.resolve = r));
@@ -95,7 +97,7 @@ export class SnowballShowdown implements MiniGame {
       this.ownedMaterials.push(mat);
     });
 
-    const lighting = new Lighting(this.scene);
+    const lighting = new Lighting(this.scene, this.ctx.engine.settings.shadows);
     lighting.follow(new THREE.Vector3(0, 0, -6));
     this.scene.fog = new THREE.FogExp2('#c6d6ec', 0.012);
 
@@ -139,15 +141,27 @@ export class SnowballShowdown implements MiniGame {
 
     this.puffs = new Burst(smoke, 500, false, -4);
     this.sparkles = new Burst(sparkle, 300, true, -2);
-    this.snow = new Snowfall(snowflake, 3000, 50, 25);
+    this.snow = new Snowfall(snowflake, Math.round(this.ctx.engine.settings.snow * 0.5), 50, 25);
     this.scene.add(this.puffs.points, this.sparkles.points, this.snow.points);
 
     // Physics ground for bouncing snowballs.
     const ground = this.physics.world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
     this.physics.world.createCollider(RAPIER.ColliderDesc.cuboid(80, 0.5, 80).setTranslation(0, -0.5, 0).setFriction(0.9).setRestitution(0.2), ground);
 
-    this.camera.position.set(0, 7.5, 20);
-    this.camera.lookAt(0, 0, -9);
+    this.frame();
+  }
+
+  /** Landscape shows the whole lake; portrait pulls back, widens the lens and narrows the play area. */
+  private frame() {
+    const aspect = this.camera.aspect;
+    this.framedAspect = aspect;
+    const portrait = aspect < 1;
+    this.halfWidth = portrait ? 8 : 14;
+    this.camera.fov = portrait ? 62 : 55;
+    this.camera.updateProjectionMatrix();
+    if (portrait) this.camera.position.set(0, 10, 25);
+    else this.camera.position.set(0, 7.5, 20);
+    this.camera.lookAt(0, 0, portrait ? -11 : -9);
   }
 
   start() {
@@ -172,7 +186,7 @@ export class SnowballShowdown implements MiniGame {
 
     // Pick a spot on the lake that doesn't overlap a live target.
     for (let tries = 0; tries < 12; tries++) {
-      const x = (Math.random() * 2 - 1) * 14;
+      const x = (Math.random() * 2 - 1) * this.halfWidth;
       const z = -2 - Math.random() * 26;
       if (this.targets.some((t) => t.state !== 'gone' && Math.hypot(t.obj.position.x - x, t.obj.position.z - z) < 3.2)) continue;
       obj.position.set(x, 0, z);
@@ -219,6 +233,7 @@ export class SnowballShowdown implements MiniGame {
     t.state = 'hit';
     t.t = 0;
     this.score = Math.max(0, this.score + POINTS[t.kind]);
+    haptic(t.kind === 'present' ? [30, 40, 30] : t.kind === 'golden' ? 40 : 15);
     if (t.kind === 'present') {
       this.oops++;
       this.sparkles.emit(at, 25, { color: ['#ff5a5a', '#ffffff'], speed: 5, up: 2, size: 0.8, life: 0.8 });
@@ -234,6 +249,7 @@ export class SnowballShowdown implements MiniGame {
 
   update(dt: number) {
     const pr = this.ctx.engine.renderer.getPixelRatio();
+    if (this.camera.aspect !== this.framedAspect) this.frame();
     this.time += dt;
     this.cooldown -= dt;
 
@@ -244,7 +260,9 @@ export class SnowballShowdown implements MiniGame {
 
     const playing = this.time >= 0 && this.time < ROUND && !this.over;
     if (playing) {
-      if (this.ctx.input.isDown('fire') && this.cooldown <= 0 && !this.ctx.hud.cardOpen) {
+      // justPressed catches quick taps that start and end between two frames; isDown keeps a held finger firing.
+      const input = this.ctx.input;
+      if ((input.justPressed('fire') || input.isDown('fire')) && this.cooldown <= 0 && !this.ctx.hud.cardOpen) {
         this.fire(aim);
         this.cooldown = 0.28;
       }
@@ -265,7 +283,7 @@ export class SnowballShowdown implements MiniGame {
 
     const countdown = this.time < 0 ? `<span class="warn">Ready… ${Math.ceil(-this.time)}</span>` : '';
     const clock = Math.ceil(this.timeLeft);
-    const stars = starsFor(this.score, THRESHOLDS);
+    const stars = starsFor(this.score, this.ctx.thresholds);
     this.ctx.hud.setGameBar(
       `${countdown}<span>⏱ <b class="${clock <= 10 ? 'warn' : ''}">${clock}</b>s</span><span>⛄ ${this.score} pts</span><span>${stars ? '★'.repeat(stars) : '☆'}</span>`,
     );
@@ -354,13 +372,12 @@ export class SnowballShowdown implements MiniGame {
   private finish(quit = false) {
     if (this.over) return;
     this.over = true;
-    const stars = quit ? 0 : starsFor(this.score, THRESHOLDS);
     const accuracy = this.throws ? Math.round((this.hits / this.throws) * 100) : 0;
     const parts = [`${this.hits} snowmen toppled`];
     if (this.golden) parts.push(`${this.golden} golden`);
     if (this.oops) parts.push(`${this.oops} present${this.oops > 1 ? 's' : ''} squashed`);
     parts.push(`${accuracy}% accuracy`);
-    this.resolve({ score: this.score, stars, summary: quit ? 'You left the lake early.' : parts.join(' · ') });
+    this.resolve({ score: this.score, quit, summary: quit ? 'You left the lake early.' : parts.join(' · ') });
   }
 
   quit() {

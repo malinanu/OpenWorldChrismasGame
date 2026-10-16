@@ -1,5 +1,6 @@
 import type { MiniGameId } from '../minigames/MiniGame';
 import type { Quality } from './Engine';
+import { isTouchDevice } from './Input';
 
 export interface SaveData {
   version: 1;
@@ -23,7 +24,7 @@ export function defaultSave(): SaveData {
     discovered: [],
     playerPosition: null,
     finaleSeen: false,
-    settings: { volume: 0.8, quality: 'medium', invertY: false, sensitivity: 1 },
+    settings: { volume: 0.8, quality: isTouchDevice ? 'medium' : 'high', invertY: false, sensitivity: 1 },
   };
 }
 

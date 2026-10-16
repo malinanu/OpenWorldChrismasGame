@@ -28,9 +28,9 @@
   ],
   "scatter": [
     {
-      "models": ["forest/Tree_1_A_Color1", "forest/Tree_1_B_Color1", "forest/Tree_2_A_Color1", "forest/Tree_2_C_Color1", "forest/Tree_2_E_Color1", "forest/Tree_3_A_Color1", "forest/Tree_3_B_Color1", "forest/Tree_4_A_Color1", "forest/Tree_4_B_Color1"],
+      "models": ["forest/Tree_1_A_Color1", "forest/Tree_2_C_Color1", "forest/Tree_2_E_Color1", "forest/Tree_3_A_Color1", "forest/Tree_4_A_Color1", "forest/Tree_4_B_Color1"],
       "count": 520, "minRadius": 26, "maxRadius": 150, "clearance": 12, "pathClearance": 5,
-      "scale": [1.1, 1.8], "snow": 1, "collider": "trunk", "seed": 7
+      "scale": [1.1, 1.8], "snow": 1, "collider": "trunk", "seed": 7, "chunk": 100
     },
     {
       "models": ["forest/Tree_Bare_1_A_Color1", "forest/Tree_Bare_1_B_Color1", "forest/Tree_Bare_2_A_Color1", "forest/Tree_Bare_2_B_Color1"],

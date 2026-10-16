@@ -20,6 +20,8 @@ interface ScatterDef {
   snow?: number;
   collider?: ColliderKind;
   seed: number;
+  /** Split instances into square chunks of this size so off-screen chunks are culled. */
+  chunk?: number;
 }
 
 interface PropDef {
@@ -81,19 +83,20 @@ export class World {
   private readonly lightPool: THREE.PointLight[] = [];
   private readonly glowSprites: THREE.Sprite[] = [];
 
-  async load(onStep?: (label: string) => void) {
+  /** `forest` scales scatter counts (quality setting); `shadowSize` 0 turns sun shadows off. */
+  async load(opts: { forest: number; shadowSize: number }, onStep?: (label: string) => void) {
     const res = await fetch(`${import.meta.env.BASE_URL}world/frostvale.json`);
     this.data = (await res.json()) as WorldData;
     const d = this.data;
 
-    this.lighting = new Lighting(this.scene);
+    this.lighting = new Lighting(this.scene, opts.shadowSize);
     this.terrain = new Terrain({ half: d.half, segments: 150, flats: d.flats, paths: d.paths, lake: d.lake });
     this.scene.add(this.terrain.mesh);
     if (this.terrain.ice) this.scene.add(this.terrain.ice);
     this.terrain.addCollider(this.physics.world);
 
     onStep?.('Growing the forest…');
-    await Promise.all(d.scatter.map((s) => this.scatter(s)));
+    await Promise.all(d.scatter.map((s) => this.scatter({ ...s, count: Math.round(s.count * opts.forest) })));
     onStep?.('Decorating the village…');
     await Promise.all(d.props.map((p) => this.prop(p)));
 
@@ -129,7 +132,8 @@ export class World {
 
   private async scatter(s: ScatterDef) {
     const rand = mulberry32(s.seed);
-    const buckets = new Map<string, Placement[]>(s.models.map((m) => [m, []]));
+    // Bucket by model and (optionally) by chunk; each bucket becomes one InstancedMesh.
+    const buckets = new Map<string, { model: string; placements: Placement[] }>();
     let placed = 0;
     for (let tries = 0; placed < s.count && tries < s.count * 20; tries++) {
       const a = rand() * Math.PI * 2;
@@ -140,11 +144,14 @@ export class World {
       if (!this.isClear(x, z, s.clearance, s.pathClearance)) continue;
       const model = s.models[Math.floor(rand() * s.models.length)];
       const scale = s.scale[0] + rand() * (s.scale[1] - s.scale[0]);
-      buckets.get(model)!.push({ position: new THREE.Vector3(x, this.groundY(x, z) - 0.1, z), rotationY: rand() * Math.PI * 2, scale });
+      const h = this.data.half;
+      const key = s.chunk ? `${model}|${Math.floor((x + h) / s.chunk)},${Math.floor((z + h) / s.chunk)}` : model;
+      if (!buckets.has(key)) buckets.set(key, { model, placements: [] });
+      buckets.get(key)!.placements.push({ position: new THREE.Vector3(x, this.groundY(x, z) - 0.1, z), rotationY: rand() * Math.PI * 2, scale });
       placed++;
     }
     await Promise.all(
-      [...buckets].filter(([, p]) => p.length).map(async ([model, placements]) => {
+      [...buckets.values()].map(async ({ model, placements }) => {
         const g = await assets.model(model);
         this.scene.add(buildInstanced(g.scene, placements, s.snow ?? 0));
         if (s.collider) this.addColliders(g.scene, placements, s.collider);

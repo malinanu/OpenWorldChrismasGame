@@ -1,5 +1,4 @@
 import type { MiniGameId, MiniGameInfo } from './MiniGame';
-import { SnowballShowdown, THRESHOLDS as SNOWBALL_THRESHOLDS } from './snowball-showdown/SnowballShowdown';
 
 export const MINI_GAMES: Record<MiniGameId, MiniGameInfo> = {
   'snowball-showdown': {
@@ -7,9 +6,10 @@ export const MINI_GAMES: Record<MiniGameId, MiniGameInfo> = {
     title: 'Snowball Showdown',
     emoji: '❄️',
     blurb: 'Snowmen are popping up all over the frozen lake. Knock them down before time runs out! Golden snowmen are worth 3 — but don\'t hit the presents.',
-    controls: 'Mouse to aim · Click to throw · Esc to quit',
-    thresholds: SNOWBALL_THRESHOLDS,
-    create: (ctx) => new SnowballShowdown(ctx),
+    controls: 'Mouse to aim · Click or hold to throw · Esc to quit',
+    touchControls: 'Tap where you want the snowball to land · hold and drag to keep throwing',
+    thresholds: [10, 20, 30],
+    create: async (ctx) => new (await import('./snowball-showdown/SnowballShowdown')).SnowballShowdown(ctx),
   },
   'gingerbread-bakery': {
     id: 'gingerbread-bakery',
@@ -17,15 +17,18 @@ export const MINI_GAMES: Record<MiniGameId, MiniGameInfo> = {
     emoji: '🍪',
     blurb: 'Bake cookies, pour hot chocolate and serve the queue before the orders melt away.',
     controls: 'Click stations to cook and serve',
+    touchControls: 'Tap stations to cook and serve',
     thresholds: [4, 8, 12],
   },
   'santas-express': {
     id: 'santas-express',
     title: "Santa's Express",
     emoji: '🚂',
-    blurb: 'Flip the switches so the toy train delivers every present to the right chimney.',
-    controls: 'Click tracks to rotate · Space to send the train',
-    thresholds: [1, 3, 5],
+    blurb: 'Five snowy rail yards. Click the glowing track pieces to turn them, then send the toy train to the house that ordered each present. Fewer clicks and no derailments earn more stars.',
+    controls: 'Click glowing tracks to rotate · Space or 🚂 Go! to send the train · Esc to quit',
+    touchControls: 'Tap the glowing tracks to turn them · tap 🚂 Go! to send the train',
+    thresholds: [5, 10, 14],
+    create: async (ctx) => new (await import('./santas-express/SantasExpress')).SantasExpress(ctx),
   },
   'elf-workshop': {
     id: 'elf-workshop',
@@ -33,6 +36,7 @@ export const MINI_GAMES: Record<MiniGameId, MiniGameInfo> = {
     emoji: '🔨',
     blurb: 'Memorise the blueprint, pick the right materials and build the toy before the shift bell.',
     controls: 'Click materials and tools',
+    touchControls: 'Tap materials and tools',
     thresholds: [3, 6, 9],
   },
   'krampus-cellar': {
@@ -41,14 +45,17 @@ export const MINI_GAMES: Record<MiniGameId, MiniGameInfo> = {
     emoji: '🕯️',
     blurb: 'Sneak through the cellar, dodge the lantern light and rescue the stolen presents.',
     controls: 'WASD to sneak · E to open chests',
+    touchControls: 'Joystick to sneak · tap ✋ to open chests',
     thresholds: [3, 6, 9],
   },
   'advent-dice-race': {
     id: 'advent-dice-race',
     title: 'Advent Dice Race',
     emoji: '🎲',
-    blurb: 'Race three cheeky elves along the 24-door advent track.',
-    controls: 'Space / click to roll',
+    blurb: 'Race three cheeky elves along the 24-door advent track. 🎁 squares give 2 bonus steps, 🍬 squares roll again, ❄️ drifts make you miss a turn. Finish 1st for three stars!',
+    controls: 'Space or 🎲 Roll to throw the die · Esc to quit',
+    touchControls: 'Tap 🎲 Roll to throw the die',
     thresholds: [1, 2, 3],
+    create: async (ctx) => new (await import('./advent-dice-race/AdventDiceRace')).AdventDiceRace(ctx),
   },
 };

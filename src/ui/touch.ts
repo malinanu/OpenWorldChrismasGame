@@ -1,0 +1,113 @@
+import type { Input } from '../core/Input';
+
+const STICK_RADIUS = 56;
+
+function el(cls: string, html = ''): HTMLDivElement {
+  const d = document.createElement('div');
+  d.className = cls;
+  d.innerHTML = html;
+  return d;
+}
+
+/**
+ * Overworld touch controls: a floating joystick on the left half of the screen,
+ * drag-to-look on the right half, and Jump / Map / Pause buttons.
+ * Each zone tracks its own pointer id, so moving and looking work at the same time.
+ */
+export class TouchControls {
+  readonly root = el('touch-ui hidden');
+  private stickZone = el('stick-zone');
+  private lookZone = el('look-zone');
+  private base = el('stick-base idle', '<div class="stick-knob"></div>');
+  private knob: HTMLDivElement;
+  private stickId: number | null = null;
+  private lookId: number | null = null;
+  private origin = { x: 0, y: 0 };
+  private last = { x: 0, y: 0 };
+
+  constructor(parent: HTMLElement, private readonly input: Input) {
+    this.knob = this.base.querySelector('.stick-knob')!;
+    const jump = this.button('tbtn jump', '⤒', 'Jump');
+    const map = this.button('tbtn small tb-map', '🗺️', 'Map');
+    const pause = this.button('tbtn small tb-pause', '⏸', 'Pause');
+    jump.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      input.tap('jump');
+    });
+    map.addEventListener('click', () => input.tap('map'));
+    pause.addEventListener('click', () => input.tap('pause'));
+    this.stickZone.append(this.base);
+    this.root.append(this.stickZone, this.lookZone, jump, map, pause);
+    // Underneath the rest of the HUD, so prompts, cards and the map receive taps first.
+    parent.prepend(this.root);
+
+    this.stickZone.addEventListener('pointerdown', (e) => this.stickStart(e));
+    this.stickZone.addEventListener('pointermove', (e) => this.stickMove(e));
+    for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture'] as const) {
+      this.stickZone.addEventListener(ev, (e) => e.pointerId === this.stickId && this.stickEnd());
+      this.lookZone.addEventListener(ev, (e) => e.pointerId === this.lookId && (this.lookId = null));
+    }
+    this.lookZone.addEventListener('pointerdown', (e) => {
+      if (this.lookId !== null) return;
+      this.lookId = e.pointerId;
+      this.lookZone.setPointerCapture(e.pointerId);
+      this.last = { x: e.clientX, y: e.clientY };
+    });
+    this.lookZone.addEventListener('pointermove', (e) => {
+      if (e.pointerId !== this.lookId) return;
+      input.addLook(e.clientX - this.last.x, e.clientY - this.last.y);
+      this.last = { x: e.clientX, y: e.clientY };
+    });
+  }
+
+  private button(cls: string, label: string, title: string) {
+    const b = document.createElement('button');
+    b.className = cls;
+    b.textContent = label;
+    b.setAttribute('aria-label', title);
+    return b;
+  }
+
+  private stickStart(e: PointerEvent) {
+    if (this.stickId !== null) return;
+    this.stickId = e.pointerId;
+    this.stickZone.setPointerCapture(e.pointerId);
+    const r = this.stickZone.getBoundingClientRect();
+    this.origin = { x: e.clientX, y: e.clientY };
+    this.base.style.left = `${e.clientX - r.left}px`;
+    this.base.style.top = `${e.clientY - r.top}px`;
+    this.base.classList.remove('idle');
+    this.knob.style.transform = 'translate(-50%, -50%)';
+  }
+
+  private stickMove(e: PointerEvent) {
+    if (e.pointerId !== this.stickId) return;
+    let dx = e.clientX - this.origin.x;
+    let dy = e.clientY - this.origin.y;
+    const len = Math.hypot(dx, dy);
+    if (len > STICK_RADIUS) {
+      dx = (dx / len) * STICK_RADIUS;
+      dy = (dy / len) * STICK_RADIUS;
+    }
+    this.knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+    this.input.setStick(dx / STICK_RADIUS, -dy / STICK_RADIUS);
+  }
+
+  private stickEnd() {
+    this.stickId = null;
+    this.input.setStick(0, 0);
+    this.base.classList.add('idle');
+    this.base.style.left = '';
+    this.base.style.top = '';
+    this.knob.style.transform = 'translate(-50%, -50%)';
+  }
+
+  setVisible(v: boolean) {
+    this.root.classList.toggle('hidden', !v);
+    if (!v) {
+      this.stickEnd();
+      this.lookId = null;
+      this.input.releaseVirtual();
+    }
+  }
+}

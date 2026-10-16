@@ -2,12 +2,20 @@ import * as THREE from 'three';
 
 export type Quality = 'low' | 'medium' | 'high';
 
+/** Per-quality knobs. Phones default to 'medium', desktops to 'high' (see Save.ts). */
+export const QUALITY = {
+  low: { maxPixelRatio: 1, shadows: 0, snow: 2500, forest: 0.5 },
+  medium: { maxPixelRatio: 1.5, shadows: 1024, snow: 4500, forest: 0.75 },
+  high: { maxPixelRatio: 2, shadows: 2048, snow: 7000, forest: 1 },
+} as const;
+
 /** Owns the renderer, the canvas size and the frame loop. */
 export class Engine {
   readonly renderer: THREE.WebGLRenderer;
   private readonly timer = new THREE.Timer();
   private cameras = new Set<THREE.PerspectiveCamera>();
   private running = false;
+  quality: Quality = 'medium';
 
   constructor(readonly canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
@@ -23,11 +31,16 @@ export class Engine {
     this.resize();
   }
 
+  /** Call before building scenes: shadow on/off is baked into materials when they compile. */
   setQuality(q: Quality) {
-    const ratio = q === 'low' ? 1 : q === 'medium' ? Math.min(devicePixelRatio, 1.5) : Math.min(devicePixelRatio, 2);
-    this.renderer.setPixelRatio(ratio);
-    this.renderer.shadowMap.enabled = q !== 'low';
+    this.quality = q;
+    this.renderer.setPixelRatio(Math.min(devicePixelRatio, QUALITY[q].maxPixelRatio));
+    this.renderer.shadowMap.enabled = QUALITY[q].shadows > 0;
     this.resize();
+  }
+
+  get settings() {
+    return QUALITY[this.quality];
   }
 
   /** Cameras registered here get their aspect ratio kept in sync with the canvas. */

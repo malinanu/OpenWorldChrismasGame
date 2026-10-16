@@ -19,16 +19,21 @@ export const MINI_GAME_IDS: MiniGameId[] = [
 
 export interface MiniGameResult {
   score: number;
-  stars: 0 | 1 | 2 | 3;
+  /** True when the player pressed Esc to leave; quitting never earns stars. */
+  quit?: boolean;
   /** Optional line shown on the results screen, e.g. "24 snowmen toppled". */
   summary?: string;
 }
+
+export type Stars = 0 | 1 | 2 | 3;
 
 /** Everything a mini-game may need from the host. */
 export interface MiniGameContext {
   readonly input: import('../core/Input').Input;
   readonly hud: import('../ui/hud').Hud;
   readonly engine: import('../core/Engine').Engine;
+  /** Score needed for 1, 2 and 3 stars (from the registry). */
+  readonly thresholds: [number, number, number];
 }
 
 export interface MiniGame {
@@ -44,7 +49,7 @@ export interface MiniGame {
   dispose(): void;
   /** Resolves when the round ends (or the player quits, with 0 stars). */
   readonly finished: Promise<MiniGameResult>;
-  /** Called when the player presses pause / Esc inside the game. */
+  /** Called when the player presses Esc inside the game; resolve `finished` with `quit: true`. */
   quit(): void;
 }
 
@@ -53,13 +58,15 @@ export interface MiniGameInfo {
   title: string;
   emoji: string;
   blurb: string;
+  /** Control hints for keyboard/mouse and for touch screens. */
   controls: string;
+  touchControls: string;
   /** Score needed for 1, 2 and 3 stars. */
   thresholds: [number, number, number];
-  /** Factory; omitted while the game is still in development. */
-  create?: (ctx: MiniGameContext) => MiniGame;
+  /** Lazy factory (the game's code is fetched on first play); omitted while in development. */
+  create?: (ctx: MiniGameContext) => Promise<MiniGame>;
 }
 
-export function starsFor(score: number, t: [number, number, number]): 0 | 1 | 2 | 3 {
+export function starsFor(score: number, t: [number, number, number]): Stars {
   return score >= t[2] ? 3 : score >= t[1] ? 2 : score >= t[0] ? 1 : 0;
 }

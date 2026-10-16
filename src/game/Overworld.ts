@@ -1,11 +1,12 @@
 import * as THREE from 'three';
 import { assets } from '../core/AssetLoader';
-import type { Engine } from '../core/Engine';
-import type { Input } from '../core/Input';
+import type { Engine, Quality } from '../core/Engine';
+import { isTouchDevice, type Input } from '../core/Input';
 import type { Overworld as OverworldContract, SceneManager } from '../core/SceneManager';
 import { MINI_GAME_IDS, type MiniGameId } from '../minigames/MiniGame';
 import { MINI_GAMES } from '../minigames/registry';
-import type { Hud } from '../ui/hud';
+import { canFullscreen, setFullscreen, type Hud } from '../ui/hud';
+import type { TouchControls } from '../ui/touch';
 import { Burst } from '../vfx/Burst';
 import { Snowfall } from '../vfx/Snowfall';
 import { World } from '../world/World';
@@ -32,16 +33,22 @@ export class Overworld implements OverworldContract {
   private paused = true;
   private saveTimer = 0;
   private finaleTime = -1;
+  private touchShown = false;
   sceneManager!: SceneManager;
+  /** On-screen controls; shown only on touch devices while exploring. */
+  touch?: TouchControls;
 
   constructor(
     private readonly engine: Engine,
     private readonly input: Input,
     private readonly hud: Hud,
-  ) {}
+  ) {
+    hud.onPromptTap = () => input.tap('interact');
+  }
 
   async load(onStep: (label: string) => void) {
-    await this.world.load(onStep);
+    const q = this.engine.settings;
+    await this.world.load({ forest: q.forest, shadowSize: q.shadows }, onStep);
     onStep('Waking up the villagers…');
     await this.player.load();
     const [snowflake, sparkle, glow] = await Promise.all([
@@ -71,7 +78,7 @@ export class Overworld implements OverworldContract {
       this.world.scene.add(zone.beacon.group);
     }
 
-    this.snow = new Snowfall(snowflake, gameState.data.settings.quality === 'low' ? 3000 : 7000);
+    this.snow = new Snowfall(snowflake, q.snow);
     this.fireworks = new Burst(sparkle, 1500, true, -5);
     this.world.scene.add(this.snow.points, this.fireworks.points, this.ornaments);
     this.refreshOrnaments();
@@ -92,6 +99,7 @@ export class Overworld implements OverworldContract {
 
   pause() {
     this.paused = true;
+    this.setTouchVisible(false);
     this.hud.hidePrompt();
     this.zones.forEach((z) => (z.inside = false));
   }
@@ -138,6 +146,7 @@ export class Overworld implements OverworldContract {
     }
 
     const active = !this.paused && !this.hud.cardOpen && !this.hud.mapOpen;
+    this.setTouchVisible(isTouchDevice && active && this.hud.worldHud);
     if (active) {
       this.player.update(dt, input, this.cam.yaw);
     } else {
@@ -164,7 +173,7 @@ export class Overworld implements OverworldContract {
     const zone = active ? this.nearestZone() : undefined;
     if (zone) {
       const info = MINI_GAMES[zone.id];
-      this.hud.showPrompt(`Press <kbd>E</kbd> to play ${info.emoji} ${info.title}`);
+      this.hud.showPlayPrompt(info.emoji, info.title);
       if (input.justPressed('interact')) {
         this.hud.hidePrompt();
         void this.sceneManager.enter(zone.id);
@@ -191,18 +200,52 @@ export class Overworld implements OverworldContract {
     }
   }
 
+  private setTouchVisible(v: boolean) {
+    if (!this.touch || v === this.touchShown) return;
+    this.touchShown = v;
+    this.touch.setVisible(v);
+  }
+
   private openPause() {
     this.paused = true;
     this.input.unlockPointer();
+    const current = gameState.data.settings.quality;
+    const chip = (q: Quality, label: string) => `<button class="chip ${q === current ? 'on' : ''}" data-quality="${q}">${label}</button>`;
+    const fs = canFullscreen()
+      ? `<div class="row"><button class="chip" data-fullscreen>${document.fullscreenElement ? '🗗 Exit fullscreen' : '⛶ Fullscreen'}</button></div>`
+      : '';
     this.hud
       .showCard(
         `<h2>⏸ Paused</h2>
          <p>Ornaments: ${gameState.ornamentCount}/6 · ⭐ ${gameState.totalStars}/18</p>
-         <p class="small muted">WASD move · Mouse look · Shift sprint · Space jump · E play · M map</p>
+         <div class="settings">
+           <div class="row"><span class="small">Graphics</span>${chip('low', 'Fast')}${chip('medium', 'Balanced')}${chip('high', 'Pretty')}</div>
+           ${fs}
+         </div>
          <div class="row"><button data-ok autofocus>Resume</button></div>`,
+        (card) => {
+          card.querySelectorAll<HTMLButtonElement>('[data-quality]').forEach((b) =>
+            b.addEventListener('click', () => this.changeQuality(b.dataset.quality as Quality)),
+          );
+          card.querySelector('[data-fullscreen]')?.addEventListener('click', (e) => {
+            const on = !document.fullscreenElement;
+            void setFullscreen(on);
+            (e.currentTarget as HTMLElement).textContent = on ? '🗗 Exit fullscreen' : '⛶ Fullscreen';
+          });
+        },
       )
       .catch(() => {})
       .finally(() => this.resume());
+  }
+
+  /** Quality is baked into shaders and the forest, so the simplest correct switch is a reload. */
+  private changeQuality(q: Quality) {
+    if (q === gameState.data.settings.quality) return;
+    const p = this.player.position;
+    gameState.data.playerPosition = [+p.x.toFixed(2), +p.y.toFixed(2), +p.z.toFixed(2)];
+    gameState.data.settings.quality = q;
+    gameState.save();
+    location.reload();
   }
 
   render(engine: Engine) {
