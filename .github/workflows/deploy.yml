@@ -196,9 +196,11 @@ jobs:
               "SMS_PROVIDER=console" "SESSION_DAYS=30" "STATIC_DIR=$TARGET" \
               | $SSH "$SSH_USER@$HOST" "umask 077 && cat > '$DIR/.env'"
           fi
-          $SSH "$SSH_USER@$HOST" DIR="$DIR" bash -s <<'REMOTE'
+          $SSH "$SSH_USER@$HOST" DIR="$DIR" TARGET="$TARGET" bash -s <<'REMOTE'
           set -e
           cd "$DIR"
+          # CLOUDPANEL_USER must be the site's own user, or the server lands in another home.
+          case "$TARGET" in "$HOME"/*) ;; *) echo "::warning::CLOUDPANEL_PATH is not inside $(whoami)'s home: CLOUDPANEL_USER should be the site user shown in CloudPanel → Site → Settings." ;; esac
           if [ ! -f .env ]; then
             echo "::notice::Game server uploaded but not started: add the FROSTVALE_DB_PASSWORD secret. See deploy/CLOUDPANEL.md (section 5)."
             exit 0
