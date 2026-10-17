@@ -1,10 +1,11 @@
 /*
- * Frostvale service worker: makes repeat visits load from the phone's cache.
- * - Fingerprinted build files (assets/*-<hash>.*) never change: cache first.
- * - Models, textures, world layout: served from cache, refreshed in the background.
- * - The page itself: network first, so a new deploy shows up on the next visit.
+ * Frostvale service worker: makes repeat visits load game files from the phone's cache.
+ * - Fingerprinted build files (assets/*-<hash>.*) never change: served from cache, no network.
+ * - Models, textures, world data, audio: served from cache, refreshed in the background.
+ * - Everything else (the page itself, /api, /ws, other sites) is left to the browser untouched,
+ *   so a failure here can never break loading the game.
  */
-const CACHE = 'frostvale-v2';
+const CACHE = 'frostvale-v3';
 
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => {
@@ -17,40 +18,34 @@ self.addEventListener('activate', (e) => {
 });
 
 const hashed = /\/assets\/[^/]+-[A-Za-z0-9_-]{8,}\.[a-z0-9.]+$/;
+const gameFile = /\/(assets|world|icons)\//;
 
 self.addEventListener('fetch', (e) => {
   const req = e.request;
+  if (req.method !== 'GET' || req.mode === 'navigate') return;
   const url = new URL(req.url);
-  if (req.method !== 'GET' || url.origin !== location.origin) return;
-  // Live game data (accounts, leaderboards, multiplayer) always goes to the network.
-  if (url.pathname.includes('/api/') || url.pathname.endsWith('/ws')) return;
-
-  if (req.mode === 'navigate') {
-    e.respondWith(
-      fetch(req)
-        .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(req, copy));
-          return res;
-        })
-        .catch(() => caches.match(req)),
-    );
-    return;
-  }
+  if (url.origin !== location.origin || !gameFile.test(url.pathname) || url.pathname.includes('/api/')) return;
 
   e.respondWith(
     (async () => {
-      const cache = await caches.open(CACHE);
-      const hit = await cache.match(req);
-      const refresh = fetch(req).then((res) => {
-        if (res.ok) cache.put(req, res.clone());
-        return res;
-      });
-      if (hit) {
-        if (!hashed.test(url.pathname)) e.waitUntil(refresh.catch(() => {}));
-        return hit;
+      try {
+        const cache = await caches.open(CACHE);
+        const hit = await cache.match(req);
+        if (hit && hashed.test(url.pathname)) return hit;
+        const network = fetch(req).then((res) => {
+          if (res.ok) cache.put(req, res.clone()).catch(() => {});
+          return res;
+        });
+        if (hit) {
+          // Serve the cached copy now; refresh it quietly for next time.
+          e.waitUntil(network.catch(() => {}));
+          return hit;
+        }
+        return await network;
+      } catch {
+        // Cache unavailable or the background attempt failed: let the request go through normally.
+        return fetch(req);
       }
-      return refresh;
     })(),
   );
 });
