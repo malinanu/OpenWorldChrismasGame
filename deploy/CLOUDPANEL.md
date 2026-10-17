@@ -41,34 +41,14 @@ Optionally, add a **variable** (not a secret) called `SITE_URL`, e.g. `https://f
 
 The deploy job runs in the GitHub **environment** `CLOUDPANEL_STAGING` (**Settings → Environments**). The secrets above can live there as *environment secrets* instead of repository secrets; the names stay the same. You can also require an approval before each deploy there. If you rename the environment, update `environment.name` in `.github/workflows/deploy.yml` to match.
 
-## 3. Recommended nginx tweaks (optional)
+## 3. nginx vhost (recommended)
 
-Go to CloudPanel → Site → **Vhost** and add these inside the `server { … }` block for the HTTPS site:
+Paste [`deploy/nginx-vhost.conf`](nginx-vhost.conf) into Site → **Vhost** and **Save**. It is CloudPanel's Node.js template with three changes:
+- nginx serves the game files from `htdocs` itself: fast, and the game still loads (offline-only) if the Node server is down.
+- Cache headers: a year for fingerprinted build files, a day for models, textures and world data, and `no-cache` for the page and `sw.js`.
+- Anything that isn't a file (`/api/*`, the `/ws` socket) goes to the Node server, with a one-hour socket timeout.
 
-```nginx
-# Game files: Vite's hashed bundles never change, so cache them for a year.
-location /assets/ {
-  add_header Cache-Control "public, max-age=31536000, immutable";
-  try_files $uri =404;
-}
-# Models, textures and world data aren't hashed: cache for a day, revalidate after.
-location ~* \.(gltf|glb|bin|webp|png|jpg)$ {
-  add_header Cache-Control "public, max-age=86400";
-  try_files $uri =404;
-}
-# Always fetch the latest page so a new deploy is picked up immediately.
-location = /index.html { add_header Cache-Control "no-cache"; }
-
-# MIME types nginx doesn't know by default.
-types {
-  model/gltf+json gltf;
-  model/gltf-binary glb;
-  application/manifest+json webmanifest;
-}
-gzip_types application/javascript text/css application/json model/gltf+json model/gltf-binary application/octet-stream application/manifest+json;
-```
-
-> Note: a `types { }` block inside `server` replaces nginx's defaults for that block. If HTML or CSS start being served as `application/octet-stream`, move the three lines into the global `mime.types` instead.
+Keep the `{{…}}` placeholders: CloudPanel fills them in. Without this vhost, the default Node.js one also works, because the Node server serves the files too.
 
 ## 4. Deploy
 
@@ -133,10 +113,4 @@ Then push, or **Actions → Deploy → Re-run**. The deploy writes `~/frostvale-
 - The deploy's smoke test prints **"Game server reachable ✅"**.
 - Logs, as the site user: `source ~/.nvm/nvm.sh && pm2 logs frostvale-server`.
 
-If `/ws` doesn't connect (players never appear), the vhost needs WebSocket headers. In Site → **Vhost**, the `location /` proxy block must contain:
-```nginx
-proxy_http_version 1.1;
-proxy_set_header Upgrade $http_upgrade;
-proxy_set_header Connection "upgrade";
-proxy_read_timeout 1h;
-```
+If `/ws` doesn't connect (players never appear), check that the vhost is the one from section 3. Its `@app` block carries the WebSocket `Upgrade` headers.
