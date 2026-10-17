@@ -26,7 +26,7 @@ export class Lighting {
     this.sun.shadow.normalBias = 0.04;
     scene.add(this.sun, this.sun.target);
 
-    const skyGeo = new THREE.SphereGeometry(400, 32, 16);
+    const skyGeo = new THREE.SphereGeometry(280, 32, 16);
     const skyMat = new THREE.ShaderMaterial({
       side: THREE.BackSide,
       depthWrite: false,

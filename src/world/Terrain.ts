@@ -37,19 +37,33 @@ function distToSegment(px: number, pz: number, a: [number, number], b: [number, 
 }
 
 /** Heightmap terrain with flattened building spots, trodden paths and a rim of hills. */
+/** Road segments bucketed into GRID-metre cells, so distance queries only look nearby. */
+const GRID = 10;
+
 export class Terrain {
   readonly mesh: THREE.Mesh;
   readonly ice?: THREE.Mesh;
+  private readonly segGrid = new Map<string, [number, number, number, number][]>();
 
   constructor(private readonly opts: TerrainOptions) {
     const { half, segments } = opts;
+    for (const p of opts.paths) {
+      for (let i = 0; i < p.length - 1; i++) {
+        const [ax, az] = p[i];
+        const [bx, bz] = p[i + 1];
+        const key = `${Math.floor((ax + bx) / 2 / GRID)},${Math.floor((az + bz) / 2 / GRID)}`;
+        let list = this.segGrid.get(key);
+        if (!list) this.segGrid.set(key, (list = []));
+        list.push([ax, az, bx, bz]);
+      }
+    }
     const geo = new THREE.PlaneGeometry(half * 2, half * 2, segments, segments);
     geo.rotateX(-Math.PI / 2);
     const pos = geo.attributes.position as THREE.BufferAttribute;
     const colors = new Float32Array(pos.count * 3);
     const snow = new THREE.Color('#f4f8ff');
     const blue = new THREE.Color('#cfdcf0');
-    const path = new THREE.Color('#d9cbbd');
+    const shoulder = new THREE.Color('#aebcd0');
     const c = new THREE.Color();
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
@@ -58,7 +72,8 @@ export class Terrain {
       const pd = this.pathDistance(x, z);
       const shade = 0.5 + 0.5 * Math.sin(x * 0.3) * Math.sin(z * 0.27);
       c.copy(snow).lerp(blue, shade * 0.35);
-      if (pd < 3) c.lerp(path, (1 - pd / 3) * 0.75);
+      // Snow pushed aside along the roads: a darker band that frames the cobblestones.
+      if (pd < 4.6) c.lerp(shoulder, THREE.MathUtils.smoothstep(pd, 4.6, 2.4) * 0.7);
       colors.set([c.r, c.g, c.b], i * 3);
     }
     geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
@@ -81,9 +96,16 @@ export class Terrain {
     }
   }
 
-  private pathDistance(x: number, z: number) {
+  /** Distance to the nearest road centreline; exact up to GRID metres, Infinity beyond. */
+  pathDistance(x: number, z: number) {
     let d = Infinity;
-    for (const p of this.opts.paths) for (let i = 0; i < p.length - 1; i++) d = Math.min(d, distToSegment(x, z, p[i], p[i + 1]));
+    const cx = Math.floor(x / GRID);
+    const cz = Math.floor(z / GRID);
+    for (let gx = cx - 1; gx <= cx + 1; gx++)
+      for (let gz = cz - 1; gz <= cz + 1; gz++) {
+        const list = this.segGrid.get(`${gx},${gz}`);
+        if (list) for (const [ax, az, bx, bz] of list) d = Math.min(d, distToSegment(x, z, [ax, az], [bx, bz]));
+      }
     return d;
   }
 
@@ -92,7 +114,8 @@ export class Terrain {
     let h = baseHeight(x, z);
     // Paths are slightly smoothed.
     const pd = this.pathDistance(x, z);
-    if (pd < 6) h *= 0.4 + 0.6 * (pd / 6);
+    // Roads run almost level; the bumps fade back in over a few metres either side.
+    if (pd < 9) h *= 0.12 + 0.88 * THREE.MathUtils.smoothstep(pd, 3, 9);
     for (const f of flats) {
       const d = Math.hypot(x - f.x, z - f.z);
       const t = THREE.MathUtils.smoothstep(d, f.r, f.r + 8);

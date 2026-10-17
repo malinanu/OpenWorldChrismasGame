@@ -28,7 +28,9 @@
 | Graphics presets (Fast / Balanced / Pretty) in the pause menu; phones default to Balanced | ✅ |
 | Player: KayKit *Rogue (Hooded)* + idle/walk/run/jump/cheer clips on a Rapier kinematic capsule | ✅ |
 | Orbit-follow camera (pointer lock or touch drag, wheel zoom, pulls in when something blocks the view) | ✅ |
-| Snowy heightmap terrain with the Poly Haven *Snow 02* texture (anti-tiling blend), trodden paths, frozen lake, rim of hills | ✅ |
+| 450 m snowy world (Poly Haven *Snow 02* texture), frozen lake, rim of hills | ✅ |
+| **Village street plan**: cobblestone Main Street, Market Lane, Mill Lane and outer lanes, lanterns, signposts at every crossroads, roads on the map | ✅ |
+| "How to play" steps on every mini-game intro card | ✅ |
 | Footprints in the snow behind the player (fade after ~1 min) | ✅ |
 | Wind: trees and bushes sway, each with its own phase | ✅ |
 | Camera pulls back when running and swings back behind you after you stop dragging it | ✅ |
@@ -40,10 +42,10 @@
 | Save to `localStorage` (ornaments, stars, discovered zones, position) | ✅ |
 | Great Tree ornaments + fireworks finale | ✅ basic version |
 | **Game 1: Snowball Showdown** | ✅ playable |
-| **Game 2: Gingerbread Bakery Rush** (tap-to-cook, 4 recipes) | ✅ playable |
+| **Game 2: Cookie Catch** (drag the bowl, catch treats) — replaced the Bakery Rush after playtesting | ✅ playable |
 | **Game 3: Santa's Express** (5 solver-checked levels) | ✅ playable |
 | **Game 4: Elf Workshop** (memorise blueprints, 9 toys) | ✅ playable |
-| **Game 5: Krampus' Cellar** (tap-to-walk stealth maze) | ✅ playable |
+| **Game 5: Krampus' Cellar** (tap-to-walk stealth, guided) — simplified after playtesting | ✅ playable |
 | **Game 6: Advent Dice Race** (physics dice vs. 3 AI elves) | ✅ playable |
 | Staging deploys to CloudPanel on every push to `staging` | ✅ |
 | Audio, GLB/KTX2 optimisation | ⏳ |
@@ -115,7 +117,12 @@ The player arrives by toy train, explores freely, finds each challenge, plays it
 
 ## 🗺️ The world map
 
-A compact, hand-built map (300 × 300 units) with six zones around a central hub, so every game is under a minute's walk away. Keeping it small also keeps the download light.
+A village-sized map (450 × 450 m) laid out like a real village:
+- **Main Street** runs north–south through the Great Tree plaza.
+- **Market Lane** and **Mill Lane** cross it.
+- **Outer lanes** close the grid into loops.
+
+Gingerbread houses line the streets. Every game sits at the end of a street, and cobblestones, lanterns and signposts at each crossroads lead the way.
 
 ```
                  [3] Toy Train Station (0, -70)
@@ -140,6 +147,8 @@ A compact, hand-built map (300 × 300 units) with six zones around a central hub
 | **Frozen Lake** | Flat icy area with snowmen | Holiday Bits + ice material |
 | **Train Station** | Track line with locomotive, tenders and wagon | Holiday Bits toy train + tracks |
 
+Roads are Catmull-Rom curves through a few control points (`roads` in the JSON). `src/world/Roads.ts` turns them into a draped cobblestone mesh (procedural texture), lanterns every ~28 m, and signposts. The signposts use one texture atlas, so all of them cost two draw calls. `tools/layout-world.py` regenerates the street plan, the village houses and the zone positions, and checks that nothing sits on a road.
+
 The level layout lives in **`public/world/frostvale.json`**: explicit props (model id + positions, rotation, scale, collider type, snow amount, light colour) plus **scatter rules** (models, count, ring radius, clearance from zones and paths, seed) for the forest. You can edit the world without touching code. Run `npm run manifest` to list every model id.
 
 ---
@@ -155,15 +164,17 @@ Snowmen pop up across the frozen lake. Aim the **snowball cannon** with the mous
 **Tech:** Rapier rigid-body snowballs on a ballistic arc to the cursor's raycast hit, pooled particle bursts
 **Stars:** 1★ 10 pts · 2★ 20 pts · 3★ 30 pts
 
-### 2. 🍪 Gingerbread Bakery Rush (*Village Street*), ✅ playable
-**Type:** cooking / order fulfilment (2½ minutes)
-Gingerbread customers queue at the order window. You carry one thing at a time; every station is one tap:
-- **Recipes:** 🥛 milk comes from the fridge. 🥣 dough bakes in the oven into 🍪 cookies (take them out before they burn!). Cookies get iced into 🧑‍🎄 gingerbread men at the decorating table. A 🫖 mug heats into ☕ cocoa on the stove.
-- **Serving:** hand over at 🛎️ Serve, or tap the customer's ticket. New recipes unlock during the shift, and patience gets shorter.
+### 2. 🍪 Cookie Catch (*Village bakery*), ✅ playable
+*Replaced "Gingerbread Bakery Rush", which playtesters found confusing. It keeps the same zone and save id (`gingerbread-bakery`).*
+**Type:** one-finger catch game (60 seconds)
+Treats rain down from the bakery: drag anywhere (or use ← →) to move the bowl.
+- **Points:** 🍪 cookie / 🍬 candy cane +1 · 🧑‍🎄 gingerbread man +2 · 🎁 present +3.
+- **Avoid:** ⚫ coal, −2.
+- **Bonus:** a ✨ golden cookie pulls every treat into the bowl for 3 s.
+- **Pace:** fall speed, spawn rate and the amount of coal ramp up gently.
 
-**Assets:** Restaurant Bits (fridge, oven, stove, pot, tables, counter, order window, kitchen floor) · Holiday Bits (cookie, gingerbread man, mugs, cocoa, candy cane, plate, wreath)
-**Tech:** stations are big tappable labels pinned to 3D positions (`ui/worldLabels.ts`), and taps on the scene pick the nearest station. Timed stations show progress bars, with a burn warning.
-**Stars:** orders served, at 5 / 10 / 14. Tips (🪙) reward fast service.
+**Assets:** Holiday Bits (cookie, candy cane, gingerbread man, present, gingerbread house, tree) · Restaurant Bits (bowl, tinted wicker) · Resource Bits (stone chunks, tinted as coal)
+**Stars:** 15 / 35 / 55 points
 
 ### 3. 🚂 Santa's Express (*Toy Train Station*), ✅ playable
 **Type:** track-switching puzzle (5 levels)
@@ -180,20 +191,16 @@ A blueprint flashes up with a toy's parts and the one tool it needs. Memorise it
 **Stars:** toys built, at 3 / 6 / 9.
 
 ### 5. 🕯️ Krampus' Cellar (*under the old mill*), ✅ playable
-**Type:** stealth maze (3-minute limit)
-Krampus hid six presents in chests around his cellar.
-- **Moving:** tap any tile and your hooded hero walks there by the shortest route. On desktop, click a tile or step with WASD/arrows.
-- **Danger:** three of Krampus' minions patrol with red lanterns, and every tile a lantern lights is drawn in red. Step into it, or onto a spike trap while it's up, and you go back to the entrance with a 5 s penalty.
-- **Escape:** reach the stairs to finish. 🗺️ Overview zooms out to plan a route.
+*Simplified after playtesting.*
+**Type:** guided stealth maze (2½-minute limit)
+Tap a floor tile and your hooded hero walks there.
+- **Guidance:** ✨ glowing dots and a bobbing arrow lead to the next chest, then to the stairs. Three one-time tips explain tapping, the red lantern light, and chests.
+- **Guards:** 2 slow guards. Their lanterns light up to 3 tiles ahead, drawn in red. They stand still for the first 4 s.
+- **Getting spotted:** costs 3 s and a short freeze, then you hop back to the last tile outside the light. No restart.
+- **Goal:** rescue 4 presents and escape for a speed bonus of up to +2. 🗺️ Overview shows the whole cellar.
 
-**Assets:** Dungeon Pack (floor tiles, low walls, chests, stairs, spike tiles, torches, props) · Adventurers (Rogue as the player, a red-tinted Barbarian as the guards, with walk/idle clips) · Holiday presents
-**Tech:**
-- **Map:** a text grid, reachability-checked; walls are instanced on every floor/rock edge.
-- **Movement:** BFS pathfinding.
-- **Lanterns:** each casts a straight beam that widens after one tile and stops at walls, drawn as instanced red tiles so stealth is readable on a small screen.
-- **Guards:** each one is a cloned skinned mesh (`SkeletonUtils.clone`).
-
-**Stars:** presents rescued plus an escape-speed bonus (up to +3), at 3 / 6 / 9.
+**Assets:** Dungeon Pack (floors, low walls, chests, stairs, torches, props) · Adventurers (Rogue player, red-tinted Barbarian guards, with walk/idle clips)
+**Stars:** 2 / 4 / 6
 
 ### 6. 🎲 Advent Dice Race (*Game Parlour*), ✅ playable
 **Type:** board game vs. 3 AI elves (2–4 minutes)
@@ -456,11 +463,12 @@ Seven textures were picked from the 73 MB bundle and resized (≈ 550 KB total):
 | Preset | Max pixel ratio | Sun shadow map | Snow particles | Forest density |
 |---|---|---|---|---|
 | Fast | 1 | off | 2,500 | 50% |
-| Balanced | 1.5 | 1024 (smaller area) | 4,500 | 75% |
-| Pretty | 2 | 2048 | 7,000 | 100% |
+| Balanced | 1.5 | 1024 (smaller area) | 3,500 | 75% |
+| Pretty | 2 | 2048 (+ forest shadows) | 7,000 | 100% |
 
 **Already in place:**
-- `InstancedMesh` for every repeated model, with trees split into a 3×3 chunk grid so off-screen chunks and chunks outside the shadow box are skipped.
+- `InstancedMesh` for every repeated model. Trees use a 3×3 chunk grid, and spread-out props (houses, lanterns) use 120 m cells, so off-screen chunks, and chunks outside the shadow box, are skipped.
+- After playtesting, the world was made lighter. The forest is about 5× less dense, uses lighter tree models and only casts shadows on Pretty. Rocks, bushes and road lanterns never cast shadows, and lantern halos are a single particle cloud. On Balanced, the plaza view went from ~600k triangles / 153 draw calls to ~350k / 119 (headless measurement), in a world 2.25× the area.
 - Fog hides the far edge.
 - Only 4 real `PointLight`s, reassigned to the nearest lanterns each frame.
 - Game time pauses when the tab is hidden.

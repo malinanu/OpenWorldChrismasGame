@@ -4,6 +4,8 @@ import { Physics, RAPIER } from '../core/Physics';
 import type { MiniGameId } from '../minigames/MiniGame';
 import { buildInstanced, modelBounds, type Placement } from './Instancing';
 import { Lighting } from './Lighting';
+import { MINI_GAMES } from '../minigames/registry';
+import { buildSignposts, Roads, type RoadDef } from './Roads';
 import { createSnowGroundMaterial } from './SnowGround';
 import { Terrain, type FlatSpot } from './Terrain';
 
@@ -25,6 +27,8 @@ interface ScatterDef {
   seed: number;
   /** Split instances into square chunks of this size so off-screen chunks are culled. */
   chunk?: number;
+  /** false = never cast shadows; 'high' = only on the Pretty preset (forests are costly in the shadow pass). */
+  shadow?: boolean | 'high';
 }
 
 interface PropDef {
@@ -37,6 +41,8 @@ interface PropDef {
   collider?: ColliderKind;
   snow?: number;
   light?: string;
+  /** false = don't cast shadows. */
+  shadow?: boolean;
 }
 
 export interface ZoneDef {
@@ -49,7 +55,7 @@ export interface WorldData {
   half: number;
   spawn: Vec3;
   lake?: { x: number; z: number; r: number };
-  paths: [number, number][][];
+  roads: RoadDef[];
   flats: FlatSpot[];
   zones: ZoneDef[];
   scatter: ScatterDef[];
@@ -67,13 +73,6 @@ function mulberry32(seed: number) {
   };
 }
 
-function distToSegment(px: number, pz: number, [ax, az]: [number, number], [bx, bz]: [number, number]) {
-  const dx = bx - ax;
-  const dz = bz - az;
-  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (pz - az) * dz) / (dx * dx + dz * dz || 1)));
-  return Math.hypot(px - (ax + t * dx), pz - (az + t * dz));
-}
-
 /** Builds the overworld scene + static physics from `public/world/frostvale.json`. */
 export class World {
   readonly scene = new THREE.Scene();
@@ -84,20 +83,30 @@ export class World {
   /** Positions that want a warm light; the nearest few get a real PointLight. */
   readonly lightSpots: { pos: THREE.Vector3; color: THREE.Color }[] = [];
   private readonly lightPool: THREE.PointLight[] = [];
-  private readonly glowSprites: THREE.Sprite[] = [];
+  private glow?: THREE.Points;
+  private highShadows = false;
+  roads!: Roads;
 
   /** `forest` scales scatter counts (quality setting); `shadowSize` 0 turns sun shadows off. */
   async load(opts: { forest: number; shadowSize: number }, onStep?: (label: string) => void) {
+    this.highShadows = opts.shadowSize >= 2048;
     const res = await fetch(`${import.meta.env.BASE_URL}world/frostvale.json`);
     this.data = (await res.json()) as WorldData;
     const d = this.data;
 
     this.lighting = new Lighting(this.scene, opts.shadowSize);
-    this.terrain = new Terrain({ half: d.half, segments: 150, flats: d.flats, paths: d.paths, lake: d.lake });
+    this.roads = new Roads(d.roads);
+    this.terrain = new Terrain({ half: d.half, segments: 140, flats: d.flats, paths: this.roads.lines, lake: d.lake });
     this.terrain.mesh.material = await createSnowGroundMaterial({ vertexColors: true });
     this.scene.add(this.terrain.mesh);
     if (this.terrain.ice) this.scene.add(this.terrain.ice);
     this.terrain.addCollider(this.physics.world);
+
+    // Cobblestone roads, lanterns along them and signposts at the plaza.
+    this.scene.add(this.roads.build((x, z) => this.groundY(x, z)));
+    d.props.push({ model: 'holiday/lantern', at: this.roads.lanterns.map((p) => [p.x, 0, p.z] as Vec3), scale: 1, light: '#ffb35a', collider: 'trunk', shadow: false });
+    const signs = this.roads.signposts;
+    this.scene.add(buildSignposts(signs, signs.map((s) => `${MINI_GAMES[s.to].emoji} ${MINI_GAMES[s.to].title}`), (x, z) => this.groundY(x, z)));
 
     onStep?.('Growing the forest…');
     await Promise.all(d.scatter.map((s) => this.scatter({ ...s, count: Math.round(s.count * opts.forest) })));
@@ -109,16 +118,37 @@ export class World {
       this.lightPool.push(l);
       this.scene.add(l);
     }
-    const glowTex = await assets.texture('vfx/glow.png');
-    for (const s of this.lightSpots) {
-      const sprite = new THREE.Sprite(
-        new THREE.SpriteMaterial({ map: glowTex, color: s.color, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.6 }),
-      );
-      sprite.position.copy(s.pos);
-      sprite.scale.setScalar(1.3);
-      this.glowSprites.push(sprite);
-      this.scene.add(sprite);
-    }
+    this.glow = this.buildGlow(await assets.texture('vfx/glow.png'));
+    this.scene.add(this.glow);
+  }
+
+  /** Every lantern halo in one Points draw call (dozens of sprites would be dozens of draw calls). */
+  private buildGlow(map: THREE.Texture): THREE.Points {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(this.lightSpots.flatMap((s) => s.pos.toArray()), 3));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(this.lightSpots.flatMap((s) => s.color.toArray()), 3));
+    const mat = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      vertexColors: true,
+      uniforms: { uMap: { value: map }, uTime: { value: 0 }, uPR: { value: 1 } },
+      vertexShader: /* glsl */ `
+        uniform float uTime; uniform float uPR; varying vec3 vColor; varying float vFlicker;
+        void main() {
+          vColor = color;
+          vFlicker = 0.5 + 0.1 * sin(uTime * 7.0 + position.x * 1.3 + position.z);
+          vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          gl_Position = projectionMatrix * mv;
+          gl_PointSize = 1.3 * uPR * 300.0 / -mv.z;
+        }`,
+      fragmentShader: /* glsl */ `
+        uniform sampler2D uMap; varying vec3 vColor; varying float vFlicker;
+        void main() { vec4 t = texture2D(uMap, gl_PointCoord); gl_FragColor = vec4(vColor * t.rgb, t.a * vFlicker); }`,
+    });
+    const pts = new THREE.Points(geo, mat);
+    pts.frustumCulled = false;
+    return pts;
   }
 
   groundY(x: number, z: number) {
@@ -130,7 +160,7 @@ export class World {
     for (const f of d.flats) if (Math.hypot(x - f.x, z - f.z) < f.r + clearance * 0.5) return false;
     for (const zn of d.zones) if (Math.hypot(x - zn.position[0], z - zn.position[2]) < clearance) return false;
     if (d.lake && Math.hypot(x - d.lake.x, z - d.lake.z) < d.lake.r + 4) return false;
-    for (const p of d.paths) for (let i = 0; i < p.length - 1; i++) if (distToSegment(x, z, p[i], p[i + 1]) < pathClearance) return false;
+    if (this.terrain.pathDistance(x, z) < pathClearance) return false;
     return true;
   }
 
@@ -157,7 +187,10 @@ export class World {
     await Promise.all(
       [...buckets.values()].map(async ({ model, placements }) => {
         const g = await assets.model(model);
-        this.scene.add(buildInstanced(g.scene, placements, s.snow ?? 0, s.sway ?? 0));
+        const group = buildInstanced(g.scene, placements, s.snow ?? 0, s.sway ?? 0);
+        const casts = s.shadow === undefined ? true : s.shadow === 'high' ? this.highShadows : s.shadow;
+        if (!casts) group.traverse((o) => (o.castShadow = false));
+        this.scene.add(group);
         if (s.collider) this.addColliders(g.scene, placements, s.collider);
       }),
     );
@@ -177,7 +210,19 @@ export class World {
       rotationY: p.rotY ? (p.rotY[i] ?? p.rotY[0]) : p.randomRotY ? Math.random() * Math.PI * 2 : 0,
       scale: p.scale ?? 1,
     }));
-    this.scene.add(buildInstanced(g.scene, placements, p.snow ?? 0));
+    // Spread-out props (village houses, road lanterns) are split into 120 m cells, so the
+    // camera — and especially the sun's shadow pass — only draws the cells near the player.
+    const cells = new Map<string, Placement[]>();
+    for (const pl of placements) {
+      const key = placements.length > 6 ? `${Math.floor(pl.position.x / 120)},${Math.floor(pl.position.z / 120)}` : 'all';
+      if (!cells.has(key)) cells.set(key, []);
+      cells.get(key)!.push(pl);
+    }
+    for (const group of cells.values()) {
+      const mesh = buildInstanced(g.scene, group, p.snow ?? 0);
+      if (p.shadow === false) mesh.traverse((o) => (o.castShadow = false));
+      this.scene.add(mesh);
+    }
     if (p.collider) this.addColliders(g.scene, placements, p.collider);
     if (p.light) {
       const box = modelBounds(g.scene);
@@ -231,6 +276,10 @@ export class World {
       l.color.copy(n.s.color);
       l.intensity = 14 * (0.9 + 0.1 * Math.sin(time * 9 + i * 2.1));
     });
-    this.glowSprites.forEach((s, i) => (s.material.opacity = 0.5 + 0.1 * Math.sin(time * 7 + i)));
+    if (this.glow) {
+      const u = (this.glow.material as THREE.ShaderMaterial).uniforms;
+      u.uTime.value = time;
+      u.uPR.value = Math.min(window.devicePixelRatio, 2);
+    }
   }
 }

@@ -4,7 +4,7 @@ import { RAPIER } from '../core/Physics';
 
 /** Orbit-follow camera with mouse look, wheel zoom and collision pull-in. */
 export class FollowCamera {
-  readonly camera = new THREE.PerspectiveCamera(60, 1, 0.1, 600);
+  readonly camera = new THREE.PerspectiveCamera(60, 1, 0.1, 300);
   yaw = 0;
   pitch = 0.32;
   private distance = 9;

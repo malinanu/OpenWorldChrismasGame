@@ -5,7 +5,7 @@ export type Quality = 'low' | 'medium' | 'high';
 /** Per-quality knobs. Phones default to 'medium', desktops to 'high' (see Save.ts). */
 export const QUALITY = {
   low: { maxPixelRatio: 1, shadows: 0, snow: 2500, forest: 0.5 },
-  medium: { maxPixelRatio: 1.5, shadows: 1024, snow: 4500, forest: 0.75 },
+  medium: { maxPixelRatio: 1.5, shadows: 1024, snow: 3500, forest: 0.75 },
   high: { maxPixelRatio: 2, shadows: 2048, snow: 7000, forest: 1 },
 } as const;
 

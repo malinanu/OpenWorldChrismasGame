@@ -153,7 +153,7 @@ export class Hud {
     return !this.mapBox.classList.contains('hidden');
   }
 
-  toggleMap(markers: MapMarker[], player: { x: number; z: number }, half: number) {
+  toggleMap(markers: MapMarker[], player: { x: number; z: number }, half: number, roads: [number, number][][] = []) {
     if (this.mapOpen) {
       this.mapBox.classList.add('hidden');
       return;
@@ -168,7 +168,11 @@ export class Hud {
           <span>${found ? info.emoji : '✨'}</span><label>${found ? info.title : '???'}${got ? ' 🟡' : ''}</label></div>`;
       })
       .join('');
-    this.mapBox.innerHTML = `<div class="map-inner"><h2>Map of Frostvale</h2><div class="map-area">
+    const lines = roads
+      .map((r) => `<polyline points="${r.map(([x, z]) => `${x.toFixed(1)},${z.toFixed(1)}`).join(' ')}" />`)
+      .join('');
+    const svg = `<svg class="map-roads" viewBox="${-half} ${-half} ${half * 2} ${half * 2}" preserveAspectRatio="none">${lines}</svg>`;
+    this.mapBox.innerHTML = `<div class="map-inner"><h2>Map of Frostvale</h2><div class="map-area">${svg}
       <div class="pin hub" style="${pos(0, 0)}"><span>🎄</span><label>Great Tree</label></div>
       ${pins}<div class="pin me" style="${pos(player.x, player.z)}"><span>📍</span></div></div>
       <p class="small muted">${isTouchDevice ? 'Tap anywhere to close' : 'M or click to close'}</p></div>`;
@@ -221,8 +225,8 @@ export class Hud {
     const html = `<div class="intro-card">
       <div class="emoji">${info.emoji}</div><h2>${info.title}</h2>
       <p>${info.blurb}</p>
-      ${info.create ? `<p class="small">⭐ ${a} · ⭐⭐ ${b} · ⭐⭐⭐ ${c}${best !== undefined ? ` — best: ${'★'.repeat(best) || 'no stars yet'}` : ''}</p>
-        <p class="small muted">${isTouchDevice ? info.touchControls : info.controls}</p>
+      ${info.create ? `<ol class="howto">${info.howTo.map((step) => `<li>${typeof step === 'string' ? step : isTouchDevice ? step[0] : step[1]}</li>`).join('')}</ol>
+        <p class="small">⭐ ${a} · ⭐⭐ ${b} · ⭐⭐⭐ ${c}${best !== undefined ? ` — best: ${'★'.repeat(best) || 'no stars yet'}` : ''}</p>
         <div class="row"><button data-cancel class="ghost">Not now</button><button data-ok autofocus>Play!</button></div>`
       : `<p class="soon">🧝 The elves are still building this one — check back soon!</p><div class="row"><button data-cancel>OK</button></div>`}
     </div>`;

@@ -138,6 +138,8 @@ body.is-touch .prompt { pointer-events: auto; cursor: pointer; padding: 12px 20p
 .map-inner .muted { color: #5a6b80; margin: 6px 0 0; }
 .map-area { position: relative; width: min(520px, calc(100vw - 52px), calc(100dvh - 120px)); aspect-ratio: 1;
   background: radial-gradient(circle, #fff 0%, #dbe8f5 70%, #b9cde3 100%); border-radius: 14px; border: 3px dashed #9db4cf; }
+.map-roads { position: absolute; inset: 0; width: 100%; height: 100%; }
+.map-roads polyline { fill: none; stroke: #9a8a74; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; opacity: 0.85; }
 .pin { position: absolute; transform: translate(-50%, -50%); text-align: center; }
 .pin span { font-size: 1.4rem; display: block; }
 .pin label { font-size: 0.68rem; font-weight: 600; white-space: nowrap; background: rgba(255,255,255,0.8); padding: 0 5px; border-radius: 6px; }
@@ -208,3 +210,15 @@ body.is-touch .prompt { pointer-events: auto; cursor: pointer; padding: 12px 20p
 .blueprint .items { font-size: 2rem; letter-spacing: 4px; margin: 6px 0; }
 .blueprint .timer { height: 6px; background: rgba(255,255,255,0.25); border-radius: 3px; overflow: hidden; }
 .blueprint .timer > i { display: block; height: 100%; background: var(--gold); }
+
+/* ---------- intro "how to play" steps ---------- */
+.card .howto { text-align: left; margin: 10px auto; padding: 0; list-style: none; counter-reset: step; max-width: 380px; display: grid; gap: 6px; }
+.card .howto li { counter-increment: step; display: grid; grid-template-columns: 26px 1fr; gap: 8px; align-items: start; background: rgba(255,255,255,0.08);
+  border-radius: 12px; padding: 7px 10px; line-height: 1.3; }
+.card .howto li::before { content: counter(step); width: 24px; height: 24px; border-radius: 50%; background: var(--gold); color: #3a2400; font-weight: 700;
+  display: grid; place-items: center; font-size: 0.85rem; }
+
+/* ---------- Cookie Catch score pop-ups ---------- */
+.catch-pop { position: absolute; font-weight: 700; font-size: 1.4rem; text-shadow: 0 2px 0 rgba(0,0,0,0.35); pointer-events: none; transform: translate(-50%, -50%); }
+.catch-pop.good { color: #ffe27a; }
+.catch-pop.bad { color: #ff8080; }

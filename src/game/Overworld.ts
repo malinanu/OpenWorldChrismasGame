@@ -140,7 +140,9 @@ export class Overworld implements OverworldContract {
         this.hud.toggleMap(
           this.zones.map((z) => ({ id: z.id, x: z.position.x, z: z.position.z })),
           { x: this.player.position.x, z: this.player.position.z },
-          this.world.data.half,
+          // Frame the map on the games and roads, not the empty hills at the edge.
+          Math.max(...this.zones.map((z) => Math.max(Math.abs(z.position.x), Math.abs(z.position.z)))) + 30,
+          this.world.roads.lines,
         );
       }
       if (input.justPressed('pause')) {

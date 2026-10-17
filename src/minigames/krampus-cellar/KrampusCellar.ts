@@ -7,34 +7,33 @@ import { buildInstanced, type Placement } from '../../world/Instancing';
 import type { MiniGame, MiniGameContext, MiniGameResult } from '../MiniGame';
 
 /**
- * '#' wall · '.' floor · 'S' start · 'E' exit stairs · 'C' chest with a present · '^' spike trap.
- * Reachability of every chest and the exit is checked when the level loads.
+ * '#' wall · '.' floor · 'S' start · 'E' exit stairs · 'C' chest with a present.
+ * Reachability of every chest and the exit is asserted when the level loads.
  */
 const MAP = [
-  '#############',
-  '#S..#...C...#',
-  '#.#.#.#####.#',
-  '#.#...#C..^.#',
-  '#.###.#.###.#',
-  '#C..^.....#.#',
-  '###.###.#.#.#',
-  '#C..#...#...#',
-  '#.#.#.#####.#',
-  '#.#...C#C..E#',
-  '#############',
+  '###########',
+  '#S..#...C.#',
+  '#.#.#.###.#',
+  '#.#...#..C#',
+  '#C###.#.#.#',
+  '#...C...#E#',
+  '###########',
 ];
 /** Each guard walks back and forth between two cells on a straight corridor. */
 const GUARDS: [[number, number], [number, number]][] = [
-  [[5, 5], [9, 5]],
-  [[11, 1], [11, 7]],
-  [[5, 1], [10, 1]],
+  [[5, 1], [7, 1]],
+  [[5, 3], [5, 5]],
 ];
 const CELL = 4;
-const TIME_LIMIT = 180;
+const TIME_LIMIT = 150;
 const PLAYER_SPEED = 7;
-const GUARD_SPEED = 3.4;
-const VISION = 4;
-const SPIKE_PERIOD = 2.4;
+const GUARD_SPEED = 2.4;
+const VISION = 3;
+/** Guards stand still this long at the start, so the player can get their bearings. */
+const GUARD_WAKE = 4;
+/** How long the player is frozen after being spotted, and the time penalty. */
+const STUN = 1.2;
+const PENALTY = 3;
 
 type Cell = [number, number];
 const key = (c: Cell) => `${c[0]},${c[1]}`;
@@ -74,7 +73,13 @@ export class KrampusCellar implements MiniGame {
   private path: Cell[] = [];
   private guards: Guard[] = [];
   private chests = new Map<string, { obj: THREE.Object3D; open: boolean; cell: Cell }>();
-  private spikes: { obj: THREE.Object3D; cell: Cell }[] = [];
+  private guideDots!: THREE.InstancedMesh;
+  private guideArrow!: THREE.Mesh;
+  private marker!: THREE.Mesh;
+  private markerTime = 0;
+  private lastSafe: Cell = [1, 1];
+  private stun = 0;
+  private tips = { walk: false, red: false, chest: false };
   private visionMesh!: THREE.InstancedMesh;
   private flying: { obj: THREE.Object3D; t: number; from: THREE.Vector3 }[] = [];
   private sparkles!: Burst;
@@ -88,7 +93,6 @@ export class KrampusCellar implements MiniGame {
   private presents = 0;
   private caught = 0;
   private safeTime = 0;
-  private spikesUp = false;
   private overview = false;
   private over = false;
   private camTarget = new THREE.Vector3();
@@ -112,7 +116,7 @@ export class KrampusCellar implements MiniGame {
 
   async load() {
     const ids = [
-      'dungeon/floor_tile_large', 'dungeon/floor_dirt_large', 'dungeon/wall', 'dungeon/floor_tile_big_spikes', 'dungeon/chest', 'dungeon/chest_gold',
+      'dungeon/floor_tile_large', 'dungeon/floor_dirt_large', 'dungeon/wall', 'dungeon/chest', 'dungeon/chest_gold',
       'dungeon/stairs', 'dungeon/torch_mounted', 'dungeon/barrel_small', 'dungeon/box_small', 'dungeon/candle_lit', 'dungeon/banner_red',
       'holiday/present_A_red', 'holiday/present_B_green', 'holiday/present_C_yellow',
       'characters/Rogue_Hooded.glb', 'characters/Barbarian.glb',
@@ -158,12 +162,6 @@ export class KrampusCellar implements MiniGame {
           this.scene.add(chest);
           this.chests.set(key(c), { obj: chest, open: false, cell: c });
         }
-        if (ch === '^') {
-          const s = this.m['dungeon/floor_tile_big_spikes'].clone(true);
-          s.position.copy(this.world(c, -1.9));
-          this.scene.add(s);
-          this.spikes.push({ obj: s, cell: c });
-        }
       }),
     );
     this.scene.add(buildInstanced(this.m['dungeon/floor_tile_large'], floors));
@@ -182,14 +180,14 @@ export class KrampusCellar implements MiniGame {
     this.owned.push(exitGlow.material);
 
     // A few props and torches for atmosphere.
-    const props: [string, Cell, number][] = [['dungeon/barrel_small', [3, 1], 0.4], ['dungeon/box_small', [1, 9], 0.6], ['dungeon/barrel_small', [9, 7], 0.2], ['dungeon/candle_lit', [7, 3], 0.6], ['dungeon/box_small', [3, 7], 0.3]];
+    const props: [string, Cell, number][] = [['dungeon/barrel_small', [3, 1], 0.4], ['dungeon/box_small', [1, 5], 0.6], ['dungeon/candle_lit', [7, 3], 0.6], ['dungeon/barrel_small', [7, 5], 0.2]];
     for (const [id, c, r] of props) {
       const o = this.m[id].clone(true);
       o.position.copy(this.world(c)).add(new THREE.Vector3(1.3, 0, -1.3));
       o.rotation.y = r * 6;
       this.scene.add(o);
     }
-    const torchCells: Cell[] = [[2, 1], [7, 5], [1, 7], [10, 9], [11, 3]];
+    const torchCells: Cell[] = [[2, 1], [6, 3], [3, 5], [9, 3]];
     for (const c of torchCells) {
       const t = this.m['dungeon/torch_mounted'].clone(true);
       t.position.copy(this.world(c)).add(new THREE.Vector3(0, 1.4, -CELL / 2 + 0.55));
@@ -222,6 +220,29 @@ export class KrampusCellar implements MiniGame {
     }
 
     // Red tiles show exactly what each lantern can see.
+    // Guidance: glowing dots along the way to the next chest (then the stairs), a bobbing arrow
+    // over the goal, and a ring where you tapped.
+    const dotGeo = new THREE.CircleGeometry(0.5, 16).rotateX(-Math.PI / 2);
+    const dotMat = new THREE.MeshBasicMaterial({ color: '#ffe066', transparent: true, opacity: 1, depthWrite: false });
+    this.guideDots = new THREE.InstancedMesh(dotGeo, dotMat, 40);
+    this.guideDots.count = 0;
+    this.guideDots.renderOrder = 3;
+    this.scene.add(this.guideDots);
+    const arrowGeo = new THREE.ConeGeometry(0.6, 1.4, 4).rotateX(Math.PI);
+    const arrowMat = new THREE.MeshBasicMaterial({ color: '#ffd25a' });
+    this.guideArrow = new THREE.Mesh(arrowGeo, arrowMat);
+    this.scene.add(this.guideArrow);
+    const ringGeo = new THREE.RingGeometry(1.1, 1.5, 32).rotateX(-Math.PI / 2);
+    const ringMat = new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0, depthWrite: false });
+    this.marker = new THREE.Mesh(ringGeo, ringMat);
+    this.scene.add(this.marker);
+    this.owned.push(dotGeo, dotMat, arrowGeo, arrowMat, ringGeo, ringMat);
+    this.lastSafe = [...this.startCell] as Cell;
+    console.assert(
+      [...this.chests.values()].every((c) => this.bfs(this.startCell, c.cell).length > 0) && this.bfs(this.startCell, this.exit).length > 0,
+      'Krampus cellar: a chest or the exit is unreachable',
+    );
+
     const visGeo = new THREE.PlaneGeometry(CELL * 0.94, CELL * 0.94).rotateX(-Math.PI / 2);
     const visMat = new THREE.MeshBasicMaterial({ color: '#ff3040', transparent: true, opacity: 0.32, depthWrite: false });
     this.visionMesh = new THREE.InstancedMesh(visGeo, visMat, 80);
@@ -300,7 +321,8 @@ export class KrampusCellar implements MiniGame {
     this.ctx.hud.onGameAction = (a) => {
       if (a === 'overview') this.overview = !this.overview;
     };
-    this.ctx.hud.toast(isTouchDevice ? 'Tap a tile to walk there · stay out of the red lantern light!' : 'Click a tile (or use WASD) · stay out of the red lantern light!', 4000);
+    this.tips.walk = true;
+    this.ctx.hud.toast(isTouchDevice ? '👆 Tap a floor tile to walk there — follow the ✨ dots to the chest' : '🖱️ Click a floor tile (or WASD) — follow the ✨ dots to the chest', 4500);
   }
 
   // ---------------------------------------------------------------- movement
@@ -335,7 +357,11 @@ export class KrampusCellar implements MiniGame {
         // Plan from the cell we're heading into, so the route never doubles back.
         const from = this.path[0] ?? this.playerCell;
         const route = this.bfs(from, to);
-        if (route.length || key(to) === key(from)) this.path = this.path.length ? [this.path[0], ...route] : route;
+        if (route.length || key(to) === key(from)) {
+          this.path = this.path.length ? [this.path[0], ...route] : route;
+          this.marker.position.copy(this.world(to, 0.12));
+          this.markerTime = 1;
+        }
         if (this.overview) this.overview = false;
       }
     }
@@ -352,6 +378,10 @@ export class KrampusCellar implements MiniGame {
 
   private movePlayer(dt: number) {
     const p = this.player.root.position;
+    if (this.stun > 0) {
+      this.setMoving(this.player, false);
+      return;
+    }
     const next = this.path[0];
     if (!next) {
       this.setMoving(this.player, false);
@@ -365,6 +395,7 @@ export class KrampusCellar implements MiniGame {
       p.copy(target);
       this.playerCell = next;
       this.path.shift();
+      if (!this.guards.some((g) => g.vision.has(key(next)))) this.lastSafe = next;
       this.onEnterCell(next);
     } else p.addScaledVector(d.normalize(), step);
     this.setMoving(this.player, true);
@@ -393,22 +424,78 @@ export class KrampusCellar implements MiniGame {
     if (key(c) === key(this.exit)) this.finish();
   }
 
-  private sendBack(reason: string) {
+  /** Spotted: a short freeze and a few seconds lost, then hop back to the last tile out of the light. */
+  private spotted() {
     this.caught++;
-    this.time += 5;
+    this.time += PENALTY;
+    this.stun = STUN;
+    this.path = [];
     this.puffs.emit(this.player.root.position.clone().setY(1), 30, { color: '#ff6b6b', speed: 4, up: 2, size: 1.2, life: 0.8 });
     haptic([60, 40, 60]);
-    this.ctx.hud.toast(`${reason} Back to the entrance (+5 s)`, 2000);
-    this.player.root.position.copy(this.world(this.startCell));
-    this.playerCell = [...this.startCell] as Cell;
-    this.path = [];
-    this.safeTime = 1.5;
+    this.ctx.hud.toast(`😈 Spotted! −${PENALTY} s — wait for the red light to move away`, 2200);
+    this.safeTime = STUN + 1.5;
+  }
+
+  private endStun() {
+    this.player.root.position.copy(this.world(this.lastSafe));
+    this.playerCell = [...this.lastSafe] as Cell;
+  }
+
+  /** The next unopened chest by walking distance, or the stairs once all are open. */
+  private goal(): Cell {
+    let best: Cell = this.exit;
+    let bestLen = Infinity;
+    for (const c of this.chests.values()) {
+      if (c.open) continue;
+      const len = this.bfs(this.playerCell, c.cell).length;
+      if (len < bestLen) {
+        bestLen = len;
+        best = c.cell;
+      }
+    }
+    return best;
+  }
+
+  private updateGuide(dt: number) {
+    const goal = this.goal();
+    const route = this.bfs(this.playerCell, goal);
+    const m = new THREE.Matrix4();
+    let n = 0;
+    route.slice(0, -1).forEach((c, i) => {
+      // Dots pulse in a wave towards the goal.
+      const s = 0.75 + 0.25 * Math.sin(this.time * 5 - i * 0.8);
+      m.compose(this.world(c, 0.1), new THREE.Quaternion(), new THREE.Vector3(s, 1, s));
+      this.guideDots.setMatrixAt(n++, m);
+    });
+    this.guideDots.count = n;
+    this.guideDots.instanceMatrix.needsUpdate = true;
+    this.guideArrow.position.copy(this.world(goal, 3.2 + Math.sin(this.time * 3) * 0.35));
+    this.guideArrow.rotation.y += dt * 2;
+    this.markerTime = Math.max(0, this.markerTime - dt * 1.5);
+    (this.marker.material as THREE.MeshBasicMaterial).opacity = this.markerTime * 0.8;
+    // Coach marks, each shown once.
+    if (!this.tips.red && this.guards.some((g) => [...g.vision].some((k) => {
+      const [x, y] = k.split(',').map(Number);
+      return Math.abs(x - this.playerCell[0]) + Math.abs(y - this.playerCell[1]) <= 2;
+    }))) {
+      this.tips.red = true;
+      this.ctx.hud.toast('🟥 Red tiles = lantern light. Wait for it to move on, then sneak past!', 4000);
+    }
+    if (!this.tips.chest && route.length > 0 && route.length <= 2 && goal !== this.exit) {
+      this.tips.chest = true;
+      this.ctx.hud.toast('🎁 Walk onto the chest to grab the present', 3000);
+    }
   }
 
   // ---------------------------------------------------------------- guards
 
   private updateGuards(dt: number) {
     for (const g of this.guards) {
+      if (this.time < GUARD_WAKE) {
+        g.vision = this.visionFrom(this.cellOf(g.root.position), g.facing);
+        g.mixer.update(dt);
+        continue;
+      }
       const target = this.world(g.towardsB ? g.b : g.a);
       const d = target.clone().sub(g.root.position);
       if (g.pause > 0) {
@@ -485,18 +572,15 @@ export class KrampusCellar implements MiniGame {
       this.movePlayer(dt);
       this.updateGuards(dt);
       this.safeTime -= dt;
-      // Spikes cycle up and down; the warning shake gives a moment to react.
-      const phase = (this.time % SPIKE_PERIOD) / SPIKE_PERIOD;
-      this.spikesUp = phase > 0.55;
-      for (const s of this.spikes) {
-        const y = this.spikesUp ? 0 : phase > 0.4 ? -1.9 + Math.sin(this.time * 60) * 0.05 + 0.25 : -1.9;
-        s.obj.position.y = THREE.MathUtils.lerp(s.obj.position.y, y, 1 - Math.exp(-dt * 25));
+      if (this.stun > 0) {
+        this.stun -= dt;
+        if (this.stun <= 0) this.endStun();
       }
       if (this.safeTime <= 0) {
         const here = key(this.cellOf(this.player.root.position));
-        if (this.guards.some((g) => g.vision.has(here))) this.sendBack('😈 Spotted by a lantern!');
-        else if (this.spikesUp && this.spikes.some((s) => key(s.cell) === here)) this.sendBack('⚠️ Ouch, spikes!');
+        if (this.guards.some((g) => g.vision.has(here))) this.spotted();
       }
+      this.updateGuide(dt);
       if (this.time >= TIME_LIMIT) this.finish();
     }
     this.player.mixer.update(dt);
@@ -528,7 +612,7 @@ export class KrampusCellar implements MiniGame {
     this.over = true;
     const escaped = !quit && key(this.playerCell) === key(this.exit);
     const left = Math.max(0, TIME_LIMIT - this.time);
-    const bonus = escaped ? Math.min(3, Math.ceil(left / 40)) : 0;
+    const bonus = escaped ? Math.min(2, Math.ceil(left / 50)) : 0;
     this.resolve({
       score: this.presents + bonus,
       quit,

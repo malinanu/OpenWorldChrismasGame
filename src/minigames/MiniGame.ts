@@ -57,10 +57,10 @@ export interface MiniGameInfo {
   id: MiniGameId;
   title: string;
   emoji: string;
+  /** One friendly sentence: what's going on. */
   blurb: string;
-  /** Control hints for keyboard/mouse and for touch screens. */
-  controls: string;
-  touchControls: string;
+  /** Numbered steps on the intro card; a [touch, desktop] pair when the wording differs. */
+  howTo: (string | [string, string])[];
   /** Score needed for 1, 2 and 3 stars. */
   thresholds: [number, number, number];
   /** Lazy factory (the game's code is fetched on first play); omitted while in development. */

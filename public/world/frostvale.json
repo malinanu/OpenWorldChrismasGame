@@ -1,101 +1,1348 @@
 {
-  "half": 150,
-  "spawn": [0, 0, 16],
-  "lake": { "x": 0, "z": 78, "r": 22 },
-  "paths": [
-    [[0, 0], [0, 56]],
-    [[0, 0], [0, -66]],
-    [[0, 22], [-48, 32]],
-    [[0, 22], [48, 32]],
-    [[0, -20], [-48, -38]],
-    [[0, -20], [48, -38]]
-  ],
-  "flats": [
-    { "x": 0, "z": 0, "r": 18 },
-    { "x": -55, "z": 35, "r": 12 },
-    { "x": 55, "z": 35, "r": 12 },
-    { "x": -55, "z": -40, "r": 12 },
-    { "x": 55, "z": -40, "r": 12 },
-    { "x": 0, "z": -80, "r": 16 }
-  ],
-  "zones": [
-    { "id": "snowball-showdown", "position": [0, 0, 60], "radius": 4 },
-    { "id": "gingerbread-bakery", "position": [-48, 0, 32], "radius": 4 },
-    { "id": "santas-express", "position": [0, 0, -70], "radius": 4 },
-    { "id": "elf-workshop", "position": [48, 0, -36], "radius": 4 },
-    { "id": "krampus-cellar", "position": [-49, 0, -37], "radius": 4 },
-    { "id": "advent-dice-race", "position": [48, 0, 32], "radius": 4 }
-  ],
-  "scatter": [
-    {
-      "models": ["forest/Tree_1_A_Color1", "forest/Tree_2_C_Color1", "forest/Tree_2_E_Color1", "forest/Tree_3_A_Color1", "forest/Tree_4_A_Color1", "forest/Tree_4_B_Color1"],
-      "count": 520, "minRadius": 26, "maxRadius": 150, "clearance": 12, "pathClearance": 5,
-      "scale": [1.1, 1.8], "snow": 1, "collider": "trunk", "seed": 7, "chunk": 100, "sway": 1
-    },
-    {
-      "models": ["forest/Tree_Bare_1_A_Color1", "forest/Tree_Bare_1_B_Color1", "forest/Tree_Bare_2_A_Color1", "forest/Tree_Bare_2_B_Color1"],
-      "count": 60, "minRadius": 24, "maxRadius": 140, "clearance": 10, "pathClearance": 4,
-      "scale": [1.3, 2], "snow": 1, "collider": "trunk", "seed": 11, "sway": 0.5
-    },
-    {
-      "models": ["forest/Rock_1_A_Color1", "forest/Rock_1_D_Color1", "forest/Rock_2_A_Color1", "forest/Rock_2_C_Color1", "forest/Rock_3_A_Color1", "forest/Rock_3_E_Color1"],
-      "count": 140, "minRadius": 20, "maxRadius": 145, "clearance": 9, "pathClearance": 3,
-      "scale": [1.2, 3], "snow": 1, "collider": "box", "seed": 3
-    },
-    {
-      "models": ["forest/Bush_1_A_Color1", "forest/Bush_2_A_Color1", "forest/Bush_3_A_Color1", "forest/Bush_4_A_Color1"],
-      "count": 160, "minRadius": 20, "maxRadius": 145, "clearance": 8, "pathClearance": 3,
-      "scale": [1, 1.8], "snow": 1, "seed": 5, "sway": 5
-    }
-  ],
-  "props": [
-    { "model": "holiday/christmas_tree_decorated", "at": [[0, 0, 0]], "scale": 3.4, "collider": "trunk" },
-    { "model": "holiday/christmas_tree_base", "at": [[0, 0, 0]], "scale": 3.4 },
-    { "model": "holiday/present_A_red", "at": [[3.6, 0, 3], [-4, 0, 1.5], [1, 0, -4.4]], "scale": 1.6, "randomRotY": true, "collider": "box" },
-    { "model": "holiday/present_B_green", "at": [[-2.6, 0, 3.8], [4.2, 0, -2]], "scale": 1.6, "randomRotY": true, "collider": "box" },
-    { "model": "holiday/present_C_yellow", "at": [[0.5, 0, 4.6], [-3.6, 0, -3]], "scale": 1.6, "randomRotY": true, "collider": "box" },
-    { "model": "holiday/present_sphere_A_blue", "at": [[2.8, 0, -3.6], [-4.6, 0, -0.8]], "scale": 1.6, "collider": "box" },
-    { "model": "holiday/lantern_decorated", "at": [[11, 0, 11], [-11, 0, 11], [11, 0, -11], [-11, 0, -11], [3.5, 0, 26], [-3.5, 0, 40], [3.5, 0, -30], [-3.5, 0, -48]], "scale": 1.1, "light": "#ffb35a", "collider": "trunk" },
-    { "model": "holiday/footstool_red", "at": [[8, 0, 4], [-8, 0, 4], [8, 0, -4], [-8, 0, -4]], "scale": 1.6, "rotY": [1.57, -1.57, 1.57, -1.57], "collider": "box" },
-    { "model": "holiday/snowman_A", "at": [[9, 0, 16], [-14, 0, -6]], "scale": 1, "rotY": [0.4, 2.1], "collider": "box" },
-    { "model": "holiday/snowman_B", "at": [[-10, 0, 18], [14, 0, -8], [10, 0, 62], [-12, 0, 64]], "scale": 1, "rotY": [-0.4, 3.6, -0.6, 0.6], "collider": "box" },
-    { "model": "holiday/gingerbread_house_decorated", "at": [[-14, 0, 30], [14, 0, 30], [-14, 0, -30], [14, 0, -30], [-24, 0, 44], [24, 0, 44]], "scale": 4.2, "rotY": [1.57, -1.57, 1.57, -1.57, 1.2, -1.2], "collider": "box", "snow": 0.7 },
-    { "model": "holiday/gingerbread_house", "at": [[-26, 0, 18], [26, 0, 18], [-24, 0, -18], [24, 0, -18]], "scale": 4, "rotY": [1.2, -1.2, 1.9, -1.9], "collider": "box", "snow": 0.7 },
-
-    { "model": "holiday/gingerbread_house_decorated", "at": [[-60, 0, 38]], "scale": 6.5, "rotY": [0.9], "collider": "box", "snow": 0.6 },
-    { "model": "restaurant/crate_carrots", "at": [[-52, 0, 40], [-53.5, 0, 41]], "scale": 1.6, "randomRotY": true, "collider": "box" },
-    { "model": "holiday/hot_chocolate_decorated", "at": [[-50, 0.1, 27]], "scale": 3 },
-    { "model": "restaurant/table_round_A_decorated", "at": [[-44, 0, 27]], "scale": 1.6, "collider": "box" },
-
-    { "model": "holiday/tracks_straight", "line": { "from": [-24, 0, -82], "to": [24, 0, -82], "step": 3 }, "scale": 3, "rotY": [1.5708] },
-    { "model": "holiday/tracks_straight_station", "at": [[0, 0, -82]], "scale": 3, "rotY": [1.5708] },
-    { "model": "holiday/train_locomotive", "at": [[6, 0, -82]], "scale": 3, "rotY": [1.5708], "collider": "box" },
-    { "model": "holiday/train_tender_coal", "at": [[2.8, 0, -82]], "scale": 3, "rotY": [1.5708], "collider": "box" },
-    { "model": "holiday/train_tender_presents_A", "at": [[-0.4, 0, -82]], "scale": 3, "rotY": [1.5708], "collider": "box" },
-    { "model": "holiday/train_tender_presents_B", "at": [[-3.6, 0, -82]], "scale": 3, "rotY": [1.5708], "collider": "box" },
-    { "model": "holiday/train_wagon", "at": [[-6.8, 0, -82]], "scale": 3, "rotY": [1.5708], "collider": "box" },
-    { "model": "holiday/lantern", "at": [[-8, 0, -76], [8, 0, -76]], "scale": 1, "light": "#ffb35a", "collider": "trunk" },
-
-    { "model": "dungeon/floor_wood_large", "at": [[56, 0.05, -42], [60, 0.05, -42], [56, 0.05, -46], [60, 0.05, -46]], "scale": 1 },
-    { "model": "rpg_tools/anvil", "at": [[55, 0, -43]], "scale": 3, "rotY": [0.4], "collider": "box" },
-    { "model": "dungeon/table_long_decorated_A", "at": [[60, 0, -45]], "scale": 1.1, "rotY": [0], "collider": "box" },
-    { "model": "resources/Wood_Log_Stack", "at": [[63, 0, -40]], "scale": 2.5, "rotY": [1.2], "collider": "box" },
-    { "model": "resources/Wood_Planks_Stack_Large", "at": [[52, 0, -47]], "scale": 2.5, "rotY": [0.3], "collider": "box" },
-    { "model": "resources/Textiles_Stack_Large_Colored", "at": [[63, 0, -46]], "scale": 2.5, "collider": "box" },
-    { "model": "resources/Iron_Bars_Stack_Large", "at": [[52, 0, -41]], "scale": 2.5, "collider": "box" },
-    { "model": "dungeon/banner_patternA_red", "at": [[58, 0, -48.5]], "scale": 1.2 },
-
-    { "model": "dungeon/wall_doorway", "at": [[-57, 0, -44]], "scale": 1.2, "rotY": [0.7], "snow": 1 },
-    { "model": "dungeon/wall", "at": [[-60.6, 0, -40.9], [-53.4, 0, -47.1]], "scale": 1.2, "rotY": [0.7, 0.7], "collider": "box", "snow": 1 },
-    { "model": "dungeon/torch_mounted", "at": [[-54.8, 1.0, -45.4], [-59.2, 1.0, -41.6]], "scale": 1.2, "rotY": [0.7, 0.7], "light": "#ff7a2e" },
-    { "model": "dungeon/barrel_large", "at": [[-50, 0, -44], [-51.5, 0, -46]], "scale": 1.2, "collider": "trunk", "snow": 1 },
-    { "model": "dungeon/banner_red", "at": [[-57.6, 0, -44.6]], "scale": 1.2, "rotY": [0.7] },
-
-    { "model": "dungeon/pillar", "at": [[52, 0, 37], [60, 0, 37], [52, 0, 45], [60, 0, 45]], "scale": 1.2, "collider": "trunk", "snow": 1 },
-    { "model": "dungeon/table_medium_tablecloth", "at": [[56, 0, 41]], "scale": 1.3, "collider": "box" },
-    { "model": "dungeon/chair", "at": [[53.6, 0, 41], [58.4, 0, 41]], "scale": 1.3, "rotY": [1.57, -1.57] },
-    { "model": "boardgame/D6_A_red", "at": [[55.6, 1.32, 40.6]], "scale": 1.2, "rotY": [0.6] },
-    { "model": "boardgame/pawn_A_blue", "at": [[56.6, 1.32, 41.4]], "scale": 1.2 },
-    { "model": "boardgame/flag_A_red", "at": [[52, 0, 37]], "scale": 3 }
-  ]
+ "half": 225,
+ "spawn": [
+  0,
+  0,
+  16
+ ],
+ "lake": {
+  "x": 0,
+  "z": 117,
+  "r": 26
+ },
+ "flats": [
+  {
+   "x": 0,
+   "z": 0,
+   "r": 20
+  },
+  {
+   "x": -82.5,
+   "z": 52.5,
+   "r": 14
+  },
+  {
+   "x": 82.5,
+   "z": 52.5,
+   "r": 14
+  },
+  {
+   "x": -82.5,
+   "z": -60.0,
+   "r": 14
+  },
+  {
+   "x": 82.5,
+   "z": -60.0,
+   "r": 14
+  },
+  {
+   "x": 0.0,
+   "z": -120.0,
+   "r": 18
+  }
+ ],
+ "zones": [
+  {
+   "id": "snowball-showdown",
+   "position": [
+    0.0,
+    0,
+    90.0
+   ],
+   "radius": 4
+  },
+  {
+   "id": "gingerbread-bakery",
+   "position": [
+    -72.0,
+    0,
+    48.0
+   ],
+   "radius": 4
+  },
+  {
+   "id": "santas-express",
+   "position": [
+    0.0,
+    0,
+    -105.0
+   ],
+   "radius": 4
+  },
+  {
+   "id": "elf-workshop",
+   "position": [
+    72.0,
+    0,
+    -54.0
+   ],
+   "radius": 4
+  },
+  {
+   "id": "krampus-cellar",
+   "position": [
+    -73.5,
+    0,
+    -55.5
+   ],
+   "radius": 4
+  },
+  {
+   "id": "advent-dice-race",
+   "position": [
+    72.0,
+    0,
+    48.0
+   ],
+   "radius": 4
+  }
+ ],
+ "scatter": [
+  {
+   "models": [
+    "forest/Tree_1_A_Color1",
+    "forest/Tree_2_A_Color1",
+    "forest/Tree_2_B_Color1",
+    "forest/Tree_2_C_Color1",
+    "forest/Tree_4_A_Color1",
+    "forest/Tree_4_B_Color1"
+   ],
+   "count": 230,
+   "minRadius": 30,
+   "maxRadius": 225,
+   "clearance": 16,
+   "pathClearance": 9,
+   "scale": [
+    1.1,
+    1.8
+   ],
+   "snow": 1,
+   "collider": "trunk",
+   "seed": 7,
+   "chunk": 150,
+   "sway": 1,
+   "shadow": "high"
+  },
+  {
+   "models": [
+    "forest/Tree_Bare_1_A_Color1",
+    "forest/Tree_Bare_1_B_Color1",
+    "forest/Tree_Bare_2_A_Color1",
+    "forest/Tree_Bare_2_B_Color1"
+   ],
+   "count": 30,
+   "minRadius": 28,
+   "maxRadius": 215,
+   "clearance": 16,
+   "pathClearance": 9,
+   "scale": [
+    1.3,
+    2
+   ],
+   "snow": 1,
+   "collider": "trunk",
+   "seed": 11,
+   "sway": 0.5,
+   "shadow": "high"
+  },
+  {
+   "models": [
+    "forest/Rock_1_A_Color1",
+    "forest/Rock_1_D_Color1",
+    "forest/Rock_2_A_Color1",
+    "forest/Rock_2_C_Color1",
+    "forest/Rock_3_A_Color1",
+    "forest/Rock_3_E_Color1"
+   ],
+   "count": 80,
+   "minRadius": 24,
+   "maxRadius": 220,
+   "clearance": 12,
+   "pathClearance": 6,
+   "scale": [
+    1.2,
+    3
+   ],
+   "snow": 1,
+   "collider": "box",
+   "seed": 3,
+   "shadow": false
+  },
+  {
+   "models": [
+    "forest/Bush_1_A_Color1",
+    "forest/Bush_2_A_Color1",
+    "forest/Bush_3_A_Color1",
+    "forest/Bush_4_A_Color1"
+   ],
+   "count": 90,
+   "minRadius": 22,
+   "maxRadius": 220,
+   "clearance": 12,
+   "pathClearance": 6,
+   "scale": [
+    1,
+    1.8
+   ],
+   "snow": 1,
+   "seed": 5,
+   "sway": 5,
+   "shadow": false
+  }
+ ],
+ "props": [
+  {
+   "model": "holiday/christmas_tree_decorated",
+   "at": [
+    [
+     0,
+     0,
+     0
+    ]
+   ],
+   "scale": 3.4,
+   "collider": "trunk"
+  },
+  {
+   "model": "holiday/christmas_tree_base",
+   "at": [
+    [
+     0,
+     0,
+     0
+    ]
+   ],
+   "scale": 3.4
+  },
+  {
+   "model": "holiday/present_A_red",
+   "at": [
+    [
+     3.6,
+     0,
+     3
+    ],
+    [
+     -4,
+     0,
+     1.5
+    ],
+    [
+     1,
+     0,
+     -4.4
+    ]
+   ],
+   "scale": 1.6,
+   "randomRotY": true,
+   "collider": "box"
+  },
+  {
+   "model": "holiday/present_B_green",
+   "at": [
+    [
+     -2.6,
+     0,
+     3.8
+    ],
+    [
+     4.2,
+     0,
+     -2
+    ]
+   ],
+   "scale": 1.6,
+   "randomRotY": true,
+   "collider": "box"
+  },
+  {
+   "model": "holiday/present_C_yellow",
+   "at": [
+    [
+     0.5,
+     0,
+     4.6
+    ],
+    [
+     -3.6,
+     0,
+     -3
+    ]
+   ],
+   "scale": 1.6,
+   "randomRotY": true,
+   "collider": "box"
+  },
+  {
+   "model": "holiday/present_sphere_A_blue",
+   "at": [
+    [
+     2.8,
+     0,
+     -3.6
+    ],
+    [
+     -4.6,
+     0,
+     -0.8
+    ]
+   ],
+   "scale": 1.6,
+   "collider": "box"
+  },
+  {
+   "model": "holiday/footstool_red",
+   "at": [
+    [
+     8,
+     0,
+     4
+    ],
+    [
+     -8,
+     0,
+     4
+    ],
+    [
+     8,
+     0,
+     -4
+    ],
+    [
+     -8,
+     0,
+     -4
+    ]
+   ],
+   "scale": 1.6,
+   "rotY": [
+    1.57,
+    -1.57,
+    1.57,
+    -1.57
+   ],
+   "collider": "box"
+  },
+  {
+   "model": "holiday/snowman_A",
+   "at": [
+    [
+     10,
+     0,
+     22
+    ],
+    [
+     -21,
+     0,
+     -8
+    ]
+   ],
+   "scale": 1,
+   "rotY": [
+    0.4,
+    2.1
+   ],
+   "collider": "box"
+  },
+  {
+   "model": "holiday/snowman_B",
+   "at": [
+    [
+     -11,
+     0,
+     23
+    ],
+    [
+     22,
+     0,
+     -9
+    ],
+    [
+     10.0,
+     0,
+     92.0
+    ],
+    [
+     -12.0,
+     0,
+     94.0
+    ]
+   ],
+   "scale": 1,
+   "rotY": [
+    -0.4,
+    3.6,
+    -0.6,
+    0.6
+   ],
+   "collider": "box"
+  },
+  {
+   "model": "holiday/gingerbread_house_decorated",
+   "at": [
+    [
+     -84.0,
+     0,
+     54.0
+    ]
+   ],
+   "scale": 6.5,
+   "rotY": [
+    0.9
+   ],
+   "collider": "box",
+   "snow": 0.6
+  },
+  {
+   "model": "restaurant/crate_carrots",
+   "at": [
+    [
+     -76.0,
+     0,
+     56.0
+    ],
+    [
+     -77.5,
+     0,
+     57.0
+    ]
+   ],
+   "scale": 1.6,
+   "randomRotY": true,
+   "collider": "box"
+  },
+  {
+   "model": "holiday/hot_chocolate_decorated",
+   "at": [
+    [
+     -79,
+     1.7,
+     42
+    ]
+   ],
+   "scale": 3
+  },
+  {
+   "model": "restaurant/table_round_A_decorated",
+   "at": [
+    [
+     -79,
+     0,
+     42
+    ]
+   ],
+   "scale": 1.6,
+   "collider": "box"
+  },
+  {
+   "model": "holiday/tracks_straight",
+   "line": {
+    "from": [
+     -24,
+     0,
+     -117.0
+    ],
+    "to": [
+     24,
+     0,
+     -117.0
+    ],
+    "step": 3
+   },
+   "scale": 3,
+   "rotY": [
+    1.5708
+   ]
+  },
+  {
+   "model": "holiday/tracks_straight_station",
+   "at": [
+    [
+     0.0,
+     0,
+     -117.0
+    ]
+   ],
+   "scale": 3,
+   "rotY": [
+    1.5708
+   ]
+  },
+  {
+   "model": "holiday/train_locomotive",
+   "at": [
+    [
+     6.0,
+     0,
+     -117.0
+    ]
+   ],
+   "scale": 3,
+   "rotY": [
+    1.5708
+   ],
+   "collider": "box"
+  },
+  {
+   "model": "holiday/train_tender_coal",
+   "at": [
+    [
+     2.8,
+     0,
+     -117.0
+    ]
+   ],
+   "scale": 3,
+   "rotY": [
+    1.5708
+   ],
+   "collider": "box"
+  },
+  {
+   "model": "holiday/train_tender_presents_A",
+   "at": [
+    [
+     -0.4,
+     0,
+     -117.0
+    ]
+   ],
+   "scale": 3,
+   "rotY": [
+    1.5708
+   ],
+   "collider": "box"
+  },
+  {
+   "model": "holiday/train_tender_presents_B",
+   "at": [
+    [
+     -3.6,
+     0,
+     -117.0
+    ]
+   ],
+   "scale": 3,
+   "rotY": [
+    1.5708
+   ],
+   "collider": "box"
+  },
+  {
+   "model": "holiday/train_wagon",
+   "at": [
+    [
+     -6.8,
+     0,
+     -117.0
+    ]
+   ],
+   "scale": 3,
+   "rotY": [
+    1.5708
+   ],
+   "collider": "box"
+  },
+  {
+   "model": "holiday/lantern",
+   "at": [
+    [
+     -8.0,
+     0,
+     -111.0
+    ],
+    [
+     8.0,
+     0,
+     -111.0
+    ]
+   ],
+   "scale": 1,
+   "light": "#ffb35a",
+   "collider": "trunk"
+  },
+  {
+   "model": "dungeon/floor_wood_large",
+   "at": [
+    [
+     80.0,
+     0.05,
+     -60.0
+    ],
+    [
+     84.0,
+     0.05,
+     -60.0
+    ],
+    [
+     80.0,
+     0.05,
+     -64.0
+    ],
+    [
+     84.0,
+     0.05,
+     -64.0
+    ]
+   ],
+   "scale": 1
+  },
+  {
+   "model": "rpg_tools/anvil",
+   "at": [
+    [
+     79.0,
+     0,
+     -61.0
+    ]
+   ],
+   "scale": 3,
+   "rotY": [
+    0.4
+   ],
+   "collider": "box"
+  },
+  {
+   "model": "dungeon/table_long_decorated_A",
+   "at": [
+    [
+     84.0,
+     0,
+     -63.0
+    ]
+   ],
+   "scale": 1.1,
+   "rotY": [
+    0
+   ],
+   "collider": "box"
+  },
+  {
+   "model": "resources/Wood_Log_Stack",
+   "at": [
+    [
+     87.0,
+     0,
+     -58.0
+    ]
+   ],
+   "scale": 2.5,
+   "rotY": [
+    1.2
+   ],
+   "collider": "box"
+  },
+  {
+   "model": "resources/Wood_Planks_Stack_Large",
+   "at": [
+    [
+     76.0,
+     0,
+     -65.0
+    ]
+   ],
+   "scale": 2.5,
+   "rotY": [
+    0.3
+   ],
+   "collider": "box"
+  },
+  {
+   "model": "resources/Textiles_Stack_Large_Colored",
+   "at": [
+    [
+     87.0,
+     0,
+     -64.0
+    ]
+   ],
+   "scale": 2.5,
+   "collider": "box"
+  },
+  {
+   "model": "resources/Iron_Bars_Stack_Large",
+   "at": [
+    [
+     76.0,
+     0,
+     -59.0
+    ]
+   ],
+   "scale": 2.5,
+   "collider": "box"
+  },
+  {
+   "model": "dungeon/banner_patternA_red",
+   "at": [
+    [
+     82.0,
+     0,
+     -66.5
+    ]
+   ],
+   "scale": 1.2
+  },
+  {
+   "model": "dungeon/wall_doorway",
+   "at": [
+    [
+     -81.5,
+     0,
+     -62.5
+    ]
+   ],
+   "scale": 1.2,
+   "rotY": [
+    0.7
+   ],
+   "snow": 1
+  },
+  {
+   "model": "dungeon/wall",
+   "at": [
+    [
+     -85.1,
+     0,
+     -59.4
+    ],
+    [
+     -77.9,
+     0,
+     -65.6
+    ]
+   ],
+   "scale": 1.2,
+   "rotY": [
+    0.7,
+    0.7
+   ],
+   "collider": "box",
+   "snow": 1
+  },
+  {
+   "model": "dungeon/torch_mounted",
+   "at": [
+    [
+     -79.3,
+     1.0,
+     -63.9
+    ],
+    [
+     -83.7,
+     1.0,
+     -60.1
+    ]
+   ],
+   "scale": 1.2,
+   "rotY": [
+    0.7,
+    0.7
+   ],
+   "light": "#ff7a2e"
+  },
+  {
+   "model": "dungeon/barrel_large",
+   "at": [
+    [
+     -74.5,
+     0,
+     -62.5
+    ],
+    [
+     -76.0,
+     0,
+     -64.5
+    ]
+   ],
+   "scale": 1.2,
+   "collider": "trunk",
+   "snow": 1
+  },
+  {
+   "model": "dungeon/banner_red",
+   "at": [
+    [
+     -82.1,
+     0,
+     -63.1
+    ]
+   ],
+   "scale": 1.2,
+   "rotY": [
+    0.7
+   ]
+  },
+  {
+   "model": "dungeon/pillar",
+   "at": [
+    [
+     76.0,
+     0,
+     53.0
+    ],
+    [
+     84.0,
+     0,
+     53.0
+    ],
+    [
+     76.0,
+     0,
+     61.0
+    ],
+    [
+     84.0,
+     0,
+     61.0
+    ]
+   ],
+   "scale": 1.2,
+   "collider": "trunk",
+   "snow": 1
+  },
+  {
+   "model": "dungeon/table_medium_tablecloth",
+   "at": [
+    [
+     80.0,
+     0,
+     57.0
+    ]
+   ],
+   "scale": 1.3,
+   "collider": "box"
+  },
+  {
+   "model": "dungeon/chair",
+   "at": [
+    [
+     77.6,
+     0,
+     57.0
+    ],
+    [
+     82.4,
+     0,
+     57.0
+    ]
+   ],
+   "scale": 1.3,
+   "rotY": [
+    1.57,
+    -1.57
+   ]
+  },
+  {
+   "model": "boardgame/D6_A_red",
+   "at": [
+    [
+     79.6,
+     1.32,
+     56.6
+    ]
+   ],
+   "scale": 1.2,
+   "rotY": [
+    0.6
+   ]
+  },
+  {
+   "model": "boardgame/pawn_A_blue",
+   "at": [
+    [
+     80.6,
+     1.32,
+     57.4
+    ]
+   ],
+   "scale": 1.2
+  },
+  {
+   "model": "boardgame/flag_A_red",
+   "at": [
+    [
+     76.0,
+     0,
+     53.0
+    ]
+   ],
+   "scale": 3
+  },
+  {
+   "model": "holiday/gingerbread_house_decorated",
+   "at": [
+    [
+     -9.0,
+     0,
+     42.5
+    ],
+    [
+     -11.7,
+     0,
+     59.4
+    ],
+    [
+     -11.6,
+     0,
+     -25.3
+    ],
+    [
+     10.7,
+     0,
+     -59.7
+    ],
+    [
+     13.0,
+     0,
+     -78.1
+    ],
+    [
+     -29.2,
+     0,
+     22.4
+    ],
+    [
+     -47.2,
+     0,
+     26.5
+    ],
+    [
+     13.5,
+     0,
+     20.5
+    ],
+    [
+     32.2,
+     0,
+     22.6
+    ],
+    [
+     51.4,
+     0,
+     27.5
+    ],
+    [
+     -32.8,
+     0,
+     -27.3
+    ],
+    [
+     -49.8,
+     0,
+     -32.7
+    ],
+    [
+     26.9,
+     0,
+     -26.1
+    ],
+    [
+     43.2,
+     0,
+     -31.3
+    ],
+    [
+     60.2,
+     0,
+     -37.8
+    ]
+   ],
+   "scale": 4.2,
+   "rotY": [
+    1.42,
+    1.41,
+    1.75,
+    -1.7,
+    -1.56,
+    0.22,
+    0.32,
+    -0.05,
+    -0.22,
+    -0.46,
+    2.83,
+    2.75,
+    -2.83,
+    -2.83,
+    -2.75
+   ],
+   "collider": "box",
+   "snow": 0.7
+  },
+  {
+   "model": "holiday/gingerbread_house",
+   "at": [
+    [
+     10.8,
+     0,
+     45.5
+    ],
+    [
+     8.0,
+     0,
+     62.6
+    ],
+    [
+     -11.5,
+     0,
+     -45.4
+    ],
+    [
+     -9.1,
+     0,
+     -62.3
+    ],
+    [
+     -7.0,
+     0,
+     -77.9
+    ],
+    [
+     -24.8,
+     0,
+     41.9
+    ],
+    [
+     -40.8,
+     0,
+     45.5
+    ],
+    [
+     27.8,
+     0,
+     42.1
+    ],
+    [
+     42.4,
+     0,
+     45.4
+    ],
+    [
+     -26.7,
+     0,
+     -46.4
+    ],
+    [
+     -42.2,
+     0,
+     -51.3
+    ],
+    [
+     7.4,
+     0,
+     -24.4
+    ],
+    [
+     20.9,
+     0,
+     -45.1
+    ],
+    [
+     37.1,
+     0,
+     -50.3
+    ],
+    [
+     52.6,
+     0,
+     -56.3
+    ]
+   ],
+   "scale": 4,
+   "rotY": [
+    -1.72,
+    -1.74,
+    1.43,
+    1.44,
+    1.58,
+    -2.92,
+    -2.82,
+    2.92,
+    2.68,
+    -0.31,
+    -0.39,
+    -3.1,
+    0.31,
+    0.31,
+    0.39
+   ],
+   "collider": "box",
+   "snow": 0.7
+  }
+ ],
+ "roads": [
+  {
+   "to": "snowball-showdown",
+   "houses": true,
+   "points": [
+    [
+     0,
+     17
+    ],
+    [
+     3,
+     30
+    ],
+    [
+     0,
+     50
+    ],
+    [
+     -3,
+     68
+    ],
+    [
+     0,
+     84
+    ]
+   ]
+  },
+  {
+   "to": "santas-express",
+   "houses": true,
+   "points": [
+    [
+     0,
+     -17
+    ],
+    [
+     -3,
+     -34
+    ],
+    [
+     0,
+     -55
+    ],
+    [
+     3,
+     -78
+    ],
+    [
+     0,
+     -98
+    ]
+   ]
+  },
+  {
+   "to": "gingerbread-bakery",
+   "houses": true,
+   "points": [
+    [
+     0,
+     30
+    ],
+    [
+     -22,
+     31
+    ],
+    [
+     -44,
+     36
+    ],
+    [
+     -66,
+     46
+    ]
+   ]
+  },
+  {
+   "to": "advent-dice-race",
+   "houses": true,
+   "points": [
+    [
+     3,
+     30
+    ],
+    [
+     24,
+     31
+    ],
+    [
+     46,
+     36
+    ],
+    [
+     66,
+     46
+    ]
+   ]
+  },
+  {
+   "to": "krampus-cellar",
+   "houses": true,
+   "points": [
+    [
+     -3,
+     -34
+    ],
+    [
+     -24,
+     -35
+    ],
+    [
+     -46,
+     -42
+    ],
+    [
+     -68,
+     -53
+    ]
+   ]
+  },
+  {
+   "to": "elf-workshop",
+   "houses": true,
+   "points": [
+    [
+     -3,
+     -34
+    ],
+    [
+     22,
+     -35
+    ],
+    [
+     44,
+     -42
+    ],
+    [
+     66,
+     -51
+    ]
+   ]
+  },
+  {
+   "points": [
+    [
+     -66,
+     46
+    ],
+    [
+     -84,
+     22
+    ],
+    [
+     -88,
+     -10
+    ],
+    [
+     -80,
+     -40
+    ],
+    [
+     -68,
+     -53
+    ]
+   ]
+  },
+  {
+   "points": [
+    [
+     66,
+     46
+    ],
+    [
+     84,
+     22
+    ],
+    [
+     88,
+     -10
+    ],
+    [
+     80,
+     -40
+    ],
+    [
+     66,
+     -51
+    ]
+   ]
+  },
+  {
+   "points": [
+    [
+     -66,
+     46
+    ],
+    [
+     -40,
+     70
+    ],
+    [
+     -14,
+     86
+    ],
+    [
+     0,
+     84
+    ],
+    [
+     14,
+     86
+    ],
+    [
+     40,
+     70
+    ],
+    [
+     66,
+     46
+    ]
+   ]
+  },
+  {
+   "loop": true,
+   "points": [
+    [
+     15.0,
+     0.0
+    ],
+    [
+     12.99038105676658,
+     7.499999999999999
+    ],
+    [
+     7.500000000000002,
+     12.990381056766578
+    ],
+    [
+     9.18485099360515e-16,
+     15.0
+    ],
+    [
+     -7.4999999999999964,
+     12.99038105676658
+    ],
+    [
+     -12.99038105676658,
+     7.499999999999999
+    ],
+    [
+     -15.0,
+     1.83697019872103e-15
+    ],
+    [
+     -12.990381056766582,
+     -7.499999999999996
+    ],
+    [
+     -7.500000000000007,
+     -12.990381056766577
+    ],
+    [
+     -2.7554552980815444e-15,
+     -15.0
+    ],
+    [
+     7.500000000000002,
+     -12.990381056766578
+    ],
+    [
+     12.990381056766577,
+     -7.500000000000007
+    ]
+   ]
+  }
+ ]
 }
