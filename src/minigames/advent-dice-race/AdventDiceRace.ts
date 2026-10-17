@@ -5,6 +5,7 @@ import { Physics, RAPIER } from '../../core/Physics';
 import { Burst } from '../../vfx/Burst';
 import { Snowfall } from '../../vfx/Snowfall';
 import { Lighting } from '../../world/Lighting';
+import { createSnowGroundMaterial, setWorldUvs } from '../../world/SnowGround';
 import type { MiniGame, MiniGameContext, MiniGameResult } from '../MiniGame';
 
 /** Squares 0..23 run round the edge of a 7×7 grid; 23 is the finish. */
@@ -105,7 +106,9 @@ export class AdventDiceRace implements MiniGame {
 
     // Snowy ground, a wooden table and the board.
     const add = <T extends THREE.BufferGeometry | THREE.Material>(x: T) => (this.owned.push(x), x);
-    const ground = new THREE.Mesh(add(new THREE.PlaneGeometry(200, 200).rotateX(-Math.PI / 2)), add(new THREE.MeshStandardMaterial({ color: '#eef4fc', roughness: 0.95 })));
+    const groundGeo = add(new THREE.PlaneGeometry(200, 200).rotateX(-Math.PI / 2));
+    setWorldUvs(groundGeo);
+    const ground = new THREE.Mesh(groundGeo, add(await createSnowGroundMaterial()));
     ground.position.y = -1.6;
     ground.receiveShadow = true;
     const wood = add(new THREE.MeshStandardMaterial({ color: '#7a4a2b', roughness: 0.8 }));

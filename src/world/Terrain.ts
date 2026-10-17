@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { RAPIER } from '../core/Physics';
+import { setWorldUvs } from './SnowGround';
 
 export interface FlatSpot {
   x: number;
@@ -62,6 +63,8 @@ export class Terrain {
     }
     geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     geo.computeVertexNormals();
+    setWorldUvs(geo);
+    // Placeholder until World swaps in the textured snow material.
     const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0 });
     this.mesh = new THREE.Mesh(geo, mat);
     this.mesh.receiveShadow = true;

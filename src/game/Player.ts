@@ -28,6 +28,19 @@ export class Player {
   private grounded = true;
   private facing = 0;
   private oneShot = false;
+  private airTime = 0;
+  /** Last finite body position, restored if the physics ever hands back NaN. */
+  private safe = { x: 0, y: 2, z: 0 };
+  /** Grounded with a little "coyote time", so tiny bumps don't count as leaving the ground. */
+  get isGrounded() {
+    return this.airTime < 0.2;
+  }
+
+  /** Which way the character faces (radians about Y). */
+  get facingAngle() {
+    return this.facing;
+  }
+
   /** Horizontal speed this frame, used by the camera for a little FOV kick. */
   speed = 0;
 
@@ -65,6 +78,8 @@ export class Player {
     this.controller.setMinSlopeSlideAngle((40 * Math.PI) / 180);
     this.controller.enableAutostep(0.5, 0.2, true);
     this.controller.enableSnapToGround(0.6);
+    const t = this.body.translation();
+    this.safe = { x: t.x, y: t.y, z: t.z };
     this.syncObject();
   }
 
@@ -76,6 +91,7 @@ export class Player {
     this.body.setNextKinematicTranslation({ x: p.x, y: p.y + HALF_HEIGHT + RADIUS + 0.1, z: p.z });
     this.body.setTranslation({ x: p.x, y: p.y + HALF_HEIGHT + RADIUS + 0.1, z: p.z }, true);
     this.velocityY = 0;
+    this.safe = { x: p.x, y: p.y + HALF_HEIGHT + RADIUS + 0.1, z: p.z };
     this.syncObject();
   }
 
@@ -121,9 +137,19 @@ export class Player {
     this.controller.computeColliderMovement(this.collider, desired);
     const m = this.controller.computedMovement();
     const t = this.body.translation();
+    if (!Number.isFinite(m.x + m.y + m.z + t.x + t.y + t.z)) {
+      // Degenerate contact (e.g. spawned inside a collider): drop this step and go back to the last good spot.
+      this.body.setTranslation(this.safe, true);
+      this.body.setNextKinematicTranslation(this.safe);
+      this.velocityY = 0;
+      this.mixer.update(dt);
+      return;
+    }
+    this.safe = { x: t.x, y: t.y, z: t.z };
     this.body.setNextKinematicTranslation({ x: t.x + m.x, y: t.y + m.y, z: t.z + m.z });
     const wasGrounded = this.grounded;
     this.grounded = this.controller.computedGrounded();
+    this.airTime = this.grounded ? 0 : this.airTime + dt;
     if (this.grounded && this.velocityY < 0) this.velocityY = -1;
     this.speed = Math.hypot(m.x, m.z) / Math.max(dt, 1e-4);
 

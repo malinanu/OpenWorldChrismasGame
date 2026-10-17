@@ -9,6 +9,7 @@ import { canFullscreen, setFullscreen, type Hud } from '../ui/hud';
 import type { TouchControls } from '../ui/touch';
 import { Burst } from '../vfx/Burst';
 import { Snowfall } from '../vfx/Snowfall';
+import { SnowTrail } from '../vfx/SnowTrail';
 import { World } from '../world/World';
 import { FollowCamera } from './FollowCamera';
 import { GameZone } from './GameZone';
@@ -27,6 +28,7 @@ export class Overworld implements OverworldContract {
   readonly cam = new FollowCamera();
   private zones: GameZone[] = [];
   private snow!: Snowfall;
+  private trail!: SnowTrail;
   private fireworks!: Burst;
   private ornaments = new THREE.Group();
   private ornamentMat = new THREE.MeshStandardMaterial({ color: '#ffcc33', emissive: '#a86b00', emissiveIntensity: 0.6, metalness: 0.8, roughness: 0.25 });
@@ -80,7 +82,8 @@ export class Overworld implements OverworldContract {
 
     this.snow = new Snowfall(snowflake, q.snow);
     this.fireworks = new Burst(sparkle, 1500, true, -5);
-    this.world.scene.add(this.snow.points, this.fireworks.points, this.ornaments);
+    this.trail = new SnowTrail((x, z) => this.world.groundY(x, z));
+    this.world.scene.add(this.snow.points, this.fireworks.points, this.ornaments, this.trail.mesh);
     this.refreshOrnaments();
     this.engine.track(this.cam.camera);
   }
@@ -154,7 +157,17 @@ export class Overworld implements OverworldContract {
     }
     this.world.update(dt, this.player.position, time);
     this.player.syncObject();
-    this.cam.update(dt, active ? input : { look: { x: 0, y: 0 }, wheel: 0 } as Input, this.player.position, this.world.physics.world, this.player.collider, (x, z) => this.world.groundY(x, z), this.player.speed);
+    this.cam.update(
+      dt,
+      active ? input : ({ look: { x: 0, y: 0 }, wheel: 0 } as Input),
+      this.player.position,
+      this.world.physics.world,
+      this.player.collider,
+      (x, z) => this.world.groundY(x, z),
+      active ? this.player.speed : 0,
+      this.player.facingAngle,
+    );
+    this.trail.update(dt, time, this.player.position, this.player.isGrounded);
 
     const pr = this.engine.renderer.getPixelRatio();
     this.snow.update(time, this.cam.camera.position, pr);

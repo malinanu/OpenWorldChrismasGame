@@ -1,22 +1,49 @@
 import * as THREE from 'three';
 
-const cache = new WeakMap<THREE.Material, THREE.Material>();
-export const snowUniforms = { uSnowAmount: { value: 1 } };
+const cache = new WeakMap<THREE.Material, Map<string, THREE.Material>>();
+
+/** Shared by every snowy material. `uSnowTime` drives the wind; main.ts updates it each frame. */
+export const snowUniforms = { uSnowAmount: { value: 1 }, uSnowTime: { value: 0 } };
 
 /**
  * Returns a copy of `mat` that blends towards snow white wherever the world-space
  * normal faces up. Works with InstancedMesh and SkinnedMesh because it reads the
  * final view-space normal from three's `defaultnormal_vertex` chunk.
+ *
+ * `sway` > 0 adds wind: vertices bend with the square of their height, so trunks
+ * stay planted while crowns move. Each instance gets its own phase from its position.
  */
-export function snowify(mat: THREE.Material, strength = 1): THREE.Material {
-  const hit = cache.get(mat);
+export function snowify(mat: THREE.Material, strength = 1, sway = 0): THREE.Material {
+  const key = `${strength}|${sway}`;
+  let variants = cache.get(mat);
+  if (!variants) cache.set(mat, (variants = new Map()));
+  const hit = variants.get(key);
   if (hit) return hit;
+
   const m = mat.clone();
   m.onBeforeCompile = (shader) => {
     shader.uniforms.uSnowAmount = snowUniforms.uSnowAmount;
+    shader.uniforms.uSnowTime = snowUniforms.uSnowTime;
     shader.uniforms.uSnowStrength = { value: strength };
+    shader.uniforms.uSway = { value: sway };
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying float vSnowUp;\nvarying vec3 vSnowWorld;')
+      .replace('#include <common>', '#include <common>\nuniform float uSnowTime;\nuniform float uSway;\nvarying float vSnowUp;\nvarying vec3 vSnowWorld;')
+      .replace(
+        '#include <begin_vertex>',
+        `#include <begin_vertex>
+        if (uSway > 0.0) {
+          vec2 swayPhase = vec2(0.0);
+          #ifdef USE_INSTANCING
+            swayPhase = vec2(instanceMatrix[3].x, instanceMatrix[3].z);
+          #endif
+          float swayH = max(transformed.y, 0.0);
+          float gust = sin(uSnowTime * 1.1 + swayPhase.x * 0.15 + swayPhase.y * 0.11)
+                     + 0.5 * sin(uSnowTime * 2.3 + swayPhase.x * 0.37 - swayPhase.y * 0.21);
+          float bend = gust * swayH * swayH * 0.004 * uSway;
+          transformed.x += bend;
+          transformed.z += bend * 0.6;
+        }`,
+      )
       .replace(
         '#include <defaultnormal_vertex>',
         `#include <defaultnormal_vertex>
@@ -42,7 +69,7 @@ export function snowify(mat: THREE.Material, strength = 1): THREE.Material {
         diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.96, 1.0), snowMask);`,
       );
   };
-  m.customProgramCacheKey = () => `snow-${strength}`;
-  cache.set(mat, m);
+  m.customProgramCacheKey = () => `snow-${strength}-${sway > 0 ? 'sway' : 'still'}`;
+  variants.set(key, m);
   return m;
 }

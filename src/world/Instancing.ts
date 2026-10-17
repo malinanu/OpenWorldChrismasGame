@@ -11,7 +11,7 @@ export interface Placement {
  * Turns one model + N placements into one InstancedMesh per sub-mesh,
  * so a whole forest of the same tree costs a single draw call.
  */
-export function buildInstanced(source: THREE.Object3D, placements: Placement[], snow = 0): THREE.Group {
+export function buildInstanced(source: THREE.Object3D, placements: Placement[], snow = 0, sway = 0): THREE.Group {
   const group = new THREE.Group();
   source.updateMatrixWorld(true);
   const meshes: THREE.Mesh[] = [];
@@ -29,9 +29,9 @@ export function buildInstanced(source: THREE.Object3D, placements: Placement[], 
 
   for (const mesh of meshes) {
     const mat = Array.isArray(mesh.material)
-      ? mesh.material.map((m) => (snow > 0 ? snowify(m, snow) : m))
-      : snow > 0
-        ? snowify(mesh.material, snow)
+      ? mesh.material.map((m) => (snow > 0 || sway > 0 ? snowify(m, snow, sway) : m))
+      : snow > 0 || sway > 0
+        ? snowify(mesh.material, snow, sway)
         : mesh.material;
     const inst = new THREE.InstancedMesh(mesh.geometry, mat, placements.length);
     inst.castShadow = true;

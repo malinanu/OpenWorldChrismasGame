@@ -1,0 +1,5 @@
+Snow 02 by Rob Tuytel — Poly Haven (https://polyhaven.com/a/snow_02)
+License: CC0 1.0 (public domain). Credit not required but appreciated.
+
+Files here were converted from the 1K JPG set to WebP; the diffuse map was
+brightened (v' = 255 - (255 - v) * 0.32) so it reads as fresh snow.

@@ -1,4 +1,5 @@
 import { assets } from './core/AssetLoader';
+import { maybeShowStats } from './core/DebugStats';
 import { Engine } from './core/Engine';
 import { Input, isTouchDevice } from './core/Input';
 import { initPhysics } from './core/Physics';
@@ -6,6 +7,7 @@ import { SceneManager } from './core/SceneManager';
 import { gameState } from './game/GameState';
 import { Overworld } from './game/Overworld';
 import { canFullscreen, Hud, setFullscreen } from './ui/hud';
+import { snowUniforms } from './shaders/snow';
 import { TouchControls } from './ui/touch';
 
 // iOS Safari ignores user-scalable=no; stop pinch-zoom and double-tap zoom from moving the page.
@@ -33,11 +35,14 @@ async function boot() {
   const scenes = new SceneManager(engine, input, hud, overworld);
   overworld.sceneManager = scenes;
 
+  const tickStats = await maybeShowStats(engine.renderer);
   // The village renders behind the title card.
   engine.start((dt, time) => {
     input.beginFrame();
+    snowUniforms.uSnowTime.value = time; // wind for every swaying tree, world or mini-game
     scenes.update(dt, time);
     input.endFrame();
+    tickStats?.();
   });
   hud.hideLoading();
   await hud.showTitle();

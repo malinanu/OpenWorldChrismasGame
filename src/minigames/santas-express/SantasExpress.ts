@@ -5,6 +5,7 @@ import { Burst } from '../../vfx/Burst';
 import { Snowfall } from '../../vfx/Snowfall';
 import { buildInstanced, type Placement } from '../../world/Instancing';
 import { Lighting } from '../../world/Lighting';
+import { createSnowGroundMaterial, setWorldUvs } from '../../world/SnowGround';
 import type { MiniGame, MiniGameContext, MiniGameResult } from '../MiniGame';
 import { LEVELS } from './levels';
 import { DX, DY, parseLevel, rotStates, solve, traceRoute, type Colour, type Dir, type Level, type Outcome, type Tile } from './logic';
@@ -91,7 +92,8 @@ export class SantasExpress implements MiniGame {
     new Lighting(this.scene, this.ctx.engine.settings.shadows).follow(new THREE.Vector3(12, 0, 8));
     this.scene.fog = new THREE.FogExp2('#c6d6ec', 0.01);
     const groundGeo = new THREE.PlaneGeometry(300, 300).rotateX(-Math.PI / 2);
-    const groundMat = new THREE.MeshStandardMaterial({ color: '#eef4fc', roughness: 0.95 });
+    setWorldUvs(groundGeo);
+    const groundMat = await createSnowGroundMaterial();
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.receiveShadow = true;
     this.scene.add(ground, this.board, this.train);

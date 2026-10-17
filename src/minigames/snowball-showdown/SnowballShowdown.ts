@@ -4,6 +4,7 @@ import { haptic } from '../../core/Input';
 import { Physics, RAPIER } from '../../core/Physics';
 import { buildInstanced, modelBounds, type Placement } from '../../world/Instancing';
 import { Lighting } from '../../world/Lighting';
+import { createSnowGroundMaterial, setWorldUvs } from '../../world/SnowGround';
 import { Burst } from '../../vfx/Burst';
 import { Snowfall } from '../../vfx/Snowfall';
 import { starsFor, type MiniGame, type MiniGameContext, type MiniGameResult } from '../MiniGame';
@@ -103,7 +104,8 @@ export class SnowballShowdown implements MiniGame {
 
     // Frozen lake + snowy bank.
     const bankGeo = new THREE.CircleGeometry(160, 48).rotateX(-Math.PI / 2);
-    const bankMat = new THREE.MeshStandardMaterial({ color: '#eef4fc', roughness: 0.95 });
+    setWorldUvs(bankGeo);
+    const bankMat = await createSnowGroundMaterial();
     const iceGeo = new THREE.CircleGeometry(34, 64).rotateX(-Math.PI / 2);
     const iceMat = new THREE.MeshStandardMaterial({ color: '#9fd3f0', roughness: 0.1, metalness: 0.15 });
     this.ownedGeometries.push(bankGeo, iceGeo);

@@ -4,6 +4,7 @@ import { Physics, RAPIER } from '../core/Physics';
 import type { MiniGameId } from '../minigames/MiniGame';
 import { buildInstanced, modelBounds, type Placement } from './Instancing';
 import { Lighting } from './Lighting';
+import { createSnowGroundMaterial } from './SnowGround';
 import { Terrain, type FlatSpot } from './Terrain';
 
 type Vec3 = [number, number, number];
@@ -18,6 +19,8 @@ interface ScatterDef {
   pathClearance: number;
   scale: [number, number];
   snow?: number;
+  /** Wind strength for foliage (0 = still). */
+  sway?: number;
   collider?: ColliderKind;
   seed: number;
   /** Split instances into square chunks of this size so off-screen chunks are culled. */
@@ -91,6 +94,7 @@ export class World {
 
     this.lighting = new Lighting(this.scene, opts.shadowSize);
     this.terrain = new Terrain({ half: d.half, segments: 150, flats: d.flats, paths: d.paths, lake: d.lake });
+    this.terrain.mesh.material = await createSnowGroundMaterial({ vertexColors: true });
     this.scene.add(this.terrain.mesh);
     if (this.terrain.ice) this.scene.add(this.terrain.ice);
     this.terrain.addCollider(this.physics.world);
@@ -153,7 +157,7 @@ export class World {
     await Promise.all(
       [...buckets.values()].map(async ({ model, placements }) => {
         const g = await assets.model(model);
-        this.scene.add(buildInstanced(g.scene, placements, s.snow ?? 0));
+        this.scene.add(buildInstanced(g.scene, placements, s.snow ?? 0, s.sway ?? 0));
         if (s.collider) this.addColliders(g.scene, placements, s.collider);
       }),
     );

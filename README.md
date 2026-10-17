@@ -28,7 +28,11 @@
 | Graphics presets (Fast / Balanced / Pretty) in the pause menu; phones default to Balanced | ✅ |
 | Player: KayKit *Rogue (Hooded)* + idle/walk/run/jump/cheer clips on a Rapier kinematic capsule | ✅ |
 | Orbit-follow camera (pointer lock or touch drag, wheel zoom, pulls in when something blocks the view) | ✅ |
-| Snowy heightmap terrain, trodden paths, frozen lake, rim of hills | ✅ |
+| Snowy heightmap terrain with the Poly Haven *Snow 02* texture (anti-tiling blend), trodden paths, frozen lake, rim of hills | ✅ |
+| Footprints in the snow behind the player (fade after ~1 min) | ✅ |
+| Wind: trees and bushes sway, each with its own phase | ✅ |
+| Camera pulls back when running and swings back behind you after you stop dragging it | ✅ |
+| `?stats` performance overlay (FPS / CPU / GPU) for testing on real devices | ✅ |
 | Instanced, snow-covered forest (~880 trees/rocks/bushes) placed from seeded JSON rules | ✅ |
 | Town square, village street, train station, workshop, cellar entrance, game parlour | ✅ first-pass dressing |
 | Snowfall, zone beacons, lantern glow + pooled point lights | ✅ |
@@ -201,6 +205,7 @@ All ten packs are imported. Only the `.gltf`/`.glb` files (plus their `.bin` buf
 | `characters/` | `KayKit_Adventurers_2.0_FREE` | Barbarian, Knight, Mage, Ranger, Rogue, Rogue (Hooded), rigged on `Rig_Medium` | Player (Rogue Hooded), future NPCs |
 | `animations/` | `KayKit_Character_Animations_1.1` | `Rig_Medium` clips: MovementBasic, General, Simulation, Tools | Player + NPC animation |
 | `textures/vfx/` | `brackeys_vfx_bundle` | 7 hand-picked textures, resized (see [VFX](#-vfx-with-the-brackeys-bundle)) | Snow, sparkles, glow, puffs, fire |
+| `textures/snow/` | Poly Haven [Snow 02](https://polyhaven.com/a/snow_02), 1K | Diffuse (brightened), Normal (GL), packed AO/Rough/Metal, converted to WebP (≈ 475 KB total) | Ground in the world and all mini-games |
 
 > **Corrections to the original plan:** the free Holiday Bits zip has whole gingerbread **houses**, not modular gingerbread walls/floors. The village uses those houses. Of the Character Animations, `CombatMelee`, `CombatRanged`, `Special` and `MovementAdvanced` were left out to save ~3.6 MB; add them back from the zip if a game needs them.
 
@@ -248,6 +253,8 @@ npm run manifest   # list every model id → public/assets/models/manifest.json
 npm run check-levels  # prove every Santa's Express level is solvable, print par
 ```
 
+Add `?stats` to the URL (e.g. `http://192.168.1.20:5173/?stats` on your phone) for a live FPS / CPU / GPU overlay. It's lazy-loaded, so normal players never download it.
+
 A debug handle is exposed as `window.frostvale` (`engine`, `overworld`, `scenes`, `gameState`, `hud`, `input`). For example, `frostvale.scenes.enter('snowball-showdown')` jumps straight into a game, and `localStorage.clear()` resets progress.
 
 ---
@@ -287,12 +294,14 @@ A debug handle is exposed as `window.frostvale` (`engine`, `overworld`, `scenes`
     │   ├── World.ts            # builds world from frostvale.json
     │   ├── Terrain.ts          # heightmap, paths, lake, trimesh collider
     │   ├── Instancing.ts       # InstancedMesh per model
-    │   └── Lighting.ts         # sun, hemisphere, fog, sky dome
+    │   ├── Lighting.ts         # sun, hemisphere, fog, sky dome
+    │   └── SnowGround.ts       # textured snow material + world-space UVs
     ├── vfx/
     │   ├── Snowfall.ts         # camera-following GPU snow
+    │   ├── SnowTrail.ts        # footprint ribbon behind the player
     │   ├── Beacon.ts           # zone sparkle column
     │   └── Burst.ts            # pooled particle bursts (puffs, sparkles, fireworks)
-    ├── shaders/snow.ts         # onBeforeCompile snow-on-top patch
+    ├── shaders/snow.ts         # onBeforeCompile patch: snow on upward faces + wind sway
     ├── minigames/
     │   ├── MiniGame.ts         # contract + star helper
     │   ├── registry.ts         # titles, blurbs, thresholds, lazy factories
@@ -358,6 +367,26 @@ Stored as JSON under `localStorage["frostvale.save.v1"]` (see `src/core/Save.ts`
 Visual meshes are never used for physics: tree trunks and lanterns get cylinders, other props get boxes sized from the model's bounding box, and the terrain is a trimesh built from the same heightmap as the visual. Invisible walls sit inside the hill rim as a safety net.
 
 ---
+
+## 🌨️ Snow ground, footprints, wind and camera
+
+Some ideas here are adapted from Bruno Simon's portfolio devlog (infinite grass, wheel tracks, camera, monitoring), sized for a phone-first WebGL game.
+
+- **Ground texture:** Poly Haven *Snow 02* at 1K, using three maps: diffuse, GL normal, and packed AO/Rough/Metal. Three.js reads AO from the red channel and roughness from the green, so one file does both. UVs come from world x/z, so one repeat is 4 m on any mesh. Beyond ~6 m a second sample at ~5× scale is blended in, which hides the grid-like repeat. The terrain's vertex colours still tint it, so trodden paths and blue shading survive.
+- **Footprints:**
+  - **Idea (from the video's wheel tracks):** keep a fixed-size history of contact points and turn it into a ribbon.
+  - **How:** the last ~220 samples (one every 0.36 m) are drawn straight onto the terrain as one textured strip. The texture holds a left and a right boot print, and alpha fades each print out after ~45 s.
+  - **Jumps:** the trail breaks at take-off and landing, so the strip doesn't bridge the gap.
+  - **Why not the video's way:** it renders tracks into a ground render target. That costs an extra render pass every frame; drawing on the terrain is one small draw call.
+- **Wind:** the snow shader patch bends vertices by the square of their height, so trunks stay put and crowns move. The phase comes from each instance's position, so the forest doesn't sway in lockstep. Strength is set per scatter rule (`"sway"` in `frostvale.json`).
+- **Camera:**
+  - **Swing-back:** after 1.2 s without manual look, the camera swings back behind the player, faster the faster they move.
+  - **Run pull-back:** it backs off 2.5 m while running.
+  - **Not adopted:** the video's speed lines, which don't suit a cozy game.
+- **Monitoring:** `stats-gl`, the stats library from the video, behind `?stats`.
+- **Not adopted, and why:**
+  - **TSL / WebGPU:** WebGPU is still patchy on phones, and our `onBeforeCompile` patches already run everywhere on WebGL.
+  - **250k-blade infinite grass:** wrong biome, and too heavy for the phone budget. The same follow-and-wrap trick could do frosty tufts later.
 
 ## 🔄 Asset pipeline
 
@@ -477,6 +506,8 @@ It's mid-October 2026, so there are about **9 weeks** left. Weeks 1–3 are done
 | Asset | Author | License |
 |---|---|---|
 | KayKit Holiday Bits, Forest Nature Pack, Dungeon Pack, Restaurant Bits, RPG Tools Bits, Resource Bits, Board Game Bits, Adventurers, Character Animations | Kay Lousberg ([kaylousberg.com](https://www.kaylousberg.com), [itch.io](https://kaylousberg.itch.io)) | CC0 1.0. Credit not required but appreciated. License files are in each `public/assets/models/<pack>/` folder. |
+| Snow 02 texture | Rob Tuytel — [Poly Haven](https://polyhaven.com/a/snow_02) | CC0 (see `public/assets/textures/snow/LICENSE.txt`) |
+| stats-gl | Renaud Rohlinger | MIT |
 | Brackeys' VFX Bundle | Repackaged by Brackeys. Particles by [Picster](https://github.com/RPicster/Godot-particle-and-vfx-textures) and [Kenney](https://kenney.nl/assets/particle-pack); flipbooks by Thomas Iché; pre-drawn sheets by [CodeManu](https://codemanu.itch.io/vfx-free-pack) | CC0 (see `public/assets/textures/vfx/LICENSE.txt`) |
 | Fredoka font | Milena Brandão, Hafontia | SIL Open Font License |
 | three.js, Rapier, Vite | Respective authors | MIT / Apache-2.0 |

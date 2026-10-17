@@ -12,12 +12,26 @@ export class FollowCamera {
   private readonly target = new THREE.Vector3();
   sensitivity = 1;
   invertY = false;
+  /** Seconds since the player last moved the camera themselves. */
+  private lookIdle = 0;
+  /** Extra boom length while running, eased in and out. */
+  private runPull = 0;
 
-  update(dt: number, input: Input, focus: THREE.Vector3, world: RAPIER.World, exclude: RAPIER.Collider, groundY: (x: number, z: number) => number, speed = 0) {
+  update(dt: number, input: Input, focus: THREE.Vector3, world: RAPIER.World, exclude: RAPIER.Collider, groundY: (x: number, z: number) => number, speed = 0, facing?: number) {
     const k = 0.0025 * this.sensitivity;
     this.yaw -= input.look.x * k;
     this.pitch += input.look.y * k * (this.invertY ? -1 : 1);
     this.pitch = THREE.MathUtils.clamp(this.pitch, -0.25, 1.2);
+    this.lookIdle = input.look.x !== 0 || input.look.y !== 0 ? 0 : this.lookIdle + dt;
+    // After a short pause in manual look, swing back behind the player while they move,
+    // faster the faster they go: one-thumb play on a phone never fights the camera.
+    if (facing !== undefined && this.lookIdle > 1.2 && speed > 1) {
+      let delta = facing + Math.PI - this.yaw;
+      delta = Math.atan2(Math.sin(delta), Math.cos(delta));
+      this.yaw += delta * Math.min(1, dt * 0.25 * speed);
+    }
+    // Back off a little while running so the player sees what's coming.
+    this.runPull = THREE.MathUtils.lerp(this.runPull, speed > 7 ? 2.5 : 0, 1 - Math.exp(-dt * 2));
     this.distance = THREE.MathUtils.clamp(this.distance + input.wheel * 1.2, 4, 16);
 
     this.target.lerp(new THREE.Vector3(focus.x, focus.y + 1.8, focus.z), 1 - Math.exp(-dt * 14));
@@ -28,7 +42,7 @@ export class FollowCamera {
     );
     // Portrait screens get a wider lens and a longer boom so the player sees around them.
     const portrait = this.camera.aspect < 1;
-    const distance = this.distance * (portrait ? 1.25 : 1);
+    const distance = this.distance * (portrait ? 1.25 : 1) + this.runPull;
     // Pull in when something is between the player and the camera.
     let want = distance;
     const hit = world.castRay(new RAPIER.Ray(this.target, dir), distance, true, undefined, undefined, exclude);
