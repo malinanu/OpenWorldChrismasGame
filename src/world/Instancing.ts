@@ -36,7 +36,7 @@ export function buildInstanced(source: THREE.Object3D, placements: Placement[], 
         ? snowify(mesh.material, snow, sway)
         : mesh.material;
     const inst = new THREE.InstancedMesh(mesh.geometry, mat, placements.length);
-    inst.castShadow = true;
+    inst.castShadow = mesh.castShadow; // glTF meshes all cast; glow meshes opt out
     inst.receiveShadow = true;
     placeMatrices.forEach((pm, i) => inst.setMatrixAt(i, tmp.multiplyMatrices(pm, mesh.matrixWorld)));
     inst.instanceMatrix.needsUpdate = true;

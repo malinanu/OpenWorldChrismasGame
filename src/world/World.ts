@@ -219,9 +219,16 @@ export class World {
     }));
     // Spread-out props (village houses, road lanterns) are split into 120 m cells, so the
     // camera — and especially the sun's shadow pass — only draws the cells near the player.
+    // Heavy models (the cottages) are split too, even in small numbers.
+    let tris = 0;
+    g.scene.traverse((o) => {
+      const geo = (o as THREE.Mesh).isMesh ? (o as THREE.Mesh).geometry : null;
+      if (geo) tris += (geo.index ? geo.index.count : geo.attributes.position.count) / 3;
+    });
+    const split = placements.length > 6 || tris > 1500;
     const cells = new Map<string, Placement[]>();
     for (const pl of placements) {
-      const key = placements.length > 6 ? `${Math.floor(pl.position.x / 120)},${Math.floor(pl.position.z / 120)}` : 'all';
+      const key = split ? `${Math.floor(pl.position.x / 120)},${Math.floor(pl.position.z / 120)}` : 'all';
       if (!cells.has(key)) cells.set(key, []);
       cells.get(key)!.push(pl);
     }

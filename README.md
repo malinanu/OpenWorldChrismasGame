@@ -144,10 +144,15 @@ Gingerbread houses line the streets. Every game sits at the end of a street, and
 | Zone | Look & feel | Built from |
 |---|---|---|
 | **Town Square (hub)** | Giant decorated tree, lanterns, presents, snowmen, stools | Holiday Bits |
-| **Village Street** | Gingerbread houses along trodden paths, lanterns | Holiday Bits (`gingerbread_house`, `gingerbread_house_decorated`) |
+| **Village Street** | 30 cottages in six styles along the streets, lanterns | Built in code in the KayKit Holiday style (`src/world/Cottages.ts`); one big decorated gingerbread house marks the bakery |
 | **Pine Forest** | Snow-covered trees, rocks, bushes | Forest Nature Pack + snow shader |
 | **Frozen Lake** | Flat icy area with snowmen | Holiday Bits + ice material |
 | **Train Station** | Track line with locomotive, tenders and wagon | Holiday Bits toy train + tracks |
+
+**Cottages.** The village houses are built in code by `src/world/Cottages.ts`, in six styles: cream, candy red, two-storey blue, pine green, log cabin and stone.
+- **Same material as the pack:** they use the KayKit Holiday atlas material. Every part is UV-mapped onto one of its gradient swatches, so they shade exactly like the pack's models.
+- **KayKit shapes:** rounded boxes, thick modelled snow with drips, icing trim, wreaths and string lights.
+- **Cheap to draw:** each style is one mesh of about 3.5–5.5k triangles. It is instanced and split into 120 m cells, so off-screen houses are skipped.
 
 Roads are Catmull-Rom curves through a few control points (`roads` in the JSON). `src/world/Roads.ts` turns them into a draped cobblestone mesh (procedural texture), lanterns every ~28 m, and signposts. The signposts use one texture atlas, so all of them cost two draw calls. `tools/layout-world.py` regenerates the street plan, the village houses and the zone positions, and checks that nothing sits on a road.
 
@@ -231,7 +236,7 @@ All ten packs are imported. Only the `.gltf`/`.glb` files (plus their `.bin` buf
 | `textures/vfx/` | `brackeys_vfx_bundle` | 7 hand-picked textures, resized (see [VFX](#-vfx-with-the-brackeys-bundle)) | Snow, sparkles, glow, puffs, fire |
 | `textures/snow/` | Poly Haven [Snow 02](https://polyhaven.com/a/snow_02), 1K | Diffuse (brightened), Normal (GL), packed AO/Rough/Metal, converted to WebP (≈ 475 KB total) | Ground in the world and all mini-games |
 
-> **Corrections to the original plan:** the free Holiday Bits zip has whole gingerbread **houses**, not modular gingerbread walls/floors. The village uses those houses. Of the Character Animations, `CombatMelee`, `CombatRanged`, `Special` and `MovementAdvanced` were left out to save ~3.6 MB; add them back from the zip if a game needs them.
+> **Corrections to the original plan:** the free Holiday Bits zip has whole gingerbread **houses**, not modular gingerbread walls/floors. The village now uses six procedural cottage styles instead (see below), keeping the gingerbread house for the bakery. Of the Character Animations, `CombatMelee`, `CombatRanged`, `Special` and `MovementAdvanced` were left out to save ~3.6 MB; add them back from the zip if a game needs them.
 
 ---
 

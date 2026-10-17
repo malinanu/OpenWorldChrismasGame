@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
+import { buildCottage } from '../world/Cottages';
 
 const BASE = `${import.meta.env.BASE_URL}assets/`;
 
@@ -36,6 +37,11 @@ export class AssetLoader {
   model(id: string): Promise<GLTF> {
     const url = modelUrl(id);
     let p = this.gltfCache.get(url);
+    if (!p && id.startsWith('proc/cottage_')) {
+      // Built in code (src/world/Cottages.ts): nothing to download.
+      p = buildCottage(Number(id.slice('proc/cottage_'.length)), this).then((scene) => ({ scene, scenes: [scene], animations: [] }) as unknown as GLTF);
+      this.gltfCache.set(url, p);
+    }
     if (!p) {
       p = this.gltf.loadAsync(url).then((g) => {
         g.scene.traverse((o) => {

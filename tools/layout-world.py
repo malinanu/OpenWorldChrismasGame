@@ -52,7 +52,7 @@ def road_dist(x, z):
 props = []
 for p in w['props']:
     m = p['model']
-    if m in ('holiday/gingerbread_house_decorated', 'holiday/gingerbread_house') and p.get('scale', 1) < 5:
+    if (m in ('holiday/gingerbread_house_decorated', 'holiday/gingerbread_house') and p.get('scale', 1) < 5) or m.startswith('proc/cottage_'):
         continue  # village houses are rebuilt below
     at = []
     for (x, y, z) in p.get('at', []):
@@ -94,8 +94,9 @@ for p in props:
         p['at'] = [[-11, 0, 23], [22, 0, -9]] + [a for a in p['at'] if math.hypot(a[0], a[2]) > 45]
         p['rotY'] = [-0.4, 3.6, -0.6, 0.6][: len(p['at'])]
 
-# Village: gingerbread houses facing the streets, both sides, spaced out, never on a road or a crossroads.
-houses_deco, houses_plain = [], []
+# Village: cottages (src/world/Cottages.ts, six styles) facing the streets, both sides, spaced out, never on a road or a crossroads.
+COTTAGES = 6
+houses = [[] for _ in range(COTTAGES)]
 placed = []
 for road in roads:
     if not road.get("houses"):
@@ -115,9 +116,10 @@ for road in roads:
                 continue
             placed.append((hx, hz))
             face = math.atan2(-nx, -nz)  # front door towards the street
-            (houses_deco if len(placed) % 2 else houses_plain).append(([round(hx, 1), 0, round(hz, 1)], round(face, 2)))
-props.append({"model": "holiday/gingerbread_house_decorated", "at": [h[0] for h in houses_deco], "scale": 4.2, "rotY": [h[1] for h in houses_deco], "collider": "box", "snow": 0.7})
-props.append({"model": "holiday/gingerbread_house", "at": [h[0] for h in houses_plain], "scale": 4, "rotY": [h[1] for h in houses_plain], "collider": "box", "snow": 0.7})
+            houses[(len(placed) - 1) % COTTAGES].append(([round(hx, 1), 0, round(hz, 1)], round(face, 2)))
+for k, hs in enumerate(houses):
+    if hs:
+        props.append({"model": f"proc/cottage_{k}", "at": [h[0] for h in hs], "scale": 1, "rotY": [h[1] for h in hs], "collider": "box", "snow": 0})
 
 # ---- world fields ----
 w['half'] = 225
