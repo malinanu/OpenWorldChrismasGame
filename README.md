@@ -476,6 +476,7 @@ Seven textures were picked from the 73 MB bundle and resized (≈ 550 KB total):
 
 The build output (`dist/`) is a fully static site, and `base: './'` makes it work from a sub-folder. It includes a web app manifest, so phones can **Add to Home Screen** and launch full-screen. That's the only way to hide Safari's bars on iPhone; Android also goes fullscreen when you press Start.
 
+- **CloudPanel (automatic)**: `.github/workflows/deploy.yml` builds on every PR and deploys every push to `main` to your CloudPanel site over SSH/rsync. One-time setup (site, SSH key, GitHub secrets, nginx caching) is in [`deploy/CLOUDPANEL.md`](deploy/CLOUDPANEL.md).
 - **itch.io**: zip `dist/` and upload it as an HTML5 game.
 - **Cloudflare Pages / GitHub Pages / any static host**: deploy `dist/` and serve `.gltf`, `.bin` and `.png` with long-cache headers.
 

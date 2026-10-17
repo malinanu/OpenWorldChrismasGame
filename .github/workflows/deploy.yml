@@ -1,0 +1,132 @@
+# Build Frostvale and deploy the static site to a CloudPanel server over SSH.
+#
+# Pull requests: build + checks only (nothing is deployed).
+# Push to main / manual run: build + checks, then rsync dist/ to the site's htdocs.
+#
+# Repository secrets (Settings → Secrets and variables → Actions):
+#   CLOUDPANEL_HOST         Server hostname or IP
+#   CLOUDPANEL_USER         The CloudPanel *site user* that owns the site (not root)
+#   CLOUDPANEL_SSH_KEY      Private key whose public half is in that user's ~/.ssh/authorized_keys
+#   CLOUDPANEL_PATH         Site root, e.g. /home/frostvale/htdocs/frostvale.example.com
+#   CLOUDPANEL_KNOWN_HOSTS  Output of `ssh-keyscan -p <port> <host>` (pins the server's host key)
+#   CLOUDPANEL_PORT         Optional, defaults to 22
+# Optional repository variable:
+#   SITE_URL                Public URL, shown on the run page and smoke-tested after deploy
+# See deploy/CLOUDPANEL.md for the one-time server setup.
+
+name: Deploy to CloudPanel
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Never run two deploys at once; a newer push waits for the running one.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build & check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prove every Santa's Express level is solvable
+        run: npm run check-levels
+
+      - name: Type-check and build
+        run: npm run build
+
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
+          retention-days: 7
+
+  deploy:
+    name: Deploy to CloudPanel
+    needs: build
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: production
+      url: ${{ vars.SITE_URL }}
+    env:
+      HOST: ${{ secrets.CLOUDPANEL_HOST }}
+      SSH_USER: ${{ secrets.CLOUDPANEL_USER }}
+      PORT: ${{ secrets.CLOUDPANEL_PORT || '22' }}
+      TARGET: ${{ secrets.CLOUDPANEL_PATH }}
+    steps:
+      - name: Download build
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      - name: Check secrets
+        run: |
+          missing=0
+          for v in HOST SSH_USER TARGET; do
+            if [ -z "${!v}" ]; then echo "::error::Secret for $v is not set"; missing=1; fi
+          done
+          case "$TARGET" in
+            /home/*/htdocs/*) ;;
+            *) echo "::error::CLOUDPANEL_PATH must look like /home/<site-user>/htdocs/<domain>"; missing=1 ;;
+          esac
+          exit $missing
+
+      - name: Set up SSH
+        env:
+          SSH_KEY: ${{ secrets.CLOUDPANEL_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.CLOUDPANEL_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          if [ -n "$KNOWN_HOSTS" ]; then
+            printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          else
+            echo "::warning::CLOUDPANEL_KNOWN_HOSTS is not set; trusting the host key seen now. Set it to pin the key."
+            ssh-keyscan -p "$PORT" -H "$HOST" > ~/.ssh/known_hosts
+          fi
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Upload with rsync
+        run: |
+          # --delay-updates swaps all new files in at the end; --delete-after then removes stale ones,
+          # so players never load half an old build and half a new one.
+          rsync -az --delete-after --delay-updates --human-readable --stats \
+            --exclude='.well-known/' --exclude='.user.ini' \
+            -e "ssh -i ~/.ssh/deploy_key -p $PORT -o StrictHostKeyChecking=yes" \
+            dist/ "$SSH_USER@$HOST:$TARGET/"
+
+      - name: Smoke test
+        if: vars.SITE_URL != ''
+        run: |
+          url="${{ vars.SITE_URL }}"
+          code=$(curl -s -o /dev/null -w '%{http_code}' --retry 3 --retry-delay 5 "$url")
+          echo "GET $url -> $code"
+          test "$code" = 200
+          curl -sf --retry 3 "${url%/}/world/frostvale.json" > /dev/null
+          echo "World data reachable ✅"
+
+      - name: Clean up key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
