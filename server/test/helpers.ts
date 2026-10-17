@@ -9,8 +9,9 @@ import { ConsoleSms } from '../src/sms.ts';
  * A fresh server on a random port against an empty test database.
  * Needs MySQL/MariaDB: TEST_DB_HOST/PORT/USER/PASSWORD/NAME (defaults match the README's local setup).
  */
-export async function startServer() {
+export async function startServer(extraEnv: Record<string, string> = {}) {
   const cfg = loadConfig({
+    ...extraEnv,
     DB_HOST: process.env.TEST_DB_HOST ?? '127.0.0.1',
     DB_PORT: process.env.TEST_DB_PORT ?? '3307',
     DB_USER: process.env.TEST_DB_USER ?? 'frostvale',

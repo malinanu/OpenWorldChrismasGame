@@ -176,31 +176,51 @@ jobs:
       - name: Upload and restart the game server
         env:
           SERVER_PATH: ${{ secrets.CLOUDPANEL_SERVER_PATH }}
+          DB_PASSWORD: ${{ secrets.FROSTVALE_DB_PASSWORD }}
+          DB_NAME: ${{ vars.FROSTVALE_DB_NAME || 'frostvale' }}
+          DB_USER: ${{ vars.FROSTVALE_DB_USER || 'frostvale' }}
+          APP_PORT: ${{ vars.FROSTVALE_PORT || '3100' }}
+          AUTH_MODE: ${{ vars.FROSTVALE_AUTH_MODE || 'email' }}
         run: |
           DIR="${SERVER_PATH:-/home/$SSH_USER/frostvale-server}"
           SSH="ssh -i $HOME/.ssh/deploy_key -p $PORT -o StrictHostKeyChecking=yes"
           $SSH "$SSH_USER@$HOST" "mkdir -p '$DIR'"
-          # .env (secrets) and node_modules live only on the server and are never overwritten.
+          # .env (secrets) and node_modules live only on the server; rsync never touches them.
           rsync -rltz --omit-dir-times --delete-after --delay-updates --human-readable \
             --exclude='.env' --exclude='node_modules/' -e "$SSH" server/ "$SSH_USER@$HOST:$DIR/"
+          # With the FROSTVALE_DB_PASSWORD secret set, the .env is (re)written on every deploy,
+          # sent over SSH stdin so the password never appears in a command line or the log.
+          if [ -n "$DB_PASSWORD" ]; then
+            printf '%s\n' "PORT=$APP_PORT" "HOST=127.0.0.1" "DB_HOST=127.0.0.1" "DB_PORT=3306" \
+              "DB_NAME=$DB_NAME" "DB_USER=$DB_USER" "DB_PASSWORD=$DB_PASSWORD" "AUTH_MODE=$AUTH_MODE" \
+              "SMS_PROVIDER=console" "SESSION_DAYS=30" "STATIC_DIR=$TARGET" \
+              | $SSH "$SSH_USER@$HOST" "umask 077 && cat > '$DIR/.env'"
+          fi
           $SSH "$SSH_USER@$HOST" DIR="$DIR" bash -s <<'REMOTE'
           set -e
           cd "$DIR"
-          # Node from nvm (CloudPanel's Node.js setup) if it isn't already on PATH.
-          [ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh" >/dev/null
           if [ ! -f .env ]; then
-            echo "::notice::Game server uploaded but not started: no $DIR/.env yet. See deploy/CLOUDPANEL.md (section 5)."
+            echo "::notice::Game server uploaded but not started: add the FROSTVALE_DB_PASSWORD secret. See deploy/CLOUDPANEL.md (section 5)."
             exit 0
           fi
-          if ! command -v node >/dev/null; then
-            echo "::warning::Node.js is not installed for $(whoami); the game server was not started. See deploy/CLOUDPANEL.md."
-            exit 0
+          # Node 22 + pm2 for the site user, installed once through nvm.
+          export NVM_DIR="$HOME/.nvm"
+          if [ ! -s "$NVM_DIR/nvm.sh" ] && ! command -v node >/dev/null; then
+            curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | PROFILE=/dev/null bash >/dev/null
           fi
+          if [ -s "$NVM_DIR/nvm.sh" ]; then
+            . "$NVM_DIR/nvm.sh" >/dev/null
+            node -v 2>/dev/null | grep -q '^v2[2-9]' || { nvm install 22 >/dev/null && nvm alias default 22 >/dev/null; }
+            nvm use 22 >/dev/null 2>&1 || true
+          fi
+          command -v pm2 >/dev/null || npm install -g pm2@7 --no-audit --no-fund >/dev/null
           npm ci --omit=dev --no-audit --no-fund
-          PM2="pm2"; command -v pm2 >/dev/null || PM2="npx --yes pm2@7"
-          $PM2 startOrReload ecosystem.config.cjs --update-env
-          $PM2 save
-          echo "Game server running: $($PM2 jlist | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const a=JSON.parse(s).find(p=>p.name==="frostvale-server");console.log(a?a.pm2_env.status:"not found")})')"
+          pm2 startOrReload ecosystem.config.cjs --update-env
+          pm2 save
+          # Bring the server back after a reboot.
+          RESURRECT="@reboot bash -lc '. \$HOME/.nvm/nvm.sh; pm2 resurrect'"
+          (crontab -l 2>/dev/null | grep -q 'pm2 resurrect') || { (crontab -l 2>/dev/null; echo "$RESURRECT") | crontab -; }
+          echo "Game server running: $(pm2 jlist | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const a=JSON.parse(s).find(p=>p.name==="frostvale-server");console.log(a?a.pm2_env.status:"not found")})')"
           REMOTE
 
       - name: Smoke test

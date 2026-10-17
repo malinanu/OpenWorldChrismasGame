@@ -269,10 +269,10 @@ All audio lives in `src/core/Audio.ts` and is **generated in code**, so there is
 ## 🌐 Online play
 
 ```
-Browser ── https ──► nginx (CloudPanel site)
-                       ├─ /        the game (static dist/)
-                       ├─ /api/*   ─► Node server (server/, Fastify) ─► MySQL / MariaDB
-                       └─ /ws      ─► same server (WebSocket)
+Browser ── https ──► nginx (CloudPanel Node.js site) ──► Node server (server/, Fastify) ─► MySQL / MariaDB
+                                                          ├─ /        the game (dist/ in htdocs, STATIC_DIR)
+                                                          ├─ /api/*   accounts, progress, leaderboards
+                                                          └─ /ws      multiplayer (WebSocket)
 ```
 
 **Accounts.**
@@ -295,7 +295,7 @@ Browser ── https ──► nginx (CloudPanel site)
 
 **Offline.** "Play offline" on the sign-in card, or no server reachable, gives the full single-player game, as before.
 
-**Deploy.** CI builds and tests the server against MariaDB. Pushing to `staging` uploads it and restarts it with pm2, once the one-time setup in `deploy/CLOUDPANEL.md` §5 is done: the database, `.env`, pm2 and the nginx `/api` + `/ws` block.
+**Deploy.** CI builds and tests the server against MariaDB. Pushing to `staging` uploads it and restarts it with pm2, It installs Node 22 and pm2 if needed and writes `.env` from the `FROSTVALE_DB_PASSWORD` secret. The one-time steps (a Node.js site, the database, that secret) are in `deploy/CLOUDPANEL.md` §5.
 
 ---
 

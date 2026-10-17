@@ -1,5 +1,6 @@
 import Fastify from 'fastify';
 import rateLimit from '@fastify/rate-limit';
+import { serveGame } from './static.ts';
 import { Auth } from './auth.ts';
 import type { Config } from './config.ts';
 import type { Pool } from './db.ts';
@@ -27,6 +28,7 @@ export async function buildApp(cfg: Config, pool: Pool, sms: SmsSender, opts: { 
   const realtime = new Realtime(auth, progress);
   registerRoutes(app, cfg, auth, progress, { onProfile: (u) => realtime.updateProfile(u) });
   app.get('/api/online', async () => realtime.info);
+  if (cfg.staticDir) await serveGame(app, cfg.staticDir);
   realtime.attach(app.server);
   app.addHook('onClose', async () => realtime.close());
   return { app, auth, progress, realtime };

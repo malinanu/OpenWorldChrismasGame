@@ -81,81 +81,62 @@ gzip_types application/javascript text/css application/json model/gltf+json mode
 
 The game works without this. Until it's set up, players get the offline single-player game, and the deploy prints *"Game server uploaded but not started"*.
 
-Once it's done, the same site serves:
+The site must be a **Node.js site**: CloudPanel can't add databases to a Static HTML site. On a Node.js site, nginx forwards every request to the app, so the Node server serves everything:
 
 | Path | What |
 |---|---|
-| `/` | The game (static files, as before) |
-| `/api/*` | Accounts and leaderboards (Node server on `127.0.0.1:3100`) |
-| `/ws` | Multiplayer WebSocket (same Node server) |
+| `/` | The game files from `htdocs` (the deploy still uploads them there) |
+| `/api/*` | Accounts and leaderboards |
+| `/ws` | Multiplayer WebSocket |
 
-### 5.1 Database
-1. In CloudPanel, go to **Databases → Add Database**:
-   - Database name: `frostvale`
-   - Database user: `frostvale`
-   - Password: generate a strong one and keep it for the next step.
-2. You don't create any tables. The server creates and upgrades them itself on start-up, using the files in `server/migrations`.
+The deploy does the rest: it installs Node 22 and pm2 for the site user, writes the server's `.env`, runs it, and adds a reboot cron.
 
-### 5.2 Node.js for the site user
-SSH in as the **site user** (Site → **SSH/FTP**), then:
-```bash
-# nvm + Node 22 for this user only (no root needed)
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
-source ~/.nvm/nvm.sh
-nvm install 22
-npm install -g pm2      # keeps the server running and restarts it if it crashes
-```
+### 5.1 Switch the site to Node.js
+1. Delete the Static HTML site. The game files go with it; the next deploy puts them back.
+2. **Add Site → Create a Node.js Site**:
+   - Domain: the same domain.
+   - Node.js version: **22**.
+   - App Port: **3100**.
+   - Site user: the **same user name** as before (it must match the `CLOUDPANEL_USER` secret), plus a password.
+3. Site → **SSL/TLS → Actions → New Let's Encrypt Certificate**.
+4. The site user's home is new, so add the deploy key again. As the site user (Site → **SSH/FTP**):
+   ```bash
+   mkdir -p ~/.ssh && chmod 700 ~/.ssh
+   echo 'ssh-ed25519 AAAA…  (the deploy PUBLIC key)' >> ~/.ssh/authorized_keys
+   chmod 600 ~/.ssh/authorized_keys
+   ```
+5. Check that the `CLOUDPANEL_PATH` secret is still the site's `htdocs` folder, e.g. `/home/<user>/htdocs/<domain>`.
 
-### 5.3 Server settings (`.env`)
-Run a deploy once, which creates `~/frostvale-server`. Then:
-```bash
-cd ~/frostvale-server
-cp .env.example .env
-nano .env        # DB_PASSWORD = the password from 5.1; keep PORT=3100 unless that port is taken
-chmod 600 .env
-```
+### 5.2 Database
+Site → **Databases → Add Database**:
+- Database name: `frostvale`
+- Database user: `frostvale`
+- Password: a strong one.
 
-| Setting | Meaning |
-|---|---|
-| `AUTH_MODE` | `email` (email + password) now; `phone` (phone number + SMS code) for production. Switching needs no new build: just restart. |
-| `SMS_PROVIDER` | `console` writes codes to the server log, for staging. Production needs the local gateway's adapter (tell us which provider). |
-| `PORT` | Must match the nginx block below. |
+You don't create tables. The server creates and upgrades them itself on start-up.
 
-Start it the first time (later deploys restart it automatically):
-```bash
-pm2 start ecosystem.config.cjs && pm2 save
-pm2 logs frostvale-server --lines 20     # should end with "Server listening at http://127.0.0.1:3100"
-```
+### 5.3 GitHub settings
+Repository → **Settings → Environments → `CLOUDPANEL_STAGING`**:
 
-### 5.4 Keep it running after a reboot
-Site users can't install system services, so add a **Cron Job** (Site → **Cron Jobs**) that brings pm2 back if the server rebooted:
-```
-*/5 * * * *   bash -lc 'source ~/.nvm/nvm.sh && pm2 resurrect >/dev/null 2>&1 || true'
-```
+| Kind | Name | Value |
+|---|---|---|
+| Secret | `FROSTVALE_DB_PASSWORD` | the database password from 5.2 (**required**) |
+| Variable | `FROSTVALE_DB_NAME` / `FROSTVALE_DB_USER` | only if not `frostvale` |
+| Variable | `FROSTVALE_PORT` | only if the App Port isn't `3100` |
+| Variable | `FROSTVALE_AUTH_MODE` | `email` (default) or `phone` (phone number + SMS code, for production) |
 
-### 5.5 nginx: send `/api` and `/ws` to the server
-Site → **Vhost**: paste this inside the `server { … }` block that listens on 443, above the existing `location /` block, then **Save**:
-```nginx
-location /api/ {
-  proxy_pass http://127.0.0.1:3100;
-  proxy_set_header Host $host;
-  proxy_set_header X-Real-IP $remote_addr;
-  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-  proxy_set_header X-Forwarded-Proto $scheme;
-}
-location = /ws {
-  proxy_pass http://127.0.0.1:3100;
-  proxy_http_version 1.1;
-  proxy_set_header Upgrade $http_upgrade;
-  proxy_set_header Connection "upgrade";
-  proxy_set_header Host $host;
-  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-  proxy_read_timeout 1h;   # multiplayer connections stay open
-  proxy_send_timeout 1h;
-}
-```
+Then push, or **Actions → Deploy → Re-run**. The deploy writes `~/frostvale-server/.env` (mode 600) from these on every run, so change settings here, not on the server.
 
-### 5.6 Check
+### 5.4 Check
 - `https://<your-site>/api/health` returns `{"ok":true}`.
-- Open the game and press Start: a **Join Frostvale** card appears. Create an account, pick an adventurer, then open the game on a second device and you'll see each other.
-- The deploy's smoke test now also prints **"Game server reachable ✅"**.
+- Open the game and press Start: a **Join Frostvale** card appears. Create an account and pick an adventurer. Open the game on a second device and you'll see each other.
+- The deploy's smoke test prints **"Game server reachable ✅"**.
+- Logs, as the site user: `source ~/.nvm/nvm.sh && pm2 logs frostvale-server`.
+
+If `/ws` doesn't connect (players never appear), the vhost needs WebSocket headers. In Site → **Vhost**, the `location /` proxy block must contain:
+```nginx
+proxy_http_version 1.1;
+proxy_set_header Upgrade $http_upgrade;
+proxy_set_header Connection "upgrade";
+proxy_read_timeout 1h;
+```

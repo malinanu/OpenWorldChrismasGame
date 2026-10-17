@@ -10,6 +10,11 @@ export interface Config {
   sessionDays: number;
   /** Allowed browser origin for CORS (dev); in production the game and API share one origin. */
   origin: string | null;
+  /**
+   * Folder with the built game (the site's htdocs). Set on a CloudPanel Node.js site, where nginx
+   * forwards every request here; leave unset when nginx serves the files itself.
+   */
+  staticDir: string | null;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -28,5 +33,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     smsProvider: env.SMS_PROVIDER ?? 'console',
     sessionDays: Number(env.SESSION_DAYS ?? 30),
     origin: env.ORIGIN ?? null,
+    staticDir: env.STATIC_DIR || null,
   };
 }
