@@ -1,7 +1,10 @@
-# Build Frostvale and deploy the static site to a CloudPanel server over SSH.
+# Build Frostvale and deploy it to a CloudPanel server over SSH.
 #
-# Pull requests: build + checks only (nothing is deployed).
-# Push to `staging` / manual run: build + checks, then rsync dist/ to the staging site's htdocs.
+# Pull requests: build + checks (game and game server, server tests against MariaDB). Nothing is deployed.
+# Push to `staging` / manual run: build + checks, then
+#   - rsync dist/ to the staging site's htdocs (the game), and
+#   - rsync server/ next to it and (re)start it with pm2, once the server has been set up there
+#     (a .env file in the server folder); until then that step is skipped with a notice.
 # (Production will get its own job/environment later.)
 #
 # Repository secrets (Settings → Secrets and variables → Actions):
@@ -11,6 +14,7 @@
 #   CLOUDPANEL_PATH         Site root, e.g. /home/frostvale/htdocs/frostvale.example.com
 #   CLOUDPANEL_KNOWN_HOSTS  Output of `ssh-keyscan -p <port> <host>` (pins the server's host key)
 #   CLOUDPANEL_PORT         Optional, defaults to 22
+#   CLOUDPANEL_SERVER_PATH  Optional, where the game server lives; defaults to /home/<site-user>/frostvale-server
 # Optional repository variable:
 #   SITE_URL                Public URL, shown on the run page and smoke-tested after deploy
 # See deploy/CLOUDPANEL.md for the one-time server setup.
@@ -35,7 +39,20 @@ jobs:
   build:
     name: Build & check
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+    services:
+      # Same database CloudPanel ships, for the server's integration tests.
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: frostvale_test
+          MARIADB_USER: frostvale
+          MARIADB_PASSWORD: frostpw
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
     steps:
       - uses: actions/checkout@v4
 
@@ -60,6 +77,36 @@ jobs:
           path: dist
           retention-days: 7
 
+      - name: Game server — install, type-check, build
+        working-directory: server
+        run: |
+          npm ci
+          npm run typecheck
+          npm run build
+
+      - name: Game server — tests (MariaDB)
+        working-directory: server
+        env:
+          TEST_DB_HOST: 127.0.0.1
+          TEST_DB_PORT: 3306
+          TEST_DB_USER: frostvale
+          TEST_DB_PASSWORD: frostpw
+          TEST_DB_NAME: frostvale_test
+        run: npm test
+
+      - name: Upload game server
+        uses: actions/upload-artifact@v4
+        with:
+          name: server
+          path: |
+            server/dist
+            server/migrations
+            server/package.json
+            server/package-lock.json
+            server/ecosystem.config.cjs
+            server/.env.example
+          retention-days: 7
+
   deploy:
     name: Deploy to CloudPanel staging
     needs: build
@@ -80,6 +127,12 @@ jobs:
         with:
           name: dist
           path: dist
+
+      - name: Download game server
+        uses: actions/download-artifact@v4
+        with:
+          name: server
+          path: server
 
       - name: Check secrets
         run: |
@@ -120,6 +173,36 @@ jobs:
             -e "ssh -i ~/.ssh/deploy_key -p $PORT -o StrictHostKeyChecking=yes" \
             dist/ "$SSH_USER@$HOST:$TARGET/"
 
+      - name: Upload and restart the game server
+        env:
+          SERVER_PATH: ${{ secrets.CLOUDPANEL_SERVER_PATH }}
+        run: |
+          DIR="${SERVER_PATH:-/home/$SSH_USER/frostvale-server}"
+          SSH="ssh -i $HOME/.ssh/deploy_key -p $PORT -o StrictHostKeyChecking=yes"
+          $SSH "$SSH_USER@$HOST" "mkdir -p '$DIR'"
+          # .env (secrets) and node_modules live only on the server and are never overwritten.
+          rsync -rltz --omit-dir-times --delete-after --delay-updates --human-readable \
+            --exclude='.env' --exclude='node_modules/' -e "$SSH" server/ "$SSH_USER@$HOST:$DIR/"
+          $SSH "$SSH_USER@$HOST" DIR="$DIR" bash -s <<'REMOTE'
+          set -e
+          cd "$DIR"
+          # Node from nvm (CloudPanel's Node.js setup) if it isn't already on PATH.
+          [ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh" >/dev/null
+          if [ ! -f .env ]; then
+            echo "::notice::Game server uploaded but not started: no $DIR/.env yet. See deploy/CLOUDPANEL.md (section 5)."
+            exit 0
+          fi
+          if ! command -v node >/dev/null; then
+            echo "::warning::Node.js is not installed for $(whoami); the game server was not started. See deploy/CLOUDPANEL.md."
+            exit 0
+          fi
+          npm ci --omit=dev --no-audit --no-fund
+          PM2="pm2"; command -v pm2 >/dev/null || PM2="npx --yes pm2@7"
+          $PM2 startOrReload ecosystem.config.cjs --update-env
+          $PM2 save
+          echo "Game server running: $($PM2 jlist | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const a=JSON.parse(s).find(p=>p.name==="frostvale-server");console.log(a?a.pm2_env.status:"not found")})')"
+          REMOTE
+
       - name: Smoke test
         if: vars.SITE_URL != ''
         run: |
@@ -129,6 +212,11 @@ jobs:
           test "$code" = 200
           curl -sf --retry 3 "${url%/}/world/frostvale.json" > /dev/null
           echo "World data reachable ✅"
+          if curl -sf --retry 3 --retry-delay 3 "${url%/}/api/health" > /dev/null; then
+            echo "Game server reachable ✅"
+          else
+            echo "::warning::${url%/}/api/health isn't answering yet — accounts and multiplayer stay offline until the server setup in deploy/CLOUDPANEL.md is done."
+          fi
 
       - name: Clean up key
         if: always()

@@ -75,3 +75,87 @@ gzip_types application/javascript text/css application/json model/gltf+json mode
 - Push or merge to `staging`, or go to **Actions → Deploy to CloudPanel (staging) → Run workflow**.
 - rsync swaps the new files in all at once (`--delay-updates`), then removes stale files (`--delete-after`).
 - It leaves `.well-known/` alone, so Let's Encrypt renewals keep working.
+- The game server (`server/`) is uploaded to `/home/<site-user>/frostvale-server` (or `CLOUDPANEL_SERVER_PATH`) and restarted with pm2. Its `.env` and `node_modules` are never overwritten.
+
+## 5. Game server: accounts, leaderboards, multiplayer (one-time)
+
+The game works without this. Until it's set up, players get the offline single-player game, and the deploy prints *"Game server uploaded but not started"*.
+
+Once it's done, the same site serves:
+
+| Path | What |
+|---|---|
+| `/` | The game (static files, as before) |
+| `/api/*` | Accounts and leaderboards (Node server on `127.0.0.1:3100`) |
+| `/ws` | Multiplayer WebSocket (same Node server) |
+
+### 5.1 Database
+1. In CloudPanel, go to **Databases → Add Database**:
+   - Database name: `frostvale`
+   - Database user: `frostvale`
+   - Password: generate a strong one and keep it for the next step.
+2. You don't create any tables. The server creates and upgrades them itself on start-up, using the files in `server/migrations`.
+
+### 5.2 Node.js for the site user
+SSH in as the **site user** (Site → **SSH/FTP**), then:
+```bash
+# nvm + Node 22 for this user only (no root needed)
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+source ~/.nvm/nvm.sh
+nvm install 22
+npm install -g pm2      # keeps the server running and restarts it if it crashes
+```
+
+### 5.3 Server settings (`.env`)
+Run a deploy once, which creates `~/frostvale-server`. Then:
+```bash
+cd ~/frostvale-server
+cp .env.example .env
+nano .env        # DB_PASSWORD = the password from 5.1; keep PORT=3100 unless that port is taken
+chmod 600 .env
+```
+
+| Setting | Meaning |
+|---|---|
+| `AUTH_MODE` | `email` (email + password) now; `phone` (phone number + SMS code) for production. Switching needs no new build: just restart. |
+| `SMS_PROVIDER` | `console` writes codes to the server log, for staging. Production needs the local gateway's adapter (tell us which provider). |
+| `PORT` | Must match the nginx block below. |
+
+Start it the first time (later deploys restart it automatically):
+```bash
+pm2 start ecosystem.config.cjs && pm2 save
+pm2 logs frostvale-server --lines 20     # should end with "Server listening at http://127.0.0.1:3100"
+```
+
+### 5.4 Keep it running after a reboot
+Site users can't install system services, so add a **Cron Job** (Site → **Cron Jobs**) that brings pm2 back if the server rebooted:
+```
+*/5 * * * *   bash -lc 'source ~/.nvm/nvm.sh && pm2 resurrect >/dev/null 2>&1 || true'
+```
+
+### 5.5 nginx: send `/api` and `/ws` to the server
+Site → **Vhost**: paste this inside the `server { … }` block that listens on 443, above the existing `location /` block, then **Save**:
+```nginx
+location /api/ {
+  proxy_pass http://127.0.0.1:3100;
+  proxy_set_header Host $host;
+  proxy_set_header X-Real-IP $remote_addr;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto $scheme;
+}
+location = /ws {
+  proxy_pass http://127.0.0.1:3100;
+  proxy_http_version 1.1;
+  proxy_set_header Upgrade $http_upgrade;
+  proxy_set_header Connection "upgrade";
+  proxy_set_header Host $host;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_read_timeout 1h;   # multiplayer connections stay open
+  proxy_send_timeout 1h;
+}
+```
+
+### 5.6 Check
+- `https://<your-site>/api/health` returns `{"ok":true}`.
+- Open the game and press Start: a **Join Frostvale** card appears. Create an account, pick an adventurer, then open the game on a second device and you'll see each other.
+- The deploy's smoke test now also prints **"Game server reachable ✅"**.

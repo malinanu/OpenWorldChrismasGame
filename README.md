@@ -48,6 +48,8 @@
 | **Game 5: Krampus' Cellar** (tap-to-walk stealth, guided) — simplified after playtesting | ✅ playable |
 | **Game 6: Advent Dice Race** (physics dice vs. 3 AI elves) | ✅ playable |
 | Staging deploys to CloudPanel on every push to `staging` | ✅ |
+| **Online**: accounts (email + password now, phone + SMS code ready for production), a choice of 6 Adventurers, a shared village with live players and snowball fights, leaderboards | ✅ (server needs the one-time CloudPanel setup) |
+| Admin panel | ⏳ next |
 | **Day & night cycle**: an 8-minute day in the village with sunrise, sunset, a starry moonlit night, glowing lanterns and cottage windows; toggle in the pause menu | ✅ |
 | **Music & sound effects**: carols and SFX synthesised live with Web Audio, no files to download | ✅ |
 | **Fast loading**: home screen in ~2 s on slow 4G (was ~70 s); meshopt models, trimmed animations, gzipped physics, offline cache | ✅ |
@@ -264,6 +266,39 @@ All audio lives in `src/core/Audio.ts` and is **generated in code**, so there is
 
 ---
 
+## 🌐 Online play
+
+```
+Browser ── https ──► nginx (CloudPanel site)
+                       ├─ /        the game (static dist/)
+                       ├─ /api/*   ─► Node server (server/, Fastify) ─► MySQL / MariaDB
+                       └─ /ws      ─► same server (WebSocket)
+```
+
+**Accounts.**
+- **Email and password** today. Usernames are 3–16 letters, numbers or `_`, unique (case-insensitive).
+- **Phone and SMS code** for production, switched on with `AUTH_MODE=phone`. Codes are 6 digits, valid for 5 minutes, single-use, with at most 5 attempts and per-phone/IP rate limits.
+- **SMS gateway:** pluggable (`server/src/sms.ts`). The `console` sender logs codes for staging; the local gateway adapter comes once the provider is chosen.
+- **Sessions:** opaque bearer tokens, stored hashed, with a 30-day sliding expiry.
+
+**Characters.** On first sign-in you pick one of the six Adventurers from a turntable preview. You can change it any time from the pause menu.
+
+**Shared village.**
+- **Rooms:** players join a room of up to 30 and see each other live, with their character, name tag and animations, interpolated 110 ms behind.
+- **Snowballs:** F, right-click or the ❄️ button scoops a snowball; press again to throw it, with a gentle lock-on to the nearest player in front.
+- **Hits are server-checked:** the server simulates every snowball and decides hits, rejecting impossible speeds and throw origins. Players inside a mini-game are hidden and can't be hit.
+
+**Progress and leaderboards.**
+- Mini-game results sync to the server, which keeps the best per game, clamps scores and derives stars itself.
+- Local progress merges both ways on sign-in.
+- The 🏆 leaderboard (L key, or the button) has a total stars and ornaments board plus a best-score board per mini-game, and shows your own rank.
+
+**Offline.** "Play offline" on the sign-in card, or no server reachable, gives the full single-player game, as before.
+
+**Deploy.** CI builds and tests the server against MariaDB. Pushing to `staging` uploads it and restarts it with pm2, once the one-time setup in `deploy/CLOUDPANEL.md` §5 is done: the database, `.env`, pm2 and the nginx `/api` + `/ws` block.
+
+---
+
 ## ⚠️ Still missing
 
 | Need | Recommended source | Notes |
@@ -305,9 +340,18 @@ npm run manifest   # list every model id → public/assets/models/manifest.json
 npm run check-levels  # prove every Santa's Express level is solvable, print par
 ```
 
+**With the game server** (accounts, leaderboards, multiplayer). It needs MySQL or MariaDB:
+```bash
+cd server && npm install
+cp .env.example .env          # point DB_* at a local database; the server creates the tables
+npm run dev                   # http://127.0.0.1:3100 (Vite proxies /api and /ws to it)
+npm test                      # integration tests; TEST_DB_* env vars, defaults to 127.0.0.1:3307 frostvale_test
+```
+Without the server, the game still runs: it detects there's no `/api` and plays offline.
+
 Add `?stats` to the URL (e.g. `http://192.168.1.20:5173/?stats` on your phone) for a live FPS / CPU / GPU overlay. It's lazy-loaded, so normal players never download it.
 
-A debug handle is exposed as `window.frostvale` (`engine`, `overworld`, `scenes`, `gameState`, `hud`, `input`). For example, `frostvale.scenes.enter('snowball-showdown')` jumps straight into a game, and `localStorage.clear()` resets progress.
+A debug handle is exposed as `window.frostvale` (`engine`, `overworld`, `scenes`, `gameState`, `hud`, `input`, `api`). For example, `frostvale.scenes.enter('snowball-showdown')` jumps straight into a game, and `localStorage.clear()` resets progress.
 
 ---
 
