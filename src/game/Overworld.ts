@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { assets } from '../core/AssetLoader';
 import { audio } from '../core/Audio';
+import { api, CHARACTER_NAMES } from '../net/api';
+import { changeCharacter, serverConfig, signInAgain, signOut } from '../net/session';
 import type { Engine, Quality } from '../core/Engine';
 import { isTouchDevice, type Input } from '../core/Input';
 import type { Overworld as OverworldContract, SceneManager } from '../core/SceneManager';
@@ -94,7 +96,7 @@ export class Overworld implements OverworldContract {
     this.engine.track(this.cam.camera);
   }
 
-  private refreshOrnaments() {
+  refreshOrnaments() {
     this.ornaments.clear();
     const geo = new THREE.SphereGeometry(0.45, 20, 14);
     MINI_GAME_IDS.forEach((id, i) => {
@@ -246,9 +248,18 @@ export class Overworld implements OverworldContract {
     const fs = canFullscreen()
       ? `<div class="row"><button class="chip" data-fullscreen>${document.fullscreenElement ? '🗗 Exit fullscreen' : '⛶ Fullscreen'}</button></div>`
       : '';
+    const me = api.user;
+    const account = me
+      ? `<div class="row account-row"><span class="small">👤 <b>${me.username}</b> · ${CHARACTER_NAMES[me.characterId] ?? me.characterId}</span>
+           <button class="chip" data-character>🧝 Character</button><button class="chip" data-signout>Sign out</button></div>`
+      : serverConfig
+        ? `<div class="row account-row"><span class="small">Playing offline</span><button class="chip" data-signin>Sign in</button></div>`
+        : '';
+    let after: (() => Promise<void>) | null = null;
     this.hud
       .showCard(
         `<h2>⏸ Paused</h2>
+         ${account}
          <p>Ornaments: ${gameState.ornamentCount}/6 · ⭐ ${gameState.totalStars}/18</p>
          <div class="settings">
            <div class="row"><span class="small">Graphics</span>${chip('low', 'Fast')}${chip('medium', 'Balanced')}${chip('high', 'Pretty')}</div>
@@ -259,6 +270,13 @@ export class Overworld implements OverworldContract {
          </div>
          <div class="row"><button data-ok autofocus>Resume</button></div>`,
         (card) => {
+          const close = () => card.querySelector<HTMLButtonElement>('[data-ok]')!.click();
+          card.querySelector('[data-character]')?.addEventListener('click', () => {
+            after = () => changeCharacter(this.hud, this);
+            close();
+          });
+          card.querySelector('[data-signout]')?.addEventListener('click', () => void signOut());
+          card.querySelector('[data-signin]')?.addEventListener('click', signInAgain);
           card.querySelectorAll<HTMLButtonElement>('[data-quality]').forEach((b) =>
             b.addEventListener('click', () => this.changeQuality(b.dataset.quality as Quality)),
           );
@@ -289,6 +307,8 @@ export class Overworld implements OverworldContract {
           });
         },
       )
+      .catch(() => {})
+      .then(() => (after as (() => Promise<void>) | null)?.())
       .catch(() => {})
       .finally(() => this.resume());
   }

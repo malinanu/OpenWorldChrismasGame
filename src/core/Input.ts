@@ -52,9 +52,14 @@ export class Input {
   onTouchDetected?: () => void;
 
   constructor(private readonly canvas: HTMLCanvasElement) {
+    // Typing in a text field (sign-in, username) never moves the player or gets swallowed.
+    const typing = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      return !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
+    };
     window.addEventListener('keydown', (e) => {
       const a = KEYS[e.code];
-      if (!a) return;
+      if (!a || typing(e)) return;
       if (a !== 'pause') e.preventDefault();
       if (!this.down.has(a)) this.pressed.add(a);
       this.down.add(a);

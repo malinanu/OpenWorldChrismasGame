@@ -2,6 +2,7 @@ import type { Engine } from './Engine';
 import type { Input } from './Input';
 import type { Hud } from '../ui/hud';
 import { gameState } from '../game/GameState';
+import { api } from '../net/api';
 import { audio } from './Audio';
 import { starsFor, type MiniGame, type MiniGameContext, type MiniGameId } from '../minigames/MiniGame';
 import { MINI_GAMES } from '../minigames/registry';
@@ -75,6 +76,7 @@ export class SceneManager {
     this.hud.setQuitVisible(false);
     const stars = result.quit ? 0 : starsFor(result.score, info.thresholds);
     const newOrnament = gameState.recordResult(id, result.score, stars);
+    if (!result.quit) void api.saveProgress({ [id]: { score: result.score } });
     this.input.unlockPointer();
     audio.music('none');
     if (!result.quit) audio.sfx(newOrnament ? 'ornament' : stars > 0 ? 'fanfare' : 'fail');

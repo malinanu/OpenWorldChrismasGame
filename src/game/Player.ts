@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { audio } from '../core/Audio';
 import { assets } from '../core/AssetLoader';
 import type { Input } from '../core/Input';
@@ -47,16 +48,35 @@ export class Player {
   /** Horizontal speed this frame, used by the camera for a little FOV kick. */
   speed = 0;
 
-  constructor(private readonly characterId = 'characters/Rogue_Hooded.glb') {}
+  /** Adventurer model id (public/assets/models/characters/<id>.glb). */
+  characterId = 'Rogue_Hooded';
+  private clips: THREE.AnimationClip[] = [];
 
   async load() {
-    const [gltf, ...packs] = await Promise.all([assets.model(this.characterId), ...ANIM_PACKS.map((p) => assets.model(p))]);
-    this.model = gltf.scene;
-    this.object.add(this.model);
-    this.mixer = new THREE.AnimationMixer(this.model);
-    for (const pack of packs) {
-      for (const clip of pack.animations) this.actions.set(clip.name, this.mixer.clipAction(clip));
-    }
+    const [gltf, ...packs] = await Promise.all([assets.model(`characters/${this.characterId}.glb`), ...ANIM_PACKS.map((p) => assets.model(p))]);
+    this.clips = packs.flatMap((p) => p.animations);
+    this.useModel(cloneSkinned(gltf.scene));
+  }
+
+  /** Swap to another Adventurer (character select), keeping position, facing and animation state. */
+  async setCharacter(id: string) {
+    if (id === this.characterId && this.model) return;
+    const gltf = await assets.model(`characters/${id}.glb`);
+    this.characterId = id;
+    this.object.remove(this.model);
+    this.mixer.stopAllAction();
+    this.useModel(cloneSkinned(gltf.scene));
+    this.model.rotation.y = this.facing;
+  }
+
+  private useModel(model: THREE.Object3D) {
+    this.model = model;
+    this.object.add(model);
+    this.actions.clear();
+    this.current = undefined;
+    this.oneShot = false;
+    this.mixer = new THREE.AnimationMixer(model);
+    for (const clip of this.clips) this.actions.set(clip.name, this.mixer.clipAction(clip));
     for (const n of ['Jump_Start', 'Jump_Land', 'Cheering', 'Waving', 'Interact'] as const) {
       const a = this.actions.get(n);
       if (a) {

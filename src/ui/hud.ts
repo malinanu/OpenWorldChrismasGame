@@ -151,7 +151,7 @@ export class Hud {
     if (!v) this.hidePrompt();
   }
 
-  private renderTracker() {
+  renderTracker() {
     const slots = MINI_GAME_IDS.map((id) => {
       const got = gameState.hasOrnament(id);
       const info = MINI_GAMES[id];
@@ -272,7 +272,8 @@ export class Hud {
    * Shows HTML in the centre card. Resolves on [data-ok], rejects on [data-cancel].
    * `onMount` can wire up any extra buttons in the card.
    */
-  showCard(html: string, onMount?: (card: HTMLElement) => void): Promise<void> {
+  /** `keys: false` leaves Enter/Esc to the card itself (forms with text inputs). */
+  showCard(html: string, onMount?: (card: HTMLElement) => void, opts: { keys?: boolean } = {}): Promise<void> {
     this.card.innerHTML = `<div class="card">${html}</div>`;
     this.card.classList.remove('hidden');
     return new Promise((resolve, reject) => {
@@ -294,7 +295,7 @@ export class Hud {
           done(!this.card.querySelector('[data-cancel]') && !!this.card.querySelector('[data-ok]'));
         }
       };
-      window.addEventListener('keydown', onKey, true);
+      if (opts.keys !== false) window.addEventListener('keydown', onKey, true);
       this.card.querySelector('[data-ok]')?.addEventListener('click', () => done(true));
       this.card.querySelector('[data-cancel]')?.addEventListener('click', () => done(false));
       onMount?.(this.card);

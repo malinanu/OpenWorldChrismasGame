@@ -1,5 +1,6 @@
 import { assets } from './core/AssetLoader';
 import { audio } from './core/Audio';
+import { startSession } from './net/session';
 import { maybeShowStats } from './core/DebugStats';
 import { Engine } from './core/Engine';
 import { Input, isTouchDevice } from './core/Input';
@@ -60,6 +61,8 @@ async function boot() {
   audio.music('village');
   // Still inside the tap's user activation: phones get the whole screen where the browser allows it.
   if (isTouchDevice && canFullscreen()) void setFullscreen(true);
+  // Sign in (or continue offline), pick a character, sync progress; then into the village.
+  await startSession(hud, overworld);
   overworld.resume();
 
   // Desktop mouse-look needs pointer lock, which browsers only grant from a click.

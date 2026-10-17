@@ -59,11 +59,19 @@ export const { ${exportNames.join(', ')} } = instance.exports;`;
   };
 }
 
+const GAME_SERVER = {
+  '/api': { target: 'http://127.0.0.1:3100', changeOrigin: false },
+  '/ws': { target: 'ws://127.0.0.1:3100', ws: true },
+};
+
 export default defineConfig({
   // Relative base so the build works from a sub-folder (itch.io, GitHub Pages).
   base: './',
   plugins: [rapierGzip()],
   optimizeDeps: { exclude: ['@dimforge/rapier3d'] },
+  // The game server (server/, port 3100) behind the same origin, as nginx does in production.
+  server: { proxy: GAME_SERVER },
+  preview: { proxy: GAME_SERVER },
   build: {
     target: 'es2022',
     chunkSizeWarningLimit: 2500,

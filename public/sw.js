@@ -4,7 +4,7 @@
  * - Models, textures, world layout: served from cache, refreshed in the background.
  * - The page itself: network first, so a new deploy shows up on the next visit.
  */
-const CACHE = 'frostvale-v1';
+const CACHE = 'frostvale-v2';
 
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => {
@@ -22,6 +22,8 @@ self.addEventListener('fetch', (e) => {
   const req = e.request;
   const url = new URL(req.url);
   if (req.method !== 'GET' || url.origin !== location.origin) return;
+  // Live game data (accounts, leaderboards, multiplayer) always goes to the network.
+  if (url.pathname.includes('/api/') || url.pathname.endsWith('/ws')) return;
 
   if (req.mode === 'navigate') {
     e.respondWith(

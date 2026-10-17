@@ -252,3 +252,25 @@ body.is-touch .prompt { pointer-events: auto; cursor: pointer; padding: 12px 20p
   box-shadow: none; cursor: progress; transform: none;
 }
 .card button.start .label { position: relative; }
+
+/* ---------- account: sign in, username, character select ---------- */
+.account form { display: grid; gap: 10px; margin: 10px auto 4px; max-width: 340px; text-align: left; }
+.account label { display: grid; gap: 4px; font-size: 0.9rem; color: var(--muted); }
+.account input { font: inherit; font-size: 1.05rem; color: #fff; background: rgba(5, 12, 25, 0.55); border: 2px solid rgba(255,255,255,0.18);
+  border-radius: 12px; padding: 11px 12px; min-height: 46px; outline: none; }
+.account input:focus { border-color: var(--gold); }
+.account .tabs { display: flex; gap: 8px; justify-content: center; }
+.account .reg-only { display: none; }
+.account.registering .reg-only { display: grid; }
+.account .form-error { color: #ffb4b4; min-height: 1.2em; margin: 0; font-size: 0.92rem; }
+.account form button[type=submit] { justify-self: stretch; }
+.account form button[type=submit]:disabled { opacity: 0.6; }
+.card button.small-btn { font-size: 0.95rem; padding: 8px 18px; min-height: 40px; margin-top: 8px; }
+.char-pick { display: flex; align-items: center; justify-content: center; gap: 4px; }
+.char-pick canvas { width: 240px; height: 260px; max-width: 62vw; touch-action: pan-y; }
+.card button.arrow { font-size: 1.8rem; width: 48px; height: 48px; padding: 0; border-radius: 50%; }
+.char-name { font-size: 1.3rem; font-weight: 700; margin: 2px 0 !important; }
+.char-dots { display: flex; gap: 6px; justify-content: center; }
+.char-dots span { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.3); }
+.char-dots span.on { background: var(--gold); }
+.card .account-row { align-items: center; }
