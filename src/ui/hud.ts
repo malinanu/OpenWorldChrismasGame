@@ -25,8 +25,8 @@ export interface GameAction {
   enabled: boolean;
 }
 
-const DESKTOP_HINT = 'WASD move · Mouse look · Shift sprint · Space jump · E play · M map · Esc pause';
-const TOUCH_HINT = 'Left thumb: move (push far to run) · Right thumb: look · ⤒ jump';
+const DESKTOP_HINT = 'WASD move · Mouse look · Shift sprint · Space jump · F snowball · E play · M map · L leaders · Esc pause';
+const TOUCH_HINT = 'Left thumb: move (push far to run) · Right thumb: look · ⤒ jump · ❄️ scoop & throw';
 
 /** All HTML overlay UI: loading, title, prompts, trackers, cards, map, mini-game bar. */
 export class Hud {

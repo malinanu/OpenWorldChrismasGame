@@ -3,6 +3,9 @@ import { assets } from '../core/AssetLoader';
 import { audio } from '../core/Audio';
 import { api, CHARACTER_NAMES } from '../net/api';
 import { changeCharacter, serverConfig, signInAgain, signOut } from '../net/session';
+import { Multiplayer } from '../net/Multiplayer';
+import { showLeaderboard } from '../ui/leaderboard';
+import { SnowballFight } from './SnowballFight';
 import type { Engine, Quality } from '../core/Engine';
 import { isTouchDevice, type Input } from '../core/Input';
 import type { Overworld as OverworldContract, SceneManager } from '../core/SceneManager';
@@ -44,6 +47,8 @@ export class Overworld implements OverworldContract {
   private saveTimer = 0;
   /** Time of day, 0..1 (0 = midnight, 0.5 = noon). */
   dayTime = START_TIME;
+  fight!: SnowballFight;
+  multiplayer: Multiplayer | null = null;
   private finaleTime = -1;
   private touchShown = false;
   sceneManager!: SceneManager;
@@ -73,6 +78,9 @@ export class Overworld implements OverworldContract {
     spawn.y = this.world.groundY(spawn.x, spawn.z);
     this.player.attach(this.world.physics.world, spawn);
     this.world.scene.add(this.player.object);
+    this.fight = new SnowballFight(this.player, this.hud, (x, z) => this.world.groundY(x, z));
+    await this.fight.load();
+    this.world.scene.add(this.fight.group);
     if (!saved) this.player.faceTowards(Math.PI);
     this.cam.snapBehind(saved ? 0 : Math.PI);
     const s = gameState.data.settings;
@@ -157,6 +165,8 @@ export class Overworld implements OverworldContract {
       }
       if (input.justPressed('pause')) {
         this.openPause();
+      } else if (input.justPressed('leaderboard')) {
+        this.openLeaderboard();
       }
     }
 
@@ -185,6 +195,8 @@ export class Overworld implements OverworldContract {
     this.trail.update(dt, time, this.player.position, this.player.isGrounded);
 
     const pr = this.engine.renderer.getPixelRatio();
+    this.fight.update(dt, active ? input : null, this.cam.yaw, pr);
+    this.touch?.setSnowball(this.fight.holding);
     this.snow.update(time, this.cam.camera.position, pr);
     this.fireworks.update(dt, pr);
     for (const z of this.zones) {
@@ -238,6 +250,21 @@ export class Overworld implements OverworldContract {
     this.touch.setVisible(v);
   }
 
+  /** Join the shared village: other players appear, snowballs fly between everyone. */
+  goOnline() {
+    if (this.multiplayer) return;
+    const busy = () => !!this.sceneManager?.inMiniGame;
+    this.multiplayer = new Multiplayer(() => this.fight.localState());
+    this.fight.goOnline(this.multiplayer, busy);
+    this.multiplayer.connect();
+  }
+
+  private openLeaderboard() {
+    this.paused = true;
+    this.input.unlockPointer();
+    void showLeaderboard(this.hud).finally(() => this.resume());
+  }
+
   private openPause() {
     this.paused = true;
     this.input.unlockPointer();
@@ -260,7 +287,7 @@ export class Overworld implements OverworldContract {
       .showCard(
         `<h2>⏸ Paused</h2>
          ${account}
-         <p>Ornaments: ${gameState.ornamentCount}/6 · ⭐ ${gameState.totalStars}/18</p>
+         <p>Ornaments: ${gameState.ornamentCount}/6 · ⭐ ${gameState.totalStars}/18 ${serverConfig ? '<button class="chip" data-leaders>🏆 Leaderboard</button>' : ''}</p>
          <div class="settings">
            <div class="row"><span class="small">Graphics</span>${chip('low', 'Fast')}${chip('medium', 'Balanced')}${chip('high', 'Pretty')}</div>
            <div class="row"><span class="small">World</span><button class="chip ${s.dayNight ? 'on' : ''}" data-daynight>🌗 Day &amp; night</button></div>
@@ -276,6 +303,10 @@ export class Overworld implements OverworldContract {
             close();
           });
           card.querySelector('[data-signout]')?.addEventListener('click', () => void signOut());
+          card.querySelector('[data-leaders]')?.addEventListener('click', () => {
+            after = () => showLeaderboard(this.hud);
+            close();
+          });
           card.querySelector('[data-signin]')?.addEventListener('click', signInAgain);
           card.querySelectorAll<HTMLButtonElement>('[data-quality]').forEach((b) =>
             b.addEventListener('click', () => this.changeQuality(b.dataset.quality as Quality)),

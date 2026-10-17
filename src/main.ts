@@ -1,5 +1,6 @@
 import { assets } from './core/AssetLoader';
 import { audio } from './core/Audio';
+import { api } from './net/api';
 import { startSession } from './net/session';
 import { maybeShowStats } from './core/DebugStats';
 import { Engine } from './core/Engine';
@@ -62,7 +63,7 @@ async function boot() {
   // Still inside the tap's user activation: phones get the whole screen where the browser allows it.
   if (isTouchDevice && canFullscreen()) void setFullscreen(true);
   // Sign in (or continue offline), pick a character, sync progress; then into the village.
-  await startSession(hud, overworld);
+  if (await startSession(hud, overworld)) overworld.goOnline();
   overworld.resume();
 
   // Desktop mouse-look needs pointer lock, which browsers only grant from a click.
@@ -71,7 +72,7 @@ async function boot() {
   });
 
   // Debug handle for the console / automated tests.
-  (window as unknown as { frostvale: unknown }).frostvale = { engine, overworld, scenes, gameState, hud, input, audio };
+  (window as unknown as { frostvale: unknown }).frostvale = { engine, overworld, scenes, gameState, hud, input, audio, api };
 }
 
 // Repeat visits load from the phone's cache (production builds only; dev reloads must stay fresh).

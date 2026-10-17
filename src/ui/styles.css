@@ -274,3 +274,30 @@ body.is-touch .prompt { pointer-events: auto; cursor: pointer; padding: 12px 20p
 .char-dots span { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.3); }
 .char-dots span.on { background: var(--gold); }
 .card .account-row { align-items: center; }
+
+/* Snowball button: up and to the left of Jump, under the right thumb's arc. */
+.tbtn.throw { width: 64px; height: 64px; right: calc(124px + var(--safe-r)); bottom: calc(150px + var(--safe-b));
+  background: radial-gradient(circle at 50% 28%, #ffffff 0%, #d6e8ff 50%, #8fb4e3 100%); color: #1d3a66;
+  border: 3px solid #ffffff; opacity: 0.92; box-shadow: 0 5px 0 #4c6f9e, 0 8px 14px rgba(0, 0, 0, 0.3);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; -webkit-tap-highlight-color: transparent; }
+.tbtn.throw .ico { font-size: 1.35rem; line-height: 1; }
+.tbtn.throw span:last-child { font-size: 0.6rem; letter-spacing: 0.06em; font-weight: 800; }
+.tbtn.throw.ready { background: radial-gradient(circle at 50% 28%, #fff6d6 0%, var(--gold) 55%, #d9a520 100%); color: #3a2400; box-shadow: 0 5px 0 #8a6510, 0 8px 14px rgba(0,0,0,0.3); }
+.tbtn.throw:active, .tbtn.throw.down { transform: translateY(4px); box-shadow: 0 1px 0 #4c6f9e; }
+.tbtn.tb-trophy { right: calc(var(--gap) + 108px + var(--safe-r)); }
+@media (max-height: 460px) {
+  .tbtn.throw { right: calc(132px + var(--safe-r)); bottom: calc(80px + var(--safe-b)); }
+}
+
+/* ---------- leaderboard ---------- */
+.leaders .tabs { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
+.leaders .tabs .chip { padding: 6px 12px; min-height: 38px; font-size: 1.05rem; }
+.leaders .board { max-height: min(52vh, 420px); overflow-y: auto; margin-top: 4px; }
+.leaders table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.95rem; }
+.leaders td { padding: 7px 6px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+.leaders td.rank { width: 2.4em; text-align: center; font-weight: 700; }
+.leaders td.val { text-align: right; white-space: nowrap; }
+.leaders td.who { overflow: hidden; text-overflow: ellipsis; }
+.leaders tr.me td { background: rgba(255, 210, 90, 0.16); }
+.leaders tr.gap td { text-align: center; color: var(--muted); border: none; padding: 2px; }
+.muted { color: var(--muted); }

@@ -18,6 +18,7 @@ export class TouchControls {
   readonly root = el('touch-ui hidden');
   private stickZone = el('stick-zone');
   private lookZone = el('look-zone');
+  private snow: HTMLButtonElement;
   private base = el('stick-base idle', '<div class="stick-knob"></div>');
   private knob: HTMLDivElement;
   private stickId: number | null = null;
@@ -29,6 +30,17 @@ export class TouchControls {
     this.knob = this.base.querySelector('.stick-knob')!;
     const jump = this.button('tbtn jump', '', 'Jump');
     jump.innerHTML = `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 4 L27 15 H20.5 V21 H11.5 V15 H5 Z" /><rect x="11.5" y="24" width="9" height="3.2" rx="1.6" /></svg><span>JUMP</span>`;
+    const snow = this.button('tbtn throw', '', 'Snowball');
+    snow.innerHTML = '<span class="ico">❄️</span><span>SCOOP</span>';
+    snow.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      input.tap('throw');
+      snow.classList.add('down');
+    });
+    for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) snow.addEventListener(ev, () => snow.classList.remove('down'));
+    this.snow = snow;
+    const trophy = this.button('tbtn small tb-trophy', '🏆', 'Leaderboard');
+    trophy.addEventListener('click', () => input.tap('leaderboard'));
     const map = this.button('tbtn small tb-map', '🗺️', 'Map');
     const pause = this.button('tbtn small tb-pause', '⏸', 'Pause');
     jump.addEventListener('pointerdown', (e) => {
@@ -41,7 +53,7 @@ export class TouchControls {
     map.addEventListener('click', () => input.tap('map'));
     pause.addEventListener('click', () => input.tap('pause'));
     this.stickZone.append(this.base);
-    this.root.append(this.stickZone, this.lookZone, jump, map, pause);
+    this.root.append(this.stickZone, this.lookZone, jump, snow, trophy, map, pause);
     // Underneath the rest of the HUD, so prompts, cards and the map receive taps first.
     parent.prepend(this.root);
 
@@ -62,6 +74,13 @@ export class TouchControls {
       input.addLook(e.clientX - this.last.x, e.clientY - this.last.y);
       this.last = { x: e.clientX, y: e.clientY };
     });
+  }
+
+  /** The snowball button reads SCOOP until you hold one, then THROW. */
+  setSnowball(holding: boolean) {
+    if (this.snow.classList.contains('ready') === holding) return;
+    this.snow.classList.toggle('ready', holding);
+    this.snow.lastElementChild!.textContent = holding ? 'THROW' : 'SCOOP';
   }
 
   private button(cls: string, label: string, title: string) {
