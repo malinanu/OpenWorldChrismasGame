@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { assets } from '../../core/AssetLoader';
 import { audio } from '../../core/Audio';
-import { haptic } from '../../core/Input';
+import { haptic, isTouchDevice } from '../../core/Input';
 import { Physics, RAPIER } from '../../core/Physics';
 import { buildInstanced, modelBounds, type Placement } from '../../world/Instancing';
 import { Lighting } from '../../world/Lighting';
@@ -35,6 +35,14 @@ const POINTS: Record<Kind, number> = { snowman: 1, golden: 3, present: -2 };
 const PRESENTS = ['holiday/present_A_red', 'holiday/present_B_green', 'holiday/present_C_blue', 'holiday/present_sphere_A_yellow'];
 const TREES = ['forest/Tree_1_A_Color1', 'forest/Tree_2_C_Color1', 'forest/Tree_3_A_Color1', 'forest/Tree_4_B_Color1'];
 
+/** On touch screens the crosshair floats this far above the finger, so the finger never hides the target. */
+const AIM_LIFT_PX = 90;
+/** Touch aim assist: a target this close to the crosshair (CSS px) gets locked on. */
+const ASSIST_PX = 40;
+/** The cannon faces the lake (-z); it may turn this far either side, never towards the camera. */
+const MAX_TURN = 1.35;
+const ARC_DOTS = 18;
+
 /** Game 1 — knock down pop-up snowmen on the frozen lake with a snowball cannon. */
 export class SnowballShowdown implements MiniGame {
   readonly id = 'snowball-showdown' as const;
@@ -49,6 +57,11 @@ export class SnowballShowdown implements MiniGame {
   private ownedMaterials: THREE.Material[] = [];
   private ownedGeometries: THREE.BufferGeometry[] = [];
   private cannon!: THREE.Object3D;
+  private reticle!: THREE.Sprite;
+  private arc!: THREE.Points;
+  /** Touch: a finger is down and aiming; lifting it throws. */
+  private aiming = false;
+  private locked: Target | null = null;
   private puffs!: Burst;
   private sparkles!: Burst;
   private snow!: Snowfall;
@@ -141,6 +154,8 @@ export class SnowballShowdown implements MiniGame {
     this.cannon.scale.setScalar(2.4);
     this.cannon.position.set(0, 0.6, 11);
     this.scene.add(this.cannon);
+    this.cannon.rotation.y = Math.PI; // facing the lake
+    this.buildAimGuides();
 
     this.puffs = new Burst(smoke, 500, false, -4);
     this.sparkles = new Burst(sparkle, 300, true, -2);
@@ -203,22 +218,116 @@ export class SnowballShowdown implements MiniGame {
     }
   }
 
-  private aimPoint(): THREE.Vector3 {
-    const { pointer } = this.ctx.input;
-    this.raycaster.setFromCamera(new THREE.Vector2(pointer.x, pointer.y), this.camera);
-    const live = this.targets.filter((t) => t.state === 'rising' || t.state === 'up').map((t) => t.obj);
-    const hit = this.raycaster.intersectObjects(live, true)[0];
-    if (hit) return hit.point;
-    const p = new THREE.Vector3();
-    return this.raycaster.ray.intersectPlane(this.ground, p) ?? new THREE.Vector3(0, 0, -20);
+  /** Crosshair sprite (always on top, fixed screen size) and a dotted preview of the throw. */
+  private buildAimGuides() {
+    const c = document.createElement('canvas');
+    c.width = c.height = 128;
+    const g = c.getContext('2d')!;
+    const ring = (width: number, color: string) => {
+      g.lineWidth = width;
+      g.strokeStyle = color;
+      g.beginPath();
+      g.arc(64, 64, 42, 0, Math.PI * 2);
+      g.stroke();
+      for (const [x0, y0, x1, y1] of [[64, 6, 64, 30], [64, 98, 64, 122], [6, 64, 30, 64], [98, 64, 122, 64]]) {
+        g.beginPath();
+        g.moveTo(x0, y0);
+        g.lineTo(x1, y1);
+        g.stroke();
+      }
+    };
+    ring(16, 'rgba(15, 25, 45, 0.55)');
+    ring(7, '#ffffff');
+    g.fillStyle = '#ffffff';
+    g.beginPath();
+    g.arc(64, 64, 7, 0, Math.PI * 2);
+    g.fill();
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const mat = new THREE.SpriteMaterial({ map: tex, depthTest: false, depthWrite: false, sizeAttenuation: false, transparent: true });
+    this.reticle = new THREE.Sprite(mat);
+    this.reticle.scale.setScalar(0.085);
+    this.reticle.renderOrder = 10;
+    this.reticle.visible = false;
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(ARC_DOTS * 3), 3));
+    const dots = new THREE.PointsMaterial({
+      color: '#ffffff',
+      size: 7 * this.ctx.engine.renderer.getPixelRatio(),
+      sizeAttenuation: false,
+      transparent: true,
+      opacity: 0.8,
+      depthWrite: false,
+    });
+    this.arc = new THREE.Points(geo, dots);
+    this.arc.frustumCulled = false;
+    this.arc.visible = false;
+    this.scene.add(this.reticle, this.arc);
+    this.ownedMaterials.push(mat, dots);
+    this.ownedGeometries.push(geo);
   }
 
-  private fire(aim: THREE.Vector3) {
+  private liveTargets() {
+    return this.targets.filter((t) => t.state === 'rising' || t.state === 'up');
+  }
+
+  /**
+   * Where a throw at screen point `ndc` would land, and the target there, if any.
+   * With `assist`, a target near the crosshair on screen is locked on (touch screens).
+   */
+  private aimAt(ndc: THREE.Vector2, assist: boolean): { point: THREE.Vector3; target: Target | null; assisted: boolean } {
+    const live = this.liveTargets();
+    if (assist) {
+      const canvas = this.ctx.engine.canvas;
+      let best: Target | null = null;
+      let bestD = ASSIST_PX;
+      const c = new THREE.Vector3();
+      for (const t of live) {
+        c.copy(t.obj.position).setY(t.height * 0.55).project(this.camera);
+        const d = Math.hypot(((c.x - ndc.x) * canvas.clientWidth) / 2, ((c.y - ndc.y) * canvas.clientHeight) / 2);
+        if (d < bestD) {
+          bestD = d;
+          best = t;
+        }
+      }
+      if (best) return { point: best.obj.position.clone().setY(best.height * 0.55), target: best, assisted: true };
+    }
+    this.raycaster.setFromCamera(ndc, this.camera);
+    const hit = this.raycaster.intersectObjects(live.map((t) => t.obj), true)[0];
+    if (hit) {
+      const target = live.find((t) => t.obj === hit.object || t.obj.getObjectById(hit.object.id)) ?? null;
+      return { point: hit.point, target, assisted: false };
+    }
+    const p = this.raycaster.ray.intersectPlane(this.ground, new THREE.Vector3()) ?? new THREE.Vector3(0, 0, -20);
+    return { point: p, target: null, assisted: false };
+  }
+
+  /** Launch point, velocity and flight time for a lob that lands on `aim` (shared by the throw and its preview). */
+  private solveShot(aim: THREE.Vector3) {
     const origin = this.cannon.position.clone().add(new THREE.Vector3(0, 1.4, 0)).addScaledVector(aim.clone().sub(this.cannon.position).setY(0).normalize(), 1.6);
     const delta = aim.clone().sub(origin);
     const flight = THREE.MathUtils.clamp(delta.length() / 30, 0.3, 1.1);
     const g = this.physics.world.gravity.y;
     const v = new THREE.Vector3(delta.x / flight, (delta.y - 0.5 * g * flight * flight) / flight, delta.z / flight);
+    return { origin, v, flight, g };
+  }
+
+  private showGuides(aim: THREE.Vector3, highlight: boolean) {
+    this.reticle.visible = this.arc.visible = true;
+    this.reticle.position.copy(aim);
+    (this.reticle.material as THREE.SpriteMaterial).color.set(highlight ? '#ffd25a' : '#ffffff');
+    const { origin, v, flight, g } = this.solveShot(aim);
+    const pos = this.arc.geometry.attributes.position as THREE.BufferAttribute;
+    for (let i = 0; i < ARC_DOTS; i++) {
+      const t = (flight * (i + 1)) / (ARC_DOTS + 1);
+      pos.setXYZ(i, origin.x + v.x * t, origin.y + v.y * t + 0.5 * g * t * t, origin.z + v.z * t);
+    }
+    pos.needsUpdate = true;
+  }
+
+  private fire(aim: THREE.Vector3) {
+    const { origin, v } = this.solveShot(aim);
     const body = this.physics.world.createRigidBody(
       RAPIER.RigidBodyDesc.dynamic().setTranslation(origin.x, origin.y, origin.z).setLinvel(v.x, v.y, v.z).setCcdEnabled(true).setLinearDamping(0.05),
     );
@@ -259,18 +368,40 @@ export class SnowballShowdown implements MiniGame {
     this.time += dt;
     this.cooldown -= dt;
 
-    // Aim the cannon at the cursor.
-    const aim = this.aimPoint();
-    const yaw = Math.atan2(aim.x - this.cannon.position.x, aim.z - this.cannon.position.z);
-    this.cannon.rotation.y = THREE.MathUtils.lerp(this.cannon.rotation.y, yaw, 1 - Math.exp(-dt * 20));
+    const input = this.ctx.input;
+    const touch = isTouchDevice;
+    // Touch: aim at a point lifted above the finger, so the finger doesn't hide the target.
+    const lift = touch ? (2 * AIM_LIFT_PX) / Math.max(this.ctx.engine.canvas.clientHeight, 1) : 0;
+    const { point: aim, target, assisted } = this.aimAt(new THREE.Vector2(input.pointer.x, Math.min(1, input.pointer.y + lift)), touch);
 
     const playing = this.time >= 0 && this.time < ROUND && !this.over;
+    const free = playing && !this.ctx.hud.cardOpen;
+    if (touch) this.aiming = free && (input.isDown('fire') || input.justPressed('fire'));
+    const tracking = !touch || this.aiming || input.justReleased('fire');
+
+    // Turn the cannon along the shortest way round, within its forward arc. (A plain lerp of
+    // atan2 swung it right round towards the camera whenever the aim crossed the centre line.)
+    if (tracking) {
+      const raw = Math.atan2(aim.x - this.cannon.position.x, aim.z - this.cannon.position.z);
+      const rel = THREE.MathUtils.clamp(Math.atan2(Math.sin(raw - Math.PI), Math.cos(raw - Math.PI)), -MAX_TURN, MAX_TURN);
+      const cur = this.cannon.rotation.y;
+      const d = Math.atan2(Math.sin(Math.PI + rel - cur), Math.cos(Math.PI + rel - cur));
+      this.cannon.rotation.y = cur + d * (1 - Math.exp(-dt * 20));
+    }
+
+    if (free && (touch ? this.aiming : true)) this.showGuides(aim, !!target);
+    else this.reticle.visible = this.arc.visible = false;
+    if (touch && assisted && target !== this.locked) haptic(8);
+    this.locked = assisted ? target : null;
+
     if (playing) {
-      // justPressed catches quick taps that start and end between two frames; isDown keeps a held finger firing.
-      const input = this.ctx.input;
-      if ((input.justPressed('fire') || input.isDown('fire')) && this.cooldown <= 0 && !this.ctx.hud.cardOpen) {
-        this.fire(aim);
-        this.cooldown = 0.28;
+      if (free && this.cooldown <= 0) {
+        // Touch throws when the finger lifts (a quick tap counts too). With a mouse, click or hold.
+        const go = touch ? input.justReleased('fire') : input.justPressed('fire') || input.isDown('fire');
+        if (go) {
+          this.fire(aim);
+          this.cooldown = 0.28;
+        }
       }
       this.spawnTimer -= dt;
       const live = this.targets.filter((t) => t.state === 'rising' || t.state === 'up').length;
@@ -400,6 +531,7 @@ export class SnowballShowdown implements MiniGame {
     // Model geometries/materials are shared with the asset cache, so only free what we created.
     this.ownedMaterials.forEach((m) => m.dispose());
     this.ownedGeometries.forEach((g) => g.dispose());
+    (this.reticle.material as THREE.SpriteMaterial).map?.dispose();
     this.scene.clear();
   }
 }

@@ -7,7 +7,7 @@ export const MINI_GAMES: Record<MiniGameId, MiniGameInfo> = {
     emoji: '❄️',
     blurb: 'Snowmen keep popping up on the frozen lake. Knock over as many as you can in 60 seconds!',
     howTo: [
-      ['👆 Tap where you want the snowball to land', '🖱️ Aim with the mouse, click to throw'],
+      ['👆 Drag to aim: the crosshair floats above your finger. Lift to throw', '🖱️ Aim with the mouse, click to throw'],
       '⛄ Snowman = 1 point · 🟡 golden snowman = 3',
       '🎁 Don\'t hit the presents (−2)',
     ],

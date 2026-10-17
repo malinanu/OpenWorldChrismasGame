@@ -37,6 +37,7 @@ export function haptic(pattern: number | number[] = 15) {
 export class Input {
   private down = new Set<Action>();
   private pressed = new Set<Action>();
+  private released = new Set<Action>();
   private padDown = new Set<Action>();
   private virtualDown = new Set<Action>();
   private stick = { x: 0, y: 0 };
@@ -80,6 +81,7 @@ export class Input {
       if (e.pointerId !== this.firePointer) return;
       this.firePointer = null;
       this.down.delete('fire');
+      this.released.add('fire');
     };
     window.addEventListener('pointerup', release);
     window.addEventListener('pointercancel', release);
@@ -169,6 +171,11 @@ export class Input {
     return this.enabled && this.pressed.has(a);
   }
 
+  /** The finger/button came up this frame (a quick tap reports both pressed and released). */
+  justReleased(a: Action) {
+    return this.enabled && this.released.has(a);
+  }
+
   /** Movement vector from keys, virtual stick or left stick: x = right, y = forward. */
   move(): { x: number; y: number } {
     if (!this.enabled) return { x: 0, y: 0 };
@@ -213,6 +220,7 @@ export class Input {
 
   endFrame() {
     this.pressed.clear();
+    this.released.clear();
     this.look.x = 0;
     this.look.y = 0;
     this.wheel = 0;
