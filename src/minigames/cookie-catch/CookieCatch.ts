@@ -228,7 +228,7 @@ export class CookieCatch implements MiniGame {
     if (f.kind === 'golden') this.magnet = MAGNET_TIME;
     this.sparkles.emit(at, f.kind === 'golden' ? 50 : 16, { color: f.kind === 'golden' ? ['#ffd25a', '#fff2b0'] : ['#ffffff', '#ffd25a'], speed: 3, up: 2, size: 0.6, life: 0.7 });
     haptic(f.kind === 'golden' ? 40 : 10);
-    audio.sfx(f.kind === 'golden' ? 'magic' : 'catch', Math.pow(2, (Math.min(this.streak, 12) % 13) / 12));
+    audio.sfx(f.kind === 'golden' ? 'powerup' : 'munch', Math.pow(2, Math.min(this.streak, 12) / 24));
     this.popup(def.label, at, true);
   }
 
@@ -246,9 +246,10 @@ export class CookieCatch implements MiniGame {
       if (hit) this.targetX = hit.x;
     }
     const mv = input.move().x;
-    if (Math.abs(mv) > 0.1) this.targetX = this.basket.position.x + mv * 14 * dt;
+    if (Math.abs(mv) > 0.1) this.targetX += mv * 26 * dt;
     this.targetX = THREE.MathUtils.clamp(this.targetX, -this.halfWidth, this.halfWidth);
-    const bx = THREE.MathUtils.lerp(this.basket.position.x, this.targetX, 1 - Math.exp(-dt * 18));
+    // Snappy: the bowl is almost under the finger within a frame or two.
+    const bx = THREE.MathUtils.lerp(this.basket.position.x, this.targetX, 1 - Math.exp(-dt * 45));
     this.basket.rotation.z = THREE.MathUtils.clamp((bx - this.basket.position.x) * -0.6, -0.25, 0.25);
     this.basket.position.x = bx;
 

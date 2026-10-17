@@ -12,7 +12,7 @@ export type MusicTrack = 'village' | 'game' | 'cellar' | 'none';
 export type Sfx =
   | 'click' | 'step' | 'jump' | 'discover' | 'ornament' | 'enter'
   | 'throw' | 'hit' | 'golden' | 'bad' | 'tick' | 'go'
-  | 'catch' | 'magic' | 'rotate' | 'whistle' | 'deliver' | 'crash'
+  | 'catch' | 'munch' | 'powerup' | 'magic' | 'rotate' | 'whistle' | 'deliver' | 'crash'
   | 'pick' | 'build' | 'blueprint' | 'chest' | 'spotted'
   | 'dice' | 'hop' | 'gift' | 'star' | 'fanfare' | 'fail' | 'firework';
 
@@ -362,6 +362,16 @@ class AudioEngine {
       case 'tick': this.tone(1200, t, 0.06, 0.1, 'square'); break;
       case 'go': this.tone(1568, t, 0.25, 0.14, 'square'); break;
       case 'catch': this.bell(hz(76) * p, t, 0.35, 0.22, out); break;
+      case 'munch':
+        // Cookie crunch + a bubbly pop: deliberately unlike the bells in the music.
+        this.noiseHit(t, 0.07, 'bandpass', 1600 * p, 0.35, out, 900, 1.5);
+        this.noiseHit(t + 0.06, 0.05, 'bandpass', 2200 * p, 0.2, out, 1200, 1.5);
+        this.tone(320 * p, t, 0.09, 0.22, 'square', 900 * p);
+        break;
+      case 'powerup':
+        for (let i = 0; i < 5; i++) this.tone((260 + i * 130) * p, t + i * 0.045, 0.12, 0.12, 'square', (390 + i * 130) * p);
+        this.noiseHit(t, 0.4, 'bandpass', 800, 0.12, out, 5000, 2);
+        break;
       case 'magic': [72, 76, 79, 83, 86, 91].forEach((m, i) => this.bell(hz(m), t + i * 0.05, 0.6, 0.15, out)); break;
       case 'rotate':
         this.noiseHit(t, 0.05, 'bandpass', 2500, 0.25, out, undefined, 4);
