@@ -152,7 +152,9 @@ Gingerbread houses line the streets. Every game sits at the end of a street, and
 
 **Day and night.** `Lighting.setTime(t)` (`src/world/Lighting.ts`) blends keyframes for noon, sunset, night and dawn. The keyframes cover sky, fog, the hemisphere light, and the sun's colour, strength and direction; after dark the sun becomes the moon, and the sky shader adds stars and a moon.
 - **Clock:** the village clock (`Overworld.dayTime`) runs only while you explore. A full cycle is 8 minutes, and each visit starts mid-afternoon.
-- **Lights at night:** the lantern lights get brighter and reach further. The lantern halos grow, and every cottage window gets a warm glow (one extra Points draw call).
+- **Lamps:** lanterns stand every 18 m along the streets, around the plaza ring and around every game area, and each cottage has a porch lamp above its door.
+- **Light pools:** the warm light on the snow and cobbles is baked once into a world-sized light map that the ground and road shaders add at night. Every lamp across the village shows its pool, not just the 4 nearest real point lights.
+- **Glow:** windows, porch lamps and string lights glow through an emissive `glow` vertex flag on the cottage material, and lamp heads are small, hot shader points rather than big sprites.
 - **Performance:** the number of lights never changes, so no shaders recompile.
 - **Mini-games:** they keep daylight.
 

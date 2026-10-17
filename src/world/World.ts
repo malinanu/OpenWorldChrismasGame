@@ -2,12 +2,12 @@ import * as THREE from 'three';
 import { assets } from '../core/AssetLoader';
 import { initPhysics, Physics, RAPIER } from '../core/Physics';
 import type { MiniGameId } from '../minigames/MiniGame';
-import { cottageWindows } from './Cottages';
+import { cottageNight, cottagePorch } from './Cottages';
 import { buildInstanced, modelBounds, type Placement } from './Instancing';
 import { Lighting } from './Lighting';
 import { MINI_GAMES } from '../minigames/registry';
 import { buildSignposts, Roads, type RoadDef } from './Roads';
-import { createSnowGroundMaterial } from './SnowGround';
+import { applyNightLight, createSnowGroundMaterial, type NightLightUniforms } from './SnowGround';
 import { Terrain, type FlatSpot } from './Terrain';
 
 type Vec3 = [number, number, number];
@@ -85,9 +85,10 @@ export class World {
   readonly lightSpots: { pos: THREE.Vector3; color: THREE.Color }[] = [];
   private readonly lightPool: THREE.PointLight[] = [];
   private glow?: THREE.Points;
-  /** Warm cottage windows; they only glow after dark. */
-  private windowGlow?: THREE.Points;
-  private readonly windowSpots: { pos: THREE.Vector3; color: THREE.Color }[] = [];
+  /** Ground in front of each cottage door, lit by its porch lamp at night. */
+  private readonly porchSpots: THREE.Vector3[] = [];
+  /** Shared by the ground and road materials: the baked lamp-light map and how strongly it shows. */
+  private readonly night: NightLightUniforms = { uNightMap: { value: null }, uNight: { value: 0 }, uHalf: { value: 1 } };
   private highShadows = false;
   roads!: Roads;
 
@@ -114,8 +115,11 @@ export class World {
     this.terrain.addCollider(this.physics.world);
 
     // Cobblestone roads, lanterns along them and signposts at the plaza.
-    this.scene.add(this.roads.build((x, z) => this.groundY(x, z)));
-    d.props.push({ model: 'holiday/lantern', at: this.roads.lanterns.map((p) => [p.x, 0, p.z] as Vec3), scale: 1, light: '#ffb35a', collider: 'trunk', shadow: false });
+    const roadMesh = this.roads.build((x, z) => Math.max(this.groundY(x, z), this.terrain.meshHeightAt(x, z)));
+    this.scene.add(roadMesh);
+    const lanterns = this.roads.lanterns.map((p) => [p.x, 0, p.z] as Vec3);
+    lanterns.push(...this.zoneLanterns());
+    d.props.push({ model: 'holiday/lantern', at: lanterns, scale: 1, light: '#ffb35a', collider: 'trunk', shadow: false });
     const signs = this.roads.signposts;
     this.scene.add(buildSignposts(signs, signs.map((s) => `${MINI_GAMES[s.to].emoji} ${MINI_GAMES[s.to].title}`), (x, z) => this.groundY(x, z)));
 
@@ -125,14 +129,18 @@ export class World {
     await Promise.all(d.props.map((p) => this.prop(p)));
 
     for (let i = 0; i < 4; i++) {
-      const l = new THREE.PointLight('#ffb35a', 0, 14, 1.6);
+      const l = new THREE.PointLight('#ffc070', 0, 16, 2);
       this.lightPool.push(l);
       this.scene.add(l);
     }
-    const glowTex = await assets.texture('vfx/glow.png');
-    this.glow = this.buildGlow(glowTex, this.lightSpots, 1.3);
-    this.windowGlow = this.buildGlow(glowTex, this.windowSpots, 1.1);
-    this.scene.add(this.glow, this.windowGlow);
+    this.glow = this.buildGlow(this.lightSpots);
+    this.scene.add(this.glow);
+
+    // Every lamp's pool of light, baked once into a texture the ground and roads read at night.
+    this.night.uHalf.value = d.half;
+    this.night.uNightMap.value = this.bakeNightLight(d.half);
+    applyNightLight(this.terrain.mesh.material as THREE.Material, 4, this.night);
+    applyNightLight(roadMesh.material as THREE.Material, 2.5, this.night);
     this.setTime(0.5);
   }
 
@@ -140,21 +148,73 @@ export class World {
   setTime(t: number) {
     this.lighting.setTime(t);
     const night = this.lighting.night;
-    // After dark the halos grow and brighten, so lanterns and windows read from across the village.
-    if (this.glow) {
-      const u = (this.glow.material as THREE.ShaderMaterial).uniforms;
-      u.uStrength.value = THREE.MathUtils.lerp(0.5, 2.4, night);
-      u.uSize.value = THREE.MathUtils.lerp(1.3, 2.1, night);
-    }
-    if (this.windowGlow) {
-      const w = THREE.MathUtils.smoothstep(night, 0.2, 0.75);
-      (this.windowGlow.material as THREE.ShaderMaterial).uniforms.uStrength.value = w * 2.2;
-      this.windowGlow.visible = w > 0.01;
-    }
+    // Lamps come on through dusk: brighter lamp heads, pools of light on the ground, glowing windows.
+    const on = THREE.MathUtils.smoothstep(night, 0.2, 0.8);
+    if (this.glow) (this.glow.material as THREE.ShaderMaterial).uniforms.uStrength.value = THREE.MathUtils.lerp(0.35, 1.5, on);
+    this.night.uNight.value = on;
+    cottageNight.value = on;
   }
 
-  /** Every halo of one kind in one Points draw call (dozens of sprites would be dozens of draw calls). */
-  private buildGlow(map: THREE.Texture, spots: { pos: THREE.Vector3; color: THREE.Color }[], size: number): THREE.Points {
+  /** A few lanterns around each game area, clear of roads and of the zone's own props. */
+  private zoneLanterns(): Vec3[] {
+    const d = this.data;
+    const out: Vec3[] = [];
+    const taken = d.props.flatMap((p) => p.at ?? []);
+    for (const z of d.zones) {
+      const flat = d.flats.filter((f) => !f.local).sort((a, b) => Math.hypot(a.x - z.position[0], a.z - z.position[2]) - Math.hypot(b.x - z.position[0], b.z - z.position[2]))[0];
+      const r = flat ? Math.min(10, flat.r - 2) : 9;
+      let placed = 0;
+      for (let k = 0; k < 8 && placed < 4; k++) {
+        const a = Math.PI / 4 + (k * Math.PI) / 4;
+        const x = z.position[0] + Math.cos(a) * r;
+        const zz = z.position[2] + Math.sin(a) * r;
+        if (this.terrain.pathDistance(x, zz) < 3.5) continue;
+        if (taken.some(([px, , pz]) => Math.hypot(px - x, pz - zz) < 3)) continue;
+        if (out.some(([ox, , oz]) => Math.hypot(ox - x, oz - zz) < 6)) continue;
+        out.push([+x.toFixed(1), 0, +zz.toFixed(1)]);
+        placed++;
+      }
+    }
+    return out;
+  }
+
+  /** Soft warm pools under every lamp and porch, painted into one world-sized texture. */
+  private bakeNightLight(half: number): THREE.CanvasTexture {
+    const size = 1024;
+    const c = document.createElement('canvas');
+    c.width = c.height = size;
+    const g = c.getContext('2d')!;
+    g.fillStyle = '#000';
+    g.fillRect(0, 0, size, size);
+    g.globalCompositeOperation = 'lighter';
+    const px = (m: number) => (m / (2 * half)) * size;
+    const pool = (x: number, z: number, radius: number, rgb: string, strength: number) => {
+      const cx = (x / (2 * half) + 0.5) * size;
+      const cy = (1 - (z / (2 * half) + 0.5)) * size; // canvas rows run opposite to the texture's v
+      const r = px(radius);
+      const grad = g.createRadialGradient(cx, cy, 0, cx, cy, r);
+      grad.addColorStop(0, `rgba(${rgb}, ${strength})`);
+      grad.addColorStop(0.3, `rgba(${rgb}, ${strength * 0.55})`);
+      grad.addColorStop(0.65, `rgba(${rgb}, ${strength * 0.18})`);
+      grad.addColorStop(1, `rgba(${rgb}, 0)`);
+      g.fillStyle = grad;
+      g.fillRect(cx - r, cy - r, r * 2, r * 2);
+    };
+    for (const s of this.lightSpots) {
+      const torch = s.color.r > 0.99 && s.color.g < 0.55;
+      pool(s.pos.x, s.pos.z, torch ? 5 : 7.5, torch ? '255, 140, 60' : '255, 196, 120', 0.85);
+    }
+    for (const p of this.porchSpots) pool(p.x, p.z, 3.6, '255, 205, 130', 0.6);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+
+  /**
+   * Every lamp head in one Points draw call: a small hot core with a faint falloff, drawn in the
+   * shader (the light on the ground comes from the baked night map, not from a big sprite).
+   */
+  private buildGlow(spots: { pos: THREE.Vector3; color: THREE.Color }[]): THREE.Points {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(spots.flatMap((s) => s.pos.toArray()), 3));
     geo.setAttribute('color', new THREE.Float32BufferAttribute(spots.flatMap((s) => s.color.toArray()), 3));
@@ -163,21 +223,29 @@ export class World {
       depthWrite: false,
       blending: THREE.AdditiveBlending,
       vertexColors: true,
-      uniforms: { uMap: { value: map }, uTime: { value: 0 }, uPR: { value: 1 }, uSize: { value: size }, uStrength: { value: 1 } },
+      uniforms: { uTime: { value: 0 }, uPR: { value: 1 }, uStrength: { value: 1 } },
       vertexShader: /* glsl */ `
-        uniform float uTime; uniform float uPR; uniform float uSize; varying vec3 vColor; varying float vFlicker;
+        uniform float uTime; uniform float uPR; varying vec3 vColor; varying float vFlicker;
         void main() {
           vColor = color;
           vFlicker = 0.5 + 0.1 * sin(uTime * 7.0 + position.x * 1.3 + position.z);
           vec4 mv = modelViewMatrix * vec4(position, 1.0);
           gl_Position = projectionMatrix * mv;
           // Capped and faded up close, so a lantern right by the camera isn't a giant blob.
-          gl_PointSize = min(uSize * uPR * 300.0 / -mv.z, 110.0 * uPR);
+          gl_PointSize = min(0.75 * uPR * 300.0 / -mv.z, 48.0 * uPR);
           vFlicker *= smoothstep(2.5, 7.0, -mv.z);
         }`,
       fragmentShader: /* glsl */ `
-        uniform sampler2D uMap; uniform float uStrength; varying vec3 vColor; varying float vFlicker;
-        void main() { vec4 t = texture2D(uMap, gl_PointCoord); gl_FragColor = vec4(vColor * t.rgb, t.a * vFlicker * uStrength); }`,
+        uniform float uStrength; varying vec3 vColor; varying float vFlicker;
+        void main() {
+          vec2 p = gl_PointCoord * 2.0 - 1.0;
+          float r2 = dot(p, p);
+          if (r2 > 1.0) discard;
+          float core = exp(-r2 * 30.0);
+          float halo = exp(-r2 * 6.0) * 0.3 * (1.0 - r2);
+          vec3 col = mix(vColor, vec3(1.0, 0.95, 0.85), core);
+          gl_FragColor = vec4(col, (core + halo) * vFlicker * 1.6 * uStrength);
+        }`,
     });
     const pts = new THREE.Points(geo, mat);
     pts.frustumCulled = false;
@@ -265,14 +333,8 @@ export class World {
     }
     if (p.collider) this.addColliders(g.scene, placements, p.collider);
     if (p.model.startsWith('proc/cottage_')) {
-      const local = cottageWindows(Number(p.model.slice('proc/cottage_'.length)));
-      const warm = new THREE.Color('#ffc964');
-      for (const pl of placements) {
-        for (const v of local) {
-          const pos = v.clone().multiplyScalar(pl.scale).applyAxisAngle(new THREE.Vector3(0, 1, 0), pl.rotationY).add(pl.position);
-          this.windowSpots.push({ pos, color: warm });
-        }
-      }
+      const porch = cottagePorch(Number(p.model.slice('proc/cottage_'.length)));
+      for (const pl of placements) this.porchSpots.push(porch.clone().multiplyScalar(pl.scale).applyAxisAngle(new THREE.Vector3(0, 1, 0), pl.rotationY).add(pl.position));
     }
     if (p.light) {
       const box = modelBounds(g.scene);
@@ -326,12 +388,11 @@ export class World {
       l.color.copy(n.s.color);
       // Barely noticeable in daylight; at night the lanterns pool warm light on the cobbles.
       const night = this.lighting.night;
-      l.intensity = THREE.MathUtils.lerp(5, 24, night) * (0.9 + 0.1 * Math.sin(time * 9 + i * 2.1));
-      l.distance = THREE.MathUtils.lerp(14, 20, night);
+      l.intensity = THREE.MathUtils.lerp(8, 45, night) * (0.94 + 0.06 * Math.sin(time * 9 + i * 2.1));
+      l.distance = THREE.MathUtils.lerp(16, 22, night);
     });
-    for (const pts of [this.glow, this.windowGlow]) {
-      if (!pts) continue;
-      const u = (pts.material as THREE.ShaderMaterial).uniforms;
+    if (this.glow) {
+      const u = (this.glow.material as THREE.ShaderMaterial).uniforms;
       u.uTime.value = time;
       u.uPR.value = Math.min(window.devicePixelRatio, 2);
     }

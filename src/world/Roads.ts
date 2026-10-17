@@ -22,7 +22,9 @@ const WIDTH = 5;
 const SAMPLE = 1;
 /** Strips across the road's width. */
 const ACROSS = 4;
-const LANTERN_EVERY = 28;
+const LANTERN_EVERY = 18;
+/** Around the plaza ring, on its outer edge. */
+const LANTERN_EVERY_LOOP = 16;
 /** Metres per cobblestone texture tile. UVs are world-aligned so overlapping roads match exactly. */
 const TILE = 2.5;
 
@@ -127,6 +129,9 @@ export class Roads {
       let along = 0;
       let nextLantern = 8;
       let side = 1;
+      // A loop's lanterns all stand on its outer edge.
+      const cx = line.reduce((t, p) => t + p[0], 0) / line.length;
+      const cz = line.reduce((t, p) => t + p[1], 0) / line.length;
       for (let i = 0; i < line.length; i++) {
         const [x, z] = line[i];
         const [ax, az] = line[Math.max(0, i - 1)];
@@ -156,9 +161,10 @@ export class Roads {
             idx.push(a, b, a + 1, a + 1, b, b + 1);
           }
         }
-        if (!def.loop && along >= nextLantern && i < line.length - 6) {
-          nextLantern += LANTERN_EVERY;
+        if (along >= nextLantern && (def.loop || i < line.length - 6)) {
+          nextLantern += def.loop ? LANTERN_EVERY_LOOP : LANTERN_EVERY;
           side = -side;
+          if (def.loop) side = Math.hypot(x - tz - cx, z + tx - cz) > Math.hypot(x - cx, z - cz) ? 1 : -1;
           this.lanterns.push(new THREE.Vector3(x - tz * (WIDTH / 2 + 1.1) * side, 0, z + tx * (WIDTH / 2 + 1.1) * side));
         }
       }

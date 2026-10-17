@@ -59,10 +59,11 @@ export class Terrain {
         list.push([ax, az, bx, bz]);
       }
     }
-    // Building plots sit at the natural ground height under their centre (measured with the
-    // plots themselves left out), so a house is level without digging a pit or raising a mound.
+    // Building plots sit level with the street they face (the road's level at their centre,
+    // other plots left out), so nothing bulges between the cobbles and the house; the ground
+    // rises back to the hills behind them.
     const others = opts.flats.filter((f) => !f.local);
-    for (const f of opts.flats) if (f.local) f.y = this.heightWith(f.x, f.z, others);
+    for (const f of opts.flats) if (f.local) f.y = this.heightWith(f.x, f.z, others, true);
     const geo = new THREE.PlaneGeometry(half * 2, half * 2, segments, segments);
     geo.rotateX(-Math.PI / 2);
     const pos = geo.attributes.position as THREE.BufferAttribute;
@@ -115,22 +116,58 @@ export class Terrain {
     return d;
   }
 
+  /**
+   * Height of the rendered terrain mesh here: the grid's linear interpolation, which can sit a
+   * little above `heightAt` between vertices. Roads drape on the higher of the two so the snow
+   * never pokes through the cobbles.
+   */
+  meshHeightAt(x: number, z: number): number {
+    const { half, segments } = this.opts;
+    const pos = this.mesh.geometry.attributes.position;
+    const step = (half * 2) / segments;
+    const fx = THREE.MathUtils.clamp((x + half) / step, 0, segments - 1e-6);
+    const fz = THREE.MathUtils.clamp((z + half) / step, 0, segments - 1e-6);
+    const i = Math.floor(fx);
+    const j = Math.floor(fz);
+    const u = fx - i;
+    const v = fz - j;
+    // PlaneGeometry rows run along x; after rotateX(-90°) row j sits at z = -half + j * step.
+    const y = (ci: number, cj: number) => pos.getY(cj * (segments + 1) + ci);
+    const a = y(i, j);
+    const b = y(i, j + 1);
+    const c = y(i + 1, j + 1);
+    const d = y(i + 1, j);
+    // Its two triangles per cell: (a, b, d) and (b, c, d).
+    return u + v <= 1 ? a + (d - a) * u + (b - a) * v : c + (b - c) * (1 - u) + (d - c) * (1 - v);
+  }
+
   heightAt(x: number, z: number): number {
     return this.heightWith(x, z, this.opts.flats);
   }
 
-  private heightWith(x: number, z: number, flats: FlatSpot[]): number {
+  /** `asRoad`: the level a road would have here (used to seat house plots at street level). */
+  private heightWith(x: number, z: number, flats: FlatSpot[], asRoad = false): number {
     const { half, lake } = this.opts;
     let h = baseHeight(x, z);
     // Paths are slightly smoothed.
     const pd = this.pathDistance(x, z);
     // Roads run almost level; the bumps fade back in over a few metres either side.
-    if (pd < 9) h *= 0.12 + 0.88 * THREE.MathUtils.smoothstep(pd, 3, 9);
+    if (asRoad) h *= 0.12;
+    else if (pd < 9) h *= 0.12 + 0.88 * THREE.MathUtils.smoothstep(pd, 3, 9);
     for (const f of flats) {
-      const d = Math.hypot(x - f.x, z - f.z);
-      const t = THREE.MathUtils.smoothstep(d, f.r, f.r + 8);
+      if (f.local) continue;
+      const t = THREE.MathUtils.smoothstep(Math.hypot(x - f.x, z - f.z), f.r, f.r + 8);
       h = THREE.MathUtils.lerp(f.y ?? 0, h, t);
     }
+    // Building plots come last so they stay level, but never lift the ground into the road beside
+    // them: the road's own level wins within 3 m of its centre line (2.5 m half-width + a kerb).
+    const road = h;
+    for (const f of flats) {
+      if (!f.local) continue;
+      const t = THREE.MathUtils.smoothstep(Math.hypot(x - f.x, z - f.z), f.r, f.r + 8);
+      h = THREE.MathUtils.lerp(f.y ?? 0, h, t);
+    }
+    h = THREE.MathUtils.lerp(road, h, THREE.MathUtils.smoothstep(pd, 3, 4.2));
     if (lake) {
       const d = Math.hypot(x - lake.x, z - lake.z);
       const t = THREE.MathUtils.smoothstep(d, lake.r - 2, lake.r + 6);

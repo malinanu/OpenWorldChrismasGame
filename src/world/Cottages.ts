@@ -64,19 +64,13 @@ const STYLES: Style[] = [
 
 export const COTTAGE_COUNT = STYLES.length;
 
-/** Window centres in the cottage's own space (matching `buildCottage`), for the night-time glow. */
-export function cottageWindows(index: number): THREE.Vector3[] {
-  const { w, d, h } = STYLES[index % STYLES.length];
-  const base = 0.4;
-  const out: THREE.Vector3[] = [];
-  const storeys = h > 4.5 ? 2 : 1;
-  for (let st = 0; st < storeys; st++) {
-    const y = base + 1.45 + st * 2.4;
-    for (const x of st > 0 ? [-w * 0.3, 0, w * 0.3] : [-w * 0.3, w * 0.3]) out.push(new THREE.Vector3(x, y, d / 2 + 0.25));
-  }
-  out.push(new THREE.Vector3(w / 2 + 0.25, base + 1.45, 0), new THREE.Vector3(-w / 2 - 0.25, base + 1.45, 0));
-  return out;
+/** Where the porch light falls, in the cottage's own space (in front of the door). */
+export function cottagePorch(index: number): THREE.Vector3 {
+  return new THREE.Vector3(0, 0, STYLES[index % STYLES.length].d / 2 + 1.6);
 }
+
+/** 0 by day, 1 at night: windows, wall lamps and string lights glow (set by World.setTime). */
+export const cottageNight = { value: 0 };
 
 /** Keep only position + normal and make it non-indexed, so every part merges. */
 function bare(g: THREE.BufferGeometry): THREE.BufferGeometry {
@@ -113,7 +107,10 @@ const rbox = (w: number, h: number, d: number, radius = 0.12) =>
 
 let atlasMaterial: Promise<THREE.Material> | null = null;
 
-/** The KayKit Holiday atlas material, taken from a pack model so shading matches exactly. */
+/**
+ * The KayKit Holiday atlas material, taken from a pack model so shading matches exactly,
+ * cloned so its `glow` parts can light up at night without touching the pack's own models.
+ */
 function holidayMaterial(assets: AssetLoader): Promise<THREE.Material> {
   atlasMaterial ??= assets.model('holiday/gingerbread_house').then((g) => {
     let mat: THREE.Material | undefined;
@@ -121,7 +118,17 @@ function holidayMaterial(assets: AssetLoader): Promise<THREE.Material> {
       const m = o as THREE.Mesh;
       if (!mat && m.isMesh) mat = Array.isArray(m.material) ? m.material[0] : m.material;
     });
-    return mat!;
+    const lit = mat!.clone();
+    lit.onBeforeCompile = (shader) => {
+      shader.uniforms.uNight = cottageNight;
+      shader.vertexShader = 'attribute float glow;\nvarying float vGlow;\n' + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vGlow = glow;');
+      shader.fragmentShader = 'uniform float uNight;\nvarying float vGlow;\n' + shader.fragmentShader.replace(
+        '#include <emissivemap_fragment>',
+        '#include <emissivemap_fragment>\n  totalEmissiveRadiance += diffuseColor.rgb * vGlow * uNight * 2.2;',
+      );
+    };
+    lit.customProgramCacheKey = () => 'cottage-glow';
+    return lit;
   });
   return atlasMaterial;
 }
@@ -129,7 +136,12 @@ function holidayMaterial(assets: AssetLoader): Promise<THREE.Material> {
 export async function buildCottage(index: number, assets: AssetLoader): Promise<THREE.Group> {
   const s = STYLES[index % STYLES.length];
   const body: THREE.BufferGeometry[] = [];
-  const add = (g: THREE.BufferGeometry, sw: Swatch) => body.push(onSwatch(g, sw));
+  /** `lit` parts (window glass, lamps, bulbs) glow in their own colour after dark. */
+  const add = (g: THREE.BufferGeometry, sw: Swatch, lit = 0) => {
+    const out = onSwatch(g, sw);
+    out.setAttribute('glow', new THREE.BufferAttribute(new Float32Array(out.attributes.position.count).fill(lit), 1));
+    body.push(out);
+  };
   const { w, d, h } = s;
   const hw = w / 2;
   const hd = d / 2;
@@ -205,12 +217,19 @@ export async function buildCottage(index: number, assets: AssetLoader): Promise<
   add(new THREE.OctahedronGeometry(0.09, 0).translate(0.38, base + 1.0, front + 0.27), SW.orange); // knob
   add(new THREE.TorusGeometry(0.3, 0.12, 4, 10).translate(0, base + 1.55, front + 0.3), SW.green);
   add(at(rbox(0.3, 0.2, 0.12, 0.05), 0, base + 1.28, front + 0.38), SW.red);
+  // Porch lamp above the door (clear of windows and shutters): bracket, lantern box, warm glass, snow cap.
+  const lampX = 0;
+  const lampY = base + 2.75;
+  add(at(rbox(0.12, 0.12, 0.42, 0.04), lampX, lampY + 0.32, front + 0.24), SW.stoneDark);
+  add(at(rbox(0.36, 0.5, 0.36, 0.08), lampX, lampY, front + 0.42), SW.stoneDark);
+  add(at(new THREE.BoxGeometry(0.26, 0.36, 0.38), lampX, lampY, front + 0.42), SW.glass, 1);
+  add(at(rbox(0.44, 0.12, 0.44, 0.06), lampX, lampY + 0.31, front + 0.42), SW.snow);
 
   // Warm yellow windows in rounded icing frames with snowy sills. Built facing +z, then turned.
   const win = (x: number, y: number, z: number, rotY: number) => {
     const put = (geo: THREE.BufferGeometry, dx: number, dy: number, dz: number) => geo.translate(dx, dy, dz).rotateY(rotY).translate(x, y, z);
     add(put(rbox(1.35, 1.45, 0.24, 0.3), 0, 0, 0.04), s.trim);
-    add(put(new THREE.BoxGeometry(0.95, 1.05, 0.2), 0, 0, 0.1), SW.glass);
+    add(put(new THREE.BoxGeometry(0.95, 1.05, 0.2), 0, 0, 0.1), SW.glass, 1);
     add(put(new THREE.BoxGeometry(0.12, 1.05, 0.26), 0, 0, 0.1), s.trim);
     add(put(new THREE.BoxGeometry(0.95, 0.12, 0.26), 0, 0, 0.1), s.trim);
     add(put(rbox(1.5, 0.24, 0.42, 0.11), 0, -0.78, 0.16), SW.snow);
@@ -233,7 +252,7 @@ export async function buildCottage(index: number, assets: AssetLoader): Promise<
   for (let i = 0; i <= n; i++) {
     const x = -span / 2 + (i * span) / n;
     const sag = Math.sin((i / n) * Math.PI * 4) ** 2 * 0.16;
-    add(new THREE.OctahedronGeometry(0.14, 0).scale(1, 1.3, 1).translate(x, lightY - sag, run + 0.1), bulbs[i % bulbs.length]);
+    add(new THREE.OctahedronGeometry(0.14, 0).scale(1, 1.3, 1).translate(x, lightY - sag, run + 0.1), bulbs[i % bulbs.length], 1);
   }
 
   const material = await holidayMaterial(assets);

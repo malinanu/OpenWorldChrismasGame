@@ -65,3 +65,33 @@ export async function createSnowGroundMaterial(opts: { vertexColors?: boolean; c
   mat.customProgramCacheKey = () => 'snow-ground';
   return mat;
 }
+
+/** Uniforms shared by every material that shows the village's baked night light. */
+export interface NightLightUniforms {
+  uNightMap: { value: THREE.Texture | null };
+  uNight: { value: number };
+  /** Half the world size in metres: the light map covers -uHalf..uHalf on x and z. */
+  uHalf: { value: number };
+}
+
+/**
+ * Adds the baked lamp-light map (warm pools under lanterns and porches) to a material's
+ * emissive light, scaled by `uNight`. Needs world-scale UVs: `tile` metres per UV unit, mesh at
+ * the origin (the terrain and road meshes). One texture read, no extra lights or draw calls.
+ */
+export function applyNightLight(mat: THREE.Material, tile: number, u: NightLightUniforms) {
+  const prev = mat.onBeforeCompile;
+  const prevKey = mat.customProgramCacheKey.bind(mat);
+  mat.onBeforeCompile = (shader, renderer) => {
+    prev.call(mat, shader, renderer);
+    Object.assign(shader.uniforms, u);
+    shader.fragmentShader =
+      'uniform sampler2D uNightMap;\nuniform float uNight;\nuniform float uHalf;\n' +
+      shader.fragmentShader.replace(
+        '#include <emissivemap_fragment>',
+        `#include <emissivemap_fragment>
+        totalEmissiveRadiance += texture2D(uNightMap, vMapUv * ${tile.toFixed(3)} / (2.0 * uHalf) + 0.5).rgb * uNight;`,
+      );
+  };
+  mat.customProgramCacheKey = () => `${prevKey()}|night${tile}`;
+}
