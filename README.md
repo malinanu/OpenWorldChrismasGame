@@ -40,9 +40,12 @@
 | Save to `localStorage` (ornaments, stars, discovered zones, position) | ✅ |
 | Great Tree ornaments + fireworks finale | ✅ basic version |
 | **Game 1: Snowball Showdown** | ✅ playable |
+| **Game 2: Gingerbread Bakery Rush** (tap-to-cook, 4 recipes) | ✅ playable |
 | **Game 3: Santa's Express** (5 solver-checked levels) | ✅ playable |
+| **Game 4: Elf Workshop** (memorise blueprints, 9 toys) | ✅ playable |
+| **Game 5: Krampus' Cellar** (tap-to-walk stealth maze) | ✅ playable |
 | **Game 6: Advent Dice Race** (physics dice vs. 3 AI elves) | ✅ playable |
-| Games 2, 4, 5 | ⏳ zones exist and say "coming soon" |
+| Staging deploys to CloudPanel on every push to `staging` | ✅ |
 | Audio, GLB/KTX2 optimisation | ⏳ |
 
 Run it with `npm install && npm run dev`, then open http://localhost:5173. To try it on your phone, run `npm run dev -- --host` and open the printed network address on a phone on the same Wi-Fi.
@@ -152,12 +155,15 @@ Snowmen pop up across the frozen lake. Aim the **snowball cannon** with the mous
 **Tech:** Rapier rigid-body snowballs on a ballistic arc to the cursor's raycast hit, pooled particle bursts
 **Stars:** 1★ 10 pts · 2★ 20 pts · 3★ 30 pts
 
-### 2. 🍪 Gingerbread Bakery Rush (*Village Street*)
-**Type:** cooking / order fulfilment (3 minutes)
-Customers order cookies, hot chocolate and treats. Grab ingredients, prepare them at stations (chop → mix → bake), plate them and serve before the order timer runs out.
-**Assets:** Restaurant Bits (kitchen counters, stoves, ovens, food in raw/cooked/chopped states, plates) · Holiday Bits (cookie, gingerbread man, milk, hot chocolate, candy cane, decorated plates)
-**Tech:** fixed top-down camera, click-to-interact via `Raycaster`, model swap per food state
-**Stars:** based on orders served and tips earned
+### 2. 🍪 Gingerbread Bakery Rush (*Village Street*), ✅ playable
+**Type:** cooking / order fulfilment (2½ minutes)
+Gingerbread customers queue at the order window. You carry one thing at a time; every station is one tap:
+- **Recipes:** 🥛 milk comes from the fridge. 🥣 dough bakes in the oven into 🍪 cookies (take them out before they burn!). Cookies get iced into 🧑‍🎄 gingerbread men at the decorating table. A 🫖 mug heats into ☕ cocoa on the stove.
+- **Serving:** hand over at 🛎️ Serve, or tap the customer's ticket. New recipes unlock during the shift, and patience gets shorter.
+
+**Assets:** Restaurant Bits (fridge, oven, stove, pot, tables, counter, order window, kitchen floor) · Holiday Bits (cookie, gingerbread man, mugs, cocoa, candy cane, plate, wreath)
+**Tech:** stations are big tappable labels pinned to 3D positions (`ui/worldLabels.ts`), and taps on the scene pick the nearest station. Timed stations show progress bars, with a burn warning.
+**Stars:** orders served, at 5 / 10 / 14. Tips (🪙) reward fast service.
 
 ### 3. 🚂 Santa's Express (*Toy Train Station*), ✅ playable
 **Type:** track-switching puzzle (5 levels)
@@ -166,19 +172,28 @@ Presents must reach the right houses. Tap the glowing track pieces to turn them,
 **Tech:** pure grid logic in `logic.ts` (no physics). Levels are text grids in `levels.ts`, and `npm run check-levels` brute-forces each one to prove it is solvable and compute its par (fewest taps). The train follows a polyline of straight segments and quarter arcs traced through the tiles. In portrait the camera views the board from the station's side, so the board runs up the screen.
 **Stars:** each level scores 3 (no mishaps, at or under par), 2 (≤1 mishap, ≤ par + 4) or 1; game stars at 5 / 10 / 14 of 15
 
-### 4. 🔨 Elf Workshop (*Pine Forest edge*)
-**Type:** crafting / memory (3 rounds)
-A blueprint flashes on the workbench showing a toy recipe (e.g. 2 wood + 1 iron + 1 fabric). Pick the right materials and tools from memory and assemble the toy before the shift bell.
-**Assets:** RPG Tools Bits (hammer, saw, wrenches, anvil, blueprint, lantern) · Resource Bits (wood, stone, iron, copper, gold, textiles) · `Hammering` / `Sawing` clips from Character Animations
-**Tech:** click-to-pick, HTML overlay for the recipe card
-**Stars:** based on correct toys built
+### 4. 🔨 Elf Workshop (*Pine Forest edge*), ✅ playable
+**Type:** crafting / memory (9 blueprints, 2½-minute shift)
+A blueprint flashes up with a toy's parts and the one tool it needs. Memorise it, tap the parts on the bench (tap a tray chip to undo), then tap 🔨 Build. Blueprints grow from 3 to 5 items and show for less time as the shift goes on. Built toys pile up as presents on the shelf.
+**Assets:** Resource Bits (wood, stone, iron, copper, gold, textiles) · RPG Tools Bits (hammer, saw, wrench, anvil, lantern) · Dungeon (workbench, banners, walls) · Holiday presents
+**Tech:** the blueprint is an HTML card with a countdown; parts are world-pinned labels, so they're thumb-sized on a phone.
+**Stars:** toys built, at 3 / 6 / 9.
 
-### 5. 🕯️ Krampus' Cellar (*under the old mill*)
-**Type:** short dungeon maze / stealth (2–4 minutes)
-Krampus has stolen a sack of presents and hidden it below ground. Navigate a small maze, avoid spike traps and patrolling lantern light, open chests to collect presents, and escape.
-**Assets:** Dungeon Pack (walls, floors, stairs, doors, chests, barrels, `floor_tile_big_spikes`, banners, torches) · Brackeys VFX (fire flipbook, smoke, glow)
-**Tech:** reuses the player controller; patrol "vision cone" = angle + distance check plus a raycast for line of sight
-**Stars:** based on presents collected and escape time
+### 5. 🕯️ Krampus' Cellar (*under the old mill*), ✅ playable
+**Type:** stealth maze (3-minute limit)
+Krampus hid six presents in chests around his cellar.
+- **Moving:** tap any tile and your hooded hero walks there by the shortest route. On desktop, click a tile or step with WASD/arrows.
+- **Danger:** three of Krampus' minions patrol with red lanterns, and every tile a lantern lights is drawn in red. Step into it, or onto a spike trap while it's up, and you go back to the entrance with a 5 s penalty.
+- **Escape:** reach the stairs to finish. 🗺️ Overview zooms out to plan a route.
+
+**Assets:** Dungeon Pack (floor tiles, low walls, chests, stairs, spike tiles, torches, props) · Adventurers (Rogue as the player, a red-tinted Barbarian as the guards, with walk/idle clips) · Holiday presents
+**Tech:**
+- **Map:** a text grid, reachability-checked; walls are instanced on every floor/rock edge.
+- **Movement:** BFS pathfinding.
+- **Lanterns:** each casts a straight beam that widens after one tile and stops at walls, drawn as instanced red tiles so stealth is readable on a small screen.
+- **Guards:** each one is a cloned skinned mesh (`SkeletonUtils.clone`).
+
+**Stars:** presents rescued plus an escape-speed bonus (up to +3), at 3 / 6 / 9.
 
 ### 6. 🎲 Advent Dice Race (*Game Parlour*), ✅ playable
 **Type:** board game vs. 3 AI elves (2–4 minutes)
@@ -306,11 +321,15 @@ A debug handle is exposed as `window.frostvale` (`engine`, `overworld`, `scenes`
     │   ├── MiniGame.ts         # contract + star helper
     │   ├── registry.ts         # titles, blurbs, thresholds, lazy factories
     │   ├── snowball-showdown/
+    │   ├── gingerbread-bakery/
     │   ├── santas-express/     # logic.ts (pure puzzle rules), levels.ts, SantasExpress.ts
+    │   ├── elf-workshop/
+    │   ├── krampus-cellar/
     │   └── advent-dice-race/
     └── ui/
         ├── hud.ts              # loading, title, prompt, tracker, cards, map, action/quit buttons
         ├── touch.ts            # joystick, drag-to-look, jump/map/pause buttons
+        ├── worldLabels.ts      # tappable HTML labels pinned to 3D positions
         └── styles.css          # mobile-first: phone styles are the base, desktop is the media query
 ```
 
@@ -492,8 +511,8 @@ It's mid-October 2026, so there are about **9 weeks** left. Weeks 1–3 are done
 | ~~2~~ | 26 Oct–1 Nov | ~~Terrain + snow shader, world JSON loader, instanced forest, town square, snowfall, loading screen~~ ✅ |
 | ~~3~~ | 2–8 Nov | ~~`GameZone`, `SceneManager`, `GameState` + save, HUD, **Game 1**~~ ✅ (first deploy still to do) |
 | ~~4~~ | 9–15 Nov | ~~Game 6 (Advent Dice Race) + Game 3 (Santa's Express)~~ ✅ + **mobile-first pass** (pulled forward from week 8) ✅ |
-| 5 | 16–22 Nov | Game 2 (Gingerbread Bakery Rush) |
-| 6 | 23–29 Nov | Game 4 (Elf Workshop) + Game 5 (Krampus' Cellar) |
+| ~~5~~ | 16–22 Nov | ~~Game 2 (Gingerbread Bakery Rush)~~ ✅ (pulled forward) |
+| ~~6~~ | 23–29 Nov | ~~Game 4 (Elf Workshop) + Game 5 (Krampus' Cellar)~~ ✅ (pulled forward) |
 | 7 | 30 Nov–6 Dec | Asset optimisation (GLB), VFX polish, audio, finale cutscene |
 | 8 | 7–13 Dec | Real-device testing (iPhone Safari, Android Chrome, iPad), perf tuning on a mid-range phone, Firefox/desktop Safari |
 | 9 | 14–20 Dec | Bug fixing, itch.io page, final deploy: **release ~20 Dec** |

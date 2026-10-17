@@ -175,3 +175,36 @@ body.is-touch .prompt { pointer-events: auto; cursor: pointer; padding: 12px 20p
   .prompt { bottom: calc(18px + var(--safe-b)); }
   .toasts { top: calc(64px + var(--safe-t)); }
 }
+
+/* ---------- world-anchored labels (mini-game stations, materials) ---------- */
+.world-labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.wl { position: absolute; left: 0; top: 0; pointer-events: auto; font: inherit; font-weight: 600; font-size: 0.85rem; color: #fff;
+  background: rgba(20, 34, 58, 0.82); border: 2px solid rgba(255,255,255,0.35); border-radius: 14px; padding: 6px 10px; min-width: 48px; min-height: 44px;
+  display: grid; place-items: center; line-height: 1.15; text-align: center; white-space: nowrap; cursor: pointer; touch-action: manipulation; }
+.wl:disabled { cursor: default; opacity: 0.9; }
+.wl .big { font-size: 1.45rem; line-height: 1; }
+.wl .bar { width: 52px; height: 6px; background: rgba(255,255,255,0.2); border-radius: 3px; overflow: hidden; margin-top: 3px; }
+.wl .bar > i { display: block; height: 100%; background: var(--gold); }
+.wl.ready { border-color: var(--gold); box-shadow: 0 0 14px rgba(255, 210, 90, 0.7); }
+.wl.hot { border-color: #ff6b6b; box-shadow: 0 0 14px rgba(255, 90, 90, 0.7); }
+.wl.picked { background: var(--accent); border-color: #fff; }
+.wl:active { transform-origin: center; filter: brightness(1.2); }
+.wl .nm { display: block; font-size: 0.8rem; }
+/* Narrow phones: emoji-only labels so neighbouring stations and parts don't overlap. */
+@media (max-width: 520px) {
+  .wl { padding: 4px 6px; min-width: 44px; font-size: 0.78rem; }
+  .wl .nm { display: none; }
+  .wl .big { font-size: 1.6rem; }
+}
+.gamebar .chips { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; }
+.gamebar .chip { background: rgba(255,255,255,0.14); border-radius: 10px; padding: 2px 8px; font-size: 0.95rem; }
+.gamebar button.order { font: inherit; font-size: 0.95rem; color: #fff; background: rgba(255,255,255,0.12); border: 2px solid transparent; border-radius: 12px; padding: 2px 8px; pointer-events: auto; }
+.gamebar button.order.match { border-color: var(--gold); }
+.gamebar .order .pt { display: block; height: 4px; border-radius: 2px; background: #6be19a; margin-top: 2px; }
+.gamebar .order .pt.low { background: #ff6b6b; }
+.blueprint { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: #2a5d9f; border: 3px dashed rgba(255,255,255,0.7);
+  border-radius: 16px; padding: 16px 22px; text-align: center; color: #fff; box-shadow: 0 12px 40px rgba(0,0,0,0.45); width: min(340px, calc(100vw - 32px)); }
+.blueprint h3 { margin: 0 0 6px; font-size: 1.3rem; }
+.blueprint .items { font-size: 2rem; letter-spacing: 4px; margin: 6px 0; }
+.blueprint .timer { height: 6px; background: rgba(255,255,255,0.25); border-radius: 3px; overflow: hidden; }
+.blueprint .timer > i { display: block; height: 100%; background: var(--gold); }

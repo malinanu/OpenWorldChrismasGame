@@ -5,6 +5,8 @@ export interface Placement {
   position: THREE.Vector3;
   rotationY: number;
   scale: number;
+  /** Extra vertical squash/stretch (e.g. low dungeon walls); defaults to 1. */
+  scaleY?: number;
 }
 
 /**
@@ -24,7 +26,7 @@ export function buildInstanced(source: THREE.Object3D, placements: Placement[], 
   const up = new THREE.Vector3(0, 1, 0);
   const s = new THREE.Vector3();
   const placeMatrices = placements.map((p) =>
-    new THREE.Matrix4().compose(p.position, q.setFromAxisAngle(up, p.rotationY), s.setScalar(p.scale)),
+    new THREE.Matrix4().compose(p.position, q.setFromAxisAngle(up, p.rotationY), s.set(p.scale, p.scale * (p.scaleY ?? 1), p.scale)),
   );
 
   for (const mesh of meshes) {
