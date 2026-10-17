@@ -64,6 +64,20 @@ const STYLES: Style[] = [
 
 export const COTTAGE_COUNT = STYLES.length;
 
+/** Window centres in the cottage's own space (matching `buildCottage`), for the night-time glow. */
+export function cottageWindows(index: number): THREE.Vector3[] {
+  const { w, d, h } = STYLES[index % STYLES.length];
+  const base = 0.4;
+  const out: THREE.Vector3[] = [];
+  const storeys = h > 4.5 ? 2 : 1;
+  for (let st = 0; st < storeys; st++) {
+    const y = base + 1.45 + st * 2.4;
+    for (const x of st > 0 ? [-w * 0.3, 0, w * 0.3] : [-w * 0.3, w * 0.3]) out.push(new THREE.Vector3(x, y, d / 2 + 0.25));
+  }
+  out.push(new THREE.Vector3(w / 2 + 0.25, base + 1.45, 0), new THREE.Vector3(-w / 2 - 0.25, base + 1.45, 0));
+  return out;
+}
+
 /** Keep only position + normal and make it non-indexed, so every part merges. */
 function bare(g: THREE.BufferGeometry): THREE.BufferGeometry {
   const out = g.index ? g.toNonIndexed() : g;

@@ -48,6 +48,7 @@
 | **Game 5: Krampus' Cellar** (tap-to-walk stealth, guided) — simplified after playtesting | ✅ playable |
 | **Game 6: Advent Dice Race** (physics dice vs. 3 AI elves) | ✅ playable |
 | Staging deploys to CloudPanel on every push to `staging` | ✅ |
+| **Day & night cycle**: an 8-minute day in the village with sunrise, sunset, a starry moonlit night, glowing lanterns and cottage windows; toggle in the pause menu | ✅ |
 | **Music & sound effects**: carols and SFX synthesised live with Web Audio, no files to download | ✅ |
 | **Fast loading**: home screen in ~2 s on slow 4G (was ~70 s); meshopt models, trimmed animations, gzipped physics, offline cache | ✅ |
 | KTX2 textures, per-zone model bundles | ⏳ |
@@ -148,6 +149,12 @@ Gingerbread houses line the streets. Every game sits at the end of a street, and
 | **Pine Forest** | Snow-covered trees, rocks, bushes | Forest Nature Pack + snow shader |
 | **Frozen Lake** | Flat icy area with snowmen | Holiday Bits + ice material |
 | **Train Station** | Track line with locomotive, tenders and wagon | Holiday Bits toy train + tracks |
+
+**Day and night.** `Lighting.setTime(t)` (`src/world/Lighting.ts`) blends keyframes for noon, sunset, night and dawn. The keyframes cover sky, fog, the hemisphere light, and the sun's colour, strength and direction; after dark the sun becomes the moon, and the sky shader adds stars and a moon.
+- **Clock:** the village clock (`Overworld.dayTime`) runs only while you explore. A full cycle is 8 minutes, and each visit starts mid-afternoon.
+- **Lights at night:** the lantern lights get brighter and reach further. The lantern halos grow, and every cottage window gets a warm glow (one extra Points draw call).
+- **Performance:** the number of lights never changes, so no shaders recompile.
+- **Mini-games:** they keep daylight.
 
 **Cottages.** The village houses are built in code by `src/world/Cottages.ts`, in six styles: cream, candy red, two-storey blue, pine green, log cabin and stone.
 - **Same material as the pack:** they use the KayKit Holiday atlas material. Every part is UV-mapped onto one of its gradient swatches, so they shade exactly like the pack's models.

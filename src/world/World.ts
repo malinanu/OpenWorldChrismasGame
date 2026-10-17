@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { assets } from '../core/AssetLoader';
 import { initPhysics, Physics, RAPIER } from '../core/Physics';
 import type { MiniGameId } from '../minigames/MiniGame';
+import { cottageWindows } from './Cottages';
 import { buildInstanced, modelBounds, type Placement } from './Instancing';
 import { Lighting } from './Lighting';
 import { MINI_GAMES } from '../minigames/registry';
@@ -84,6 +85,9 @@ export class World {
   readonly lightSpots: { pos: THREE.Vector3; color: THREE.Color }[] = [];
   private readonly lightPool: THREE.PointLight[] = [];
   private glow?: THREE.Points;
+  /** Warm cottage windows; they only glow after dark. */
+  private windowGlow?: THREE.Points;
+  private readonly windowSpots: { pos: THREE.Vector3; color: THREE.Color }[] = [];
   private highShadows = false;
   roads!: Roads;
 
@@ -125,35 +129,55 @@ export class World {
       this.lightPool.push(l);
       this.scene.add(l);
     }
-    this.glow = this.buildGlow(await assets.texture('vfx/glow.png'));
-    this.scene.add(this.glow);
+    const glowTex = await assets.texture('vfx/glow.png');
+    this.glow = this.buildGlow(glowTex, this.lightSpots, 1.3);
+    this.windowGlow = this.buildGlow(glowTex, this.windowSpots, 1.1);
+    this.scene.add(this.glow, this.windowGlow);
+    this.setTime(0.5);
   }
 
-  /** Every lantern halo in one Points draw call (dozens of sprites would be dozens of draw calls). */
-  private buildGlow(map: THREE.Texture): THREE.Points {
+  /** Time of day, 0..1 (0 = midnight, 0.5 = noon): sky, light, lanterns and windows follow. */
+  setTime(t: number) {
+    this.lighting.setTime(t);
+    const night = this.lighting.night;
+    // After dark the halos grow and brighten, so lanterns and windows read from across the village.
+    if (this.glow) {
+      const u = (this.glow.material as THREE.ShaderMaterial).uniforms;
+      u.uStrength.value = THREE.MathUtils.lerp(0.5, 2.4, night);
+      u.uSize.value = THREE.MathUtils.lerp(1.3, 2.1, night);
+    }
+    if (this.windowGlow) {
+      const w = THREE.MathUtils.smoothstep(night, 0.2, 0.75);
+      (this.windowGlow.material as THREE.ShaderMaterial).uniforms.uStrength.value = w * 2.2;
+      this.windowGlow.visible = w > 0.01;
+    }
+  }
+
+  /** Every halo of one kind in one Points draw call (dozens of sprites would be dozens of draw calls). */
+  private buildGlow(map: THREE.Texture, spots: { pos: THREE.Vector3; color: THREE.Color }[], size: number): THREE.Points {
     const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(this.lightSpots.flatMap((s) => s.pos.toArray()), 3));
-    geo.setAttribute('color', new THREE.Float32BufferAttribute(this.lightSpots.flatMap((s) => s.color.toArray()), 3));
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(spots.flatMap((s) => s.pos.toArray()), 3));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(spots.flatMap((s) => s.color.toArray()), 3));
     const mat = new THREE.ShaderMaterial({
       transparent: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
       vertexColors: true,
-      uniforms: { uMap: { value: map }, uTime: { value: 0 }, uPR: { value: 1 } },
+      uniforms: { uMap: { value: map }, uTime: { value: 0 }, uPR: { value: 1 }, uSize: { value: size }, uStrength: { value: 1 } },
       vertexShader: /* glsl */ `
-        uniform float uTime; uniform float uPR; varying vec3 vColor; varying float vFlicker;
+        uniform float uTime; uniform float uPR; uniform float uSize; varying vec3 vColor; varying float vFlicker;
         void main() {
           vColor = color;
           vFlicker = 0.5 + 0.1 * sin(uTime * 7.0 + position.x * 1.3 + position.z);
           vec4 mv = modelViewMatrix * vec4(position, 1.0);
           gl_Position = projectionMatrix * mv;
           // Capped and faded up close, so a lantern right by the camera isn't a giant blob.
-          gl_PointSize = min(1.3 * uPR * 300.0 / -mv.z, 110.0 * uPR);
+          gl_PointSize = min(uSize * uPR * 300.0 / -mv.z, 110.0 * uPR);
           vFlicker *= smoothstep(2.5, 7.0, -mv.z);
         }`,
       fragmentShader: /* glsl */ `
-        uniform sampler2D uMap; varying vec3 vColor; varying float vFlicker;
-        void main() { vec4 t = texture2D(uMap, gl_PointCoord); gl_FragColor = vec4(vColor * t.rgb, t.a * vFlicker); }`,
+        uniform sampler2D uMap; uniform float uStrength; varying vec3 vColor; varying float vFlicker;
+        void main() { vec4 t = texture2D(uMap, gl_PointCoord); gl_FragColor = vec4(vColor * t.rgb, t.a * vFlicker * uStrength); }`,
     });
     const pts = new THREE.Points(geo, mat);
     pts.frustumCulled = false;
@@ -240,6 +264,16 @@ export class World {
       this.scene.add(mesh);
     }
     if (p.collider) this.addColliders(g.scene, placements, p.collider);
+    if (p.model.startsWith('proc/cottage_')) {
+      const local = cottageWindows(Number(p.model.slice('proc/cottage_'.length)));
+      const warm = new THREE.Color('#ffc964');
+      for (const pl of placements) {
+        for (const v of local) {
+          const pos = v.clone().multiplyScalar(pl.scale).applyAxisAngle(new THREE.Vector3(0, 1, 0), pl.rotationY).add(pl.position);
+          this.windowSpots.push({ pos, color: warm });
+        }
+      }
+    }
     if (p.light) {
       const box = modelBounds(g.scene);
       for (const pl of placements) {
@@ -290,10 +324,14 @@ export class World {
       }
       l.position.copy(n.s.pos);
       l.color.copy(n.s.color);
-      l.intensity = 14 * (0.9 + 0.1 * Math.sin(time * 9 + i * 2.1));
+      // Barely noticeable in daylight; at night the lanterns pool warm light on the cobbles.
+      const night = this.lighting.night;
+      l.intensity = THREE.MathUtils.lerp(5, 24, night) * (0.9 + 0.1 * Math.sin(time * 9 + i * 2.1));
+      l.distance = THREE.MathUtils.lerp(14, 20, night);
     });
-    if (this.glow) {
-      const u = (this.glow.material as THREE.ShaderMaterial).uniforms;
+    for (const pts of [this.glow, this.windowGlow]) {
+      if (!pts) continue;
+      const u = (pts.material as THREE.ShaderMaterial).uniforms;
       u.uTime.value = time;
       u.uPR.value = Math.min(window.devicePixelRatio, 2);
     }

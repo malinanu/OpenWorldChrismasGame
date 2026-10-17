@@ -17,6 +17,11 @@ import { GameZone } from './GameZone';
 import { gameState } from './GameState';
 import { Player } from './Player';
 
+/** Seconds for a full day and night in the village. */
+const DAY_LENGTH = 480;
+/** Each visit starts mid-afternoon, so the lanterns come on within the first minute or two. */
+const START_TIME = 0.6;
+
 /** Ornament hook positions on the Great Tree (tree is ~14 m tall at its scale). */
 const ORNAMENT_SPOTS: [number, number, number][] = [
   [2.6, 4.2, 1.2], [-2.4, 5.6, 1.4], [1.6, 7.4, -1.8], [-1.8, 3.4, -2.6], [0.4, 9.2, 1.4], [-1.2, 8.2, -0.6],
@@ -35,6 +40,8 @@ export class Overworld implements OverworldContract {
   private ornamentMat = new THREE.MeshStandardMaterial({ color: '#ffcc33', emissive: '#a86b00', emissiveIntensity: 0.6, metalness: 0.8, roughness: 0.25 });
   private paused = true;
   private saveTimer = 0;
+  /** Time of day, 0..1 (0 = midnight, 0.5 = noon). */
+  dayTime = START_TIME;
   private finaleTime = -1;
   private touchShown = false;
   sceneManager!: SceneManager;
@@ -158,6 +165,9 @@ export class Overworld implements OverworldContract {
     } else {
       this.player.animate(dt);
     }
+    // The clock only runs while you're out in the village (not on the title, in menus or mini-games).
+    if (!this.paused) this.dayTime = (this.dayTime + dt / DAY_LENGTH) % 1;
+    this.world.setTime(gameState.data.settings.dayNight ? this.dayTime : 0.5);
     this.world.update(dt, this.player.position, time);
     this.player.syncObject();
     this.cam.update(
@@ -242,6 +252,7 @@ export class Overworld implements OverworldContract {
          <p>Ornaments: ${gameState.ornamentCount}/6 · ⭐ ${gameState.totalStars}/18</p>
          <div class="settings">
            <div class="row"><span class="small">Graphics</span>${chip('low', 'Fast')}${chip('medium', 'Balanced')}${chip('high', 'Pretty')}</div>
+           <div class="row"><span class="small">World</span><button class="chip ${s.dayNight ? 'on' : ''}" data-daynight>🌗 Day &amp; night</button></div>
            <div class="row"><span class="small">Sound</span>${toggle('music', '🎵 Music')}${toggle('sfx', '🔔 Effects')}</div>
            <div class="row"><span class="small">Volume</span><input type="range" min="0" max="1" step="0.05" value="${s.volume}" data-volume aria-label="Volume"></div>
            ${fs}
@@ -260,6 +271,11 @@ export class Overworld implements OverworldContract {
               gameState.save();
             }),
           );
+          card.querySelector<HTMLButtonElement>('[data-daynight]')!.addEventListener('click', (e) => {
+            s.dayNight = !s.dayNight;
+            (e.currentTarget as HTMLElement).classList.toggle('on', s.dayNight);
+            gameState.save();
+          });
           const vol = card.querySelector<HTMLInputElement>('[data-volume]')!;
           vol.addEventListener('input', () => audio.configure({ volume: (s.volume = Number(vol.value)) }));
           vol.addEventListener('change', () => {
