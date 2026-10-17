@@ -48,7 +48,8 @@
 | **Game 5: Krampus' Cellar** (tap-to-walk stealth, guided) — simplified after playtesting | ✅ playable |
 | **Game 6: Advent Dice Race** (physics dice vs. 3 AI elves) | ✅ playable |
 | Staging deploys to CloudPanel on every push to `staging` | ✅ |
-| Audio, GLB/KTX2 optimisation | ⏳ |
+| **Music & sound effects**: carols and SFX synthesised live with Web Audio, no files to download | ✅ |
+| GLB/KTX2 optimisation | ⏳ |
 
 Run it with `npm install && npm run dev`, then open http://localhost:5173. To try it on your phone, run `npm run dev -- --host` and open the printed network address on a phone on the same Wi-Fi.
 
@@ -233,11 +234,25 @@ All ten packs are imported. Only the `.gltf`/`.glb` files (plus their `.bin` buf
 
 ---
 
+## 🎵 Music & sound
+
+All audio lives in `src/core/Audio.ts` and is **generated in code**, so there is nothing to download.
+
+- **Music:** public-domain carols played by a small step sequencer. The voices are an FM bell or celesta melody, an oom-pah bass, a soft pad and sleigh bells.
+  - *Village:* Jingle Bells → Deck the Halls (alternating).
+  - *Mini-games:* We Wish You a Merry Christmas → Jingle Bells.
+  - *Krampus' Cellar:* a slow, low God Rest Ye Merry Gentlemen.
+- **Sound effects:** about 30 one-shots. They include footsteps in the snow, jumps, discovery chimes, snowball throws and splats, catch notes that rise with your streak, the train whistle, the dice rattle, workshop hammering, chests, the spotted sting, a results fanfare and fireworks.
+- **Settings:** the pause menu has 🎵 Music and 🔔 Effects toggles plus a volume slider. They are saved with your progress.
+- **Browser rules:** audio starts on the first tap or key press, as browsers require. It suspends while the tab is hidden.
+- **iPhone:** the ring/silent switch mutes web audio, so flip it to ring to hear the game.
+
+---
+
 ## ⚠️ Still missing
 
 | Need | Recommended source | Notes |
 |---|---|---|
-| **Music & SFX** | CC0 sources (Kenney audio packs, freesound.org with the CC0 filter) | Ship as `.ogg` with an `.mp3` fallback |
 | **UI font** | Fredoka (OFL) | Loaded from Google Fonts for now; self-host as `.woff2` before release |
 | **NPCs (elves, villagers, Krampus)** | Reuse the Adventurers with tinted materials + Holiday Bits props on the `handslot.l/r` bones | Keeps the download small |
 
@@ -256,7 +271,7 @@ The snow ground is generated in code (heightmap + vertex colours), so no terrain
 | Physics | **Rapier** (`@dimforge/rapier3d-compat`) | Fast WASM physics: character controller, dice, snowballs |
 | Character controller | Rapier `KinematicCharacterController` | Handles slopes, steps, sliding along walls |
 | Animation | `THREE.AnimationMixer` | Idle / walk / run / jump / cheer cross-fades |
-| Audio | `THREE.AudioListener` + `PositionalAudio` (or Howler.js) | 3D-positioned chimney crackle, train whistle |
+| Audio | **Web Audio API**, everything synthesised (`src/core/Audio.ts`) | No audio files to download, works offline, no licensing questions |
 | UI / HUD | Plain HTML + CSS overlay above the canvas | Easy to style, accessible, no extra library |
 | Input | Pointer Events (mouse + touch in one path), keyboard, Gamepad API, on-screen controls | One `Input` module mapped to actions |
 | Save | `localStorage` (JSON) | No backend required |
