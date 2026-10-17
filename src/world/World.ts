@@ -101,6 +101,8 @@ export class World {
 
     this.lighting = new Lighting(this.scene, opts.shadowSize);
     this.roads = new Roads(d.roads);
+    // A level plot under every cottage, so none sits half in the air on a slope.
+    for (const p of d.props) if (p.model.startsWith('proc/cottage_')) for (const [x, , z] of p.at ?? []) d.flats.push({ x, z, r: 5.5, local: true });
     this.terrain = new Terrain({ half: d.half, segments: 140, flats: d.flats, paths: this.roads.lines, lake: d.lake });
     this.terrain.mesh.material = await createSnowGroundMaterial({ vertexColors: true });
     this.scene.add(this.terrain.mesh);

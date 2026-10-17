@@ -123,7 +123,8 @@ export async function buildCottage(index: number, assets: AssetLoader): Promise<
   const top = base + h;
 
   // Footing and walls.
-  add(at(rbox(w + 0.6, base, d + 0.6, 0.15), 0, base / 2, 0), SW.stoneDark);
+  // Footing reaches a metre below ground, so the edge of a plot never shows a gap.
+  add(at(rbox(w + 0.6, base + 1, d + 0.6, 0.15), 0, (base - 1) / 2, 0), SW.stoneDark);
   add(at(rbox(w, h + 0.1, d, 0.25), 0, base + h / 2, 0), s.wall);
   if (s.logs) {
     // Round logs stacked along the front and back, ends poking out at the corners.

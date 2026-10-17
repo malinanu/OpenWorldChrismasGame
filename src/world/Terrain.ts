@@ -8,6 +8,8 @@ export interface FlatSpot {
   r: number;
   /** Target height for the flattened area. */
   y?: number;
+  /** A building plot: flattened to the ground's own height at its centre instead of to `y`. */
+  local?: boolean;
 }
 
 export interface TerrainOptions {
@@ -57,6 +59,10 @@ export class Terrain {
         list.push([ax, az, bx, bz]);
       }
     }
+    // Building plots sit at the natural ground height under their centre (measured with the
+    // plots themselves left out), so a house is level without digging a pit or raising a mound.
+    const others = opts.flats.filter((f) => !f.local);
+    for (const f of opts.flats) if (f.local) f.y = this.heightWith(f.x, f.z, others);
     const geo = new THREE.PlaneGeometry(half * 2, half * 2, segments, segments);
     geo.rotateX(-Math.PI / 2);
     const pos = geo.attributes.position as THREE.BufferAttribute;
@@ -110,7 +116,11 @@ export class Terrain {
   }
 
   heightAt(x: number, z: number): number {
-    const { half, flats, lake } = this.opts;
+    return this.heightWith(x, z, this.opts.flats);
+  }
+
+  private heightWith(x: number, z: number, flats: FlatSpot[]): number {
+    const { half, lake } = this.opts;
     let h = baseHeight(x, z);
     // Paths are slightly smoothed.
     const pd = this.pathDistance(x, z);
