@@ -29,7 +29,10 @@ export let serverConfig: ServerConfig | null = null;
  */
 export async function startSession(hud: Hud, overworld: Overworld): Promise<boolean> {
   serverConfig = await api.config();
-  if (!serverConfig) return false;
+  if (!serverConfig) {
+    hud.toast('📴 Online play is unavailable right now, playing offline.', 4000);
+    return false;
+  }
   let me = await api.me();
   let fresh = false;
   if (!me) {
