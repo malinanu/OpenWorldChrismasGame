@@ -38,7 +38,7 @@ Go to **Settings → Secrets and variables → Actions** and add these:
 
 Optionally, add a **variable** (not a secret) called `SITE_URL`, e.g. `https://frostvale.example.com`. The deploy then shows the link and smoke-tests the live site.
 
-The deploy job uses a GitHub **environment** called `production`, created automatically on first run. Under **Settings → Environments → production** you can require an approval before each deploy, or move the secrets there.
+The deploy job runs in the GitHub **environment** `CLOUDPANEL_STAGING` (**Settings → Environments**). The secrets above can live there as *environment secrets* instead of repository secrets; the names stay the same. You can also require an approval before each deploy there. If you rename the environment, update `environment.name` in `.github/workflows/deploy.yml` to match.
 
 ## 3. Recommended nginx tweaks (optional)
 
