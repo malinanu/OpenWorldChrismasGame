@@ -133,8 +133,10 @@ for z in w['zones']:
     z['position'] = new_zones[z['id']]
 
 # Thinner forest over a bigger map: ~5x lower density, rocks/bushes don't cast shadows.
-dens = {7: (230, 30, 225), 11: (30, 28, 215), 3: (80, 24, 220), 5: (90, 22, 220)}
+dens = {7: (160, 30, 225), 11: (22, 28, 215), 3: (80, 24, 220), 5: (90, 22, 220)}
 for s in w['scatter']:
+    if s['seed'] not in dens:
+        continue
     cnt, rmin, rmax = dens[s['seed']]
     s['count'], s['minRadius'], s['maxRadius'] = cnt, rmin, rmax
     s['clearance'] = 16 if s['seed'] in (7, 11) else 12
@@ -143,6 +145,11 @@ for s in w['scatter']:
         s['chunk'] = 150
     if s['seed'] in (3, 5):
         s['shadow'] = False
+# A few trees among the houses: off the roads, house plots and game areas (World.isClear).
+if not any(s['seed'] == 21 for s in w['scatter']):
+    forest = next(s for s in w['scatter'] if s['seed'] == 7)
+    w['scatter'].append({"models": forest['models'], "count": 16, "minRadius": 18, "maxRadius": 85, "clearance": 8, "pathClearance": 6.5,
+                         "scale": [0.9, 1.3], "snow": 1, "sway": 1, "collider": "trunk", "seed": 21, "chunk": 150, "shadow": "high"})
     if s['seed'] == 7:
         s['models'] = ["forest/Tree_1_A_Color1", "forest/Tree_2_A_Color1", "forest/Tree_2_B_Color1", "forest/Tree_2_C_Color1", "forest/Tree_4_A_Color1", "forest/Tree_4_B_Color1"]
     if s['seed'] in (7, 11):

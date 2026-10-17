@@ -91,6 +91,8 @@ export class World {
   private readonly night: NightLightUniforms = { uNightMap: { value: null }, uNight: { value: 0 }, uHalf: { value: 1 } };
   private highShadows = false;
   roads!: Roads;
+  /** How many of each scatter set (by seed) found a clear spot; for tests and tuning. */
+  readonly scatterPlaced = new Map<number, number>();
 
   /** `forest` scales scatter counts (quality setting); `shadowSize` 0 turns sun shadows off. */
   async load(opts: { forest: number; shadowSize: number }, onStep?: (label: string) => void) {
@@ -285,6 +287,7 @@ export class World {
       buckets.get(key)!.placements.push({ position: new THREE.Vector3(x, this.groundY(x, z) - 0.1, z), rotationY: rand() * Math.PI * 2, scale });
       placed++;
     }
+    this.scatterPlaced.set(s.seed, placed);
     await Promise.all(
       [...buckets.values()].map(async ({ model, placements }) => {
         const g = await assets.model(model);
