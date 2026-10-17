@@ -222,6 +222,19 @@ jobs:
           # Bring the server back after a reboot.
           RESURRECT="@reboot bash -lc '. \$HOME/.nvm/nvm.sh; pm2 resurrect'"
           (crontab -l 2>/dev/null | grep -q 'pm2 resurrect') || { (crontab -l 2>/dev/null; echo "$RESURRECT") | crontab -; }
+          # Ask the server itself, on the machine, whether it answers; show its errors if not.
+          PORT_IN_ENV=$(grep -E '^PORT=' .env | cut -d= -f2)
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            curl -sf "http://127.0.0.1:$PORT_IN_ENV/api/health" >/dev/null && break
+            sleep 1
+          done
+          if curl -sf "http://127.0.0.1:$PORT_IN_ENV/api/health" >/dev/null; then
+            echo "Game server answers on 127.0.0.1:$PORT_IN_ENV ✅ (CloudPanel's App Port must be $PORT_IN_ENV)"
+          else
+            echo "::error::Game server isn't answering on 127.0.0.1:$PORT_IN_ENV. Its recent errors:"
+            pm2 logs frostvale-server --lines 40 --nostream --err 2>&1 | tail -n 40
+            exit 1
+          fi
           echo "Game server running: $(pm2 jlist | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const a=JSON.parse(s).find(p=>p.name==="frostvale-server");console.log(a?a.pm2_env.status:"not found")})')"
           REMOTE
 
