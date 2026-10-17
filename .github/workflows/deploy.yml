@@ -1,7 +1,8 @@
 # Build Frostvale and deploy the static site to a CloudPanel server over SSH.
 #
 # Pull requests: build + checks only (nothing is deployed).
-# Push to main / manual run: build + checks, then rsync dist/ to the site's htdocs.
+# Push to `staging` / manual run: build + checks, then rsync dist/ to the staging site's htdocs.
+# (Production will get its own job/environment later.)
 #
 # Repository secrets (Settings → Secrets and variables → Actions):
 #   CLOUDPANEL_HOST         Server hostname or IP
@@ -14,11 +15,11 @@
 #   SITE_URL                Public URL, shown on the run page and smoke-tested after deploy
 # See deploy/CLOUDPANEL.md for the one-time server setup.
 
-name: Deploy to CloudPanel
+name: Deploy to CloudPanel (staging)
 
 on:
   push:
-    branches: [main]
+    branches: [staging]
   pull_request:
   workflow_dispatch:
 
@@ -60,9 +61,9 @@ jobs:
           retention-days: 7
 
   deploy:
-    name: Deploy to CloudPanel
+    name: Deploy to CloudPanel staging
     needs: build
-    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/staging' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment:

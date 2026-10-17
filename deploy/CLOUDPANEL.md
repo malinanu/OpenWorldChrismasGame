@@ -2,7 +2,8 @@
 
 The GitHub Actions workflow `.github/workflows/deploy.yml` builds the game and rsyncs `dist/` into your CloudPanel site over SSH.
 - **Every pull request:** build and checks only.
-- **Every push to `main`:** build, checks, then deploy. A manual run from the Actions tab also deploys.
+- **Every push to `staging`:** build, checks, then deploy to the staging site. A manual run from the Actions tab also deploys.
+- **Production:** not set up yet; it will get its own environment and trigger.
 
 ## 1. One-time server setup
 
@@ -71,6 +72,6 @@ gzip_types application/javascript text/css application/json model/gltf+json appl
 
 ## 4. Deploy
 
-- Push or merge to `main`, or go to **Actions → Deploy to CloudPanel → Run workflow**.
+- Push or merge to `staging`, or go to **Actions → Deploy to CloudPanel (staging) → Run workflow**.
 - rsync swaps the new files in all at once (`--delay-updates`), then removes stale files (`--delete-after`).
 - It leaves `.well-known/` alone, so Let's Encrypt renewals keep working.
