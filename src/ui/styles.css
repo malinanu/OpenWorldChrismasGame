@@ -73,7 +73,17 @@ body.is-touch .prompt { pointer-events: auto; cursor: pointer; padding: 12px 20p
   background: rgba(20, 34, 58, 0.7); border: 2px solid rgba(255,255,255,0.35); touch-action: none; }
 .tbtn:active { transform: scale(0.92); background: rgba(232, 66, 79, 0.85); }
 /* Raised off the corner to where a right thumb rests when holding the phone. */
-.tbtn.jump { width: 76px; height: 76px; font-size: 2rem; right: calc(34px + var(--safe-r)); bottom: calc(112px + var(--safe-b)); }
+.tbtn.jump { width: 80px; height: 80px; right: calc(34px + var(--safe-r)); bottom: calc(112px + var(--safe-b));
+  /* Candy-red disc with a gold rim and a chunky 3D edge, like the Play prompt and card buttons. */
+  background: radial-gradient(circle at 50% 28%, #ff8a8f 0%, var(--accent) 45%, #b8293a 100%);
+  border: 3px solid var(--gold); opacity: 0.92;
+  box-shadow: 0 6px 0 var(--accent-dark), 0 10px 18px rgba(0, 0, 0, 0.35), inset 0 3px 0 rgba(255, 255, 255, 0.35);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  transition: transform 0.06s, box-shadow 0.06s; -webkit-tap-highlight-color: transparent; }
+.tbtn.jump svg { width: 34px; height: 34px; fill: #fff; filter: drop-shadow(0 2px 0 rgba(120, 20, 30, 0.6)); }
+.tbtn.jump span { font-size: 0.7rem; letter-spacing: 0.08em; line-height: 1; text-shadow: 0 1px 0 rgba(120, 20, 30, 0.7); }
+.tbtn.jump:active, .tbtn.jump.down { transform: translateY(5px); background: radial-gradient(circle at 50% 28%, #ff8a8f 0%, var(--accent) 45%, #b8293a 100%);
+  box-shadow: 0 1px 0 var(--accent-dark), 0 4px 8px rgba(0, 0, 0, 0.3), inset 0 3px 0 rgba(255, 255, 255, 0.25); }
 .tbtn.small { width: 46px; height: 46px; font-size: 1.2rem; top: calc(var(--gap) + var(--safe-t)); }
 .tbtn.tb-pause { right: calc(var(--gap) + var(--safe-r)); }
 .tbtn.tb-map { right: calc(var(--gap) + 54px + var(--safe-r)); }

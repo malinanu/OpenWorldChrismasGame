@@ -1,4 +1,4 @@
-import type { Input } from '../core/Input';
+import { haptic, type Input } from '../core/Input';
 
 const STICK_RADIUS = 56;
 
@@ -27,13 +27,17 @@ export class TouchControls {
 
   constructor(parent: HTMLElement, private readonly input: Input) {
     this.knob = this.base.querySelector('.stick-knob')!;
-    const jump = this.button('tbtn jump', '⤒', 'Jump');
+    const jump = this.button('tbtn jump', '', 'Jump');
+    jump.innerHTML = `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 4 L27 15 H20.5 V21 H11.5 V15 H5 Z" /><rect x="11.5" y="24" width="9" height="3.2" rx="1.6" /></svg><span>JUMP</span>`;
     const map = this.button('tbtn small tb-map', '🗺️', 'Map');
     const pause = this.button('tbtn small tb-pause', '⏸', 'Pause');
     jump.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       input.tap('jump');
+      haptic(10);
+      jump.classList.add('down');
     });
+    for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) jump.addEventListener(ev, () => jump.classList.remove('down'));
     map.addEventListener('click', () => input.tap('map'));
     pause.addEventListener('click', () => input.tap('pause'));
     this.stickZone.append(this.base);
