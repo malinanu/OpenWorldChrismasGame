@@ -51,9 +51,7 @@ export class Overworld implements OverworldContract {
 
   async load(onStep: (label: string) => void) {
     const q = this.engine.settings;
-    await this.world.load({ forest: q.forest, shadowSize: q.shadows }, onStep);
-    onStep('Waking up the villagers…');
-    await this.player.load();
+    await Promise.all([this.world.load({ forest: q.forest, shadowSize: q.shadows }, onStep), this.player.load()]);
     const [snowflake, sparkle, glow] = await Promise.all([
       assets.texture('vfx/snowflake.png'),
       assets.texture('vfx/sparkle.png'),

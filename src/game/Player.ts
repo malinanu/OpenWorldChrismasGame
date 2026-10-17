@@ -4,7 +4,8 @@ import { assets } from '../core/AssetLoader';
 import type { Input } from '../core/Input';
 import { RAPIER } from '../core/Physics';
 
-const ANIM_PACKS = ['animations/Rig_Medium_MovementBasic.glb', 'animations/Rig_Medium_General.glb', 'animations/Rig_Medium_Simulation.glb'];
+/** Just the clips the game plays, merged by tools/optimize-assets.mjs. */
+const ANIM_PACKS = ['animations/Frostvale_Clips.glb'];
 
 type AnimName = 'Idle_A' | 'Walking_A' | 'Running_A' | 'Jump_Idle' | 'Jump_Start' | 'Jump_Land' | 'Cheering' | 'Waving' | 'Interact';
 

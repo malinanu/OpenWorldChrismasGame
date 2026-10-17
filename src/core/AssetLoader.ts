@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 
 const BASE = `${import.meta.env.BASE_URL}assets/`;
 
@@ -19,7 +20,8 @@ export function textureUrl(path: string): string {
  */
 export class AssetLoader {
   private readonly manager = new THREE.LoadingManager();
-  private readonly gltf = new GLTFLoader(this.manager);
+  // Models are meshopt-compressed by tools/optimize-assets.mjs.
+  private readonly gltf = new GLTFLoader(this.manager).setMeshoptDecoder(MeshoptDecoder);
   private readonly tex = new THREE.TextureLoader(this.manager);
   private readonly gltfCache = new Map<string, Promise<GLTF>>();
   private readonly texCache = new Map<string, Promise<THREE.Texture>>();

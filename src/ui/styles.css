@@ -231,3 +231,12 @@ body.is-touch .prompt { pointer-events: auto; cursor: pointer; padding: 12px 20p
   accent-color: #ffd25a;
   touch-action: none;
 }
+
+/* Title card shown while loading: the loading screen is its backdrop and Start is the progress bar. */
+.loading.backdrop > * { display: none; }
+.card button.start { position: relative; overflow: hidden; min-width: 220px; }
+.card button.start[disabled] {
+  background: linear-gradient(90deg, var(--accent) var(--progress, 0%), rgba(255,255,255,0.14) var(--progress, 0%));
+  box-shadow: none; cursor: progress; transform: none;
+}
+.card button.start .label { position: relative; }

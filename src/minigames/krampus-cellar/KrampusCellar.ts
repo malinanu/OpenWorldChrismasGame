@@ -121,7 +121,7 @@ export class KrampusCellar implements MiniGame {
       'dungeon/stairs', 'dungeon/torch_mounted', 'dungeon/barrel_small', 'dungeon/box_small', 'dungeon/candle_lit', 'dungeon/banner_red',
       'holiday/present_A_red', 'holiday/present_B_green', 'holiday/present_C_yellow',
       'characters/Rogue_Hooded.glb', 'characters/Barbarian.glb',
-      'animations/Rig_Medium_MovementBasic.glb', 'animations/Rig_Medium_General.glb',
+      'animations/Frostvale_Clips.glb',
     ];
     const [models, sparkle, smoke, glow] = await Promise.all([
       Promise.all(ids.map((id) => assets.model(id))),
@@ -130,7 +130,7 @@ export class KrampusCellar implements MiniGame {
       assets.texture('vfx/glow.png'),
     ]);
     ids.forEach((id, i) => (this.m[id] = models[i].scene));
-    this.clips = [...models[ids.indexOf('animations/Rig_Medium_MovementBasic.glb')].animations, ...models[ids.indexOf('animations/Rig_Medium_General.glb')].animations];
+    this.clips = models[ids.indexOf('animations/Frostvale_Clips.glb')].animations;
 
     // Dark cellar: dim fill light, warm torches, the player's lantern, red guard lanterns.
     this.scene.background = new THREE.Color('#0c0a12');

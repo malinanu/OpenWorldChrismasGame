@@ -77,7 +77,13 @@ export class Hud {
 
   // ---------- loading / title ----------
   setLoading(fraction: number) {
-    (this.loading.querySelector('.bar > div') as HTMLElement).style.width = `${Math.round(fraction * 100)}%`;
+    const pct = `${Math.round(fraction * 100)}%`;
+    (this.loading.querySelector('.bar > div') as HTMLElement).style.width = pct;
+    const start = this.card.querySelector<HTMLButtonElement>('.title-card [data-ok][disabled]');
+    if (start) {
+      start.style.setProperty('--progress', pct);
+      start.querySelector('.label')!.textContent = fraction >= 1 ? 'Almost ready…' : `Loading… ${pct}`;
+    }
   }
 
   setLoadingText(text: string) {
@@ -90,7 +96,11 @@ export class Hud {
     setTimeout(() => this.loading.remove(), 800);
   }
 
-  showTitle(): Promise<void> {
+  /** Shown as soon as the page starts: Start stays a progress bar until `ready` resolves. */
+  showTitle(ready: Promise<unknown>): Promise<void> {
+    // The loading screen becomes a plain backdrop behind the title until the village is ready.
+    this.loading.classList.add('backdrop');
+    this.card.before(this.loading);
     const hasSave = gameState.data.discovered.length > 0 || gameState.ornamentCount > 0;
     const controls = isTouchDevice
       ? 'Left thumb moves · right thumb looks · tap <b>▶ Play</b> at a glowing beacon'
@@ -101,9 +111,20 @@ export class Hud {
         <p class="lead">The six golden ornaments of the Great Tree have been scattered across the village.
         Find each festive challenge, win its ornament, and light the tree before Christmas Eve.</p>
         <p class="small">${MINI_GAME_IDS.length} challenges · ${gameState.ornamentCount} ornaments found · ⭐ ${gameState.totalStars}/18</p>
-        <button data-ok autofocus>${hasSave ? 'Continue' : 'Start exploring'}</button>
+        <button data-ok class="start" disabled><span class="label">Loading…</span></button>
         <p class="small muted">${controls}</p>
-      </div>`);
+      </div>`,
+      (card) => {
+        const start = card.querySelector<HTMLButtonElement>('[data-ok]')!;
+        ready
+          .then(() => {
+            start.disabled = false;
+            start.querySelector('.label')!.textContent = hasSave ? 'Continue' : 'Start exploring';
+            start.focus();
+          })
+          .catch(() => {});
+      },
+    );
   }
 
   // ---------- overworld ----------
@@ -264,10 +285,12 @@ export class Hud {
         if (e.code === 'Enter' || e.code === 'KeyE') {
           e.stopPropagation();
           e.preventDefault();
-          const okBtn = this.card.querySelector('[data-ok]');
+          const okBtn = this.card.querySelector<HTMLButtonElement>('[data-ok]');
+          if (okBtn?.disabled) return;
           done(!!okBtn);
         } else if (e.code === 'Escape') {
           e.stopPropagation();
+          if (this.card.querySelector<HTMLButtonElement>('[data-ok]')?.disabled) return;
           done(!this.card.querySelector('[data-cancel]') && !!this.card.querySelector('[data-ok]'));
         }
       };

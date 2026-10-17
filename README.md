@@ -9,7 +9,7 @@
 | **Platform** | Web browser, **mobile-first** (phones in portrait or landscape), also desktop with mouse/keyboard or gamepad |
 | **Rendering** | three.js (WebGL 2) |
 | **Language / tooling** | TypeScript + Vite |
-| **Physics** | Rapier (`@dimforge/rapier3d-compat`, WASM) |
+| **Physics** | Rapier (`@dimforge/rapier3d`, WASM, shipped gzipped) |
 | **Art style** | KayKit low-poly, one gradient-atlas texture per pack |
 | **Target release** | Before 24 December 2026 |
 | **Working title** | *Frostvale* (rename freely) |
@@ -49,7 +49,8 @@
 | **Game 6: Advent Dice Race** (physics dice vs. 3 AI elves) | ✅ playable |
 | Staging deploys to CloudPanel on every push to `staging` | ✅ |
 | **Music & sound effects**: carols and SFX synthesised live with Web Audio, no files to download | ✅ |
-| GLB/KTX2 optimisation | ⏳ |
+| **Fast loading**: home screen in ~2 s on slow 4G (was ~70 s); meshopt models, trimmed animations, gzipped physics, offline cache | ✅ |
+| KTX2 textures, per-zone model bundles | ⏳ |
 
 Run it with `npm install && npm run dev`, then open http://localhost:5173. To try it on your phone, run `npm run dev -- --host` and open the printed network address on a phone on the same Wi-Fi.
 
@@ -268,7 +269,7 @@ The snow ground is generated in code (heightmap + vertex colours), so no terrain
 | Language | **TypeScript** | Safer refactors across 6 mini-games |
 | Build / dev server | **Vite** | Instant HMR, static output, handles WASM and asset hashing |
 | Model loading | `GLTFLoader` (later + `MeshoptDecoder` / `KTX2Loader`) | Compressed meshes and GPU textures once optimised |
-| Physics | **Rapier** (`@dimforge/rapier3d-compat`) | Fast WASM physics: character controller, dice, snowballs |
+| Physics | **Rapier** (`@dimforge/rapier3d`) | Fast WASM physics: character controller, dice, snowballs |
 | Character controller | Rapier `KinematicCharacterController` | Handles slopes, steps, sliding along walls |
 | Animation | `THREE.AnimationMixer` | Idle / walk / run / jump / cheer cross-fades |
 | Audio | **Web Audio API**, everything synthesised (`src/core/Audio.ts`) | No audio files to download, works offline, no licensing questions |
@@ -431,13 +432,27 @@ Some ideas here are adapted from Bruno Simon's portfolio devlog (infinite grass,
 
 ## 🔄 Asset pipeline
 
-Today the game loads the KayKit `.gltf` files straight from `public/assets/models/`, which works fine for development. Before release:
+**Loading speed.** On Chrome's "Slow 4G" setting the home screen used to take ~72 s. It now shows in **~2.4 s**, and the village is playable in ~34 s. Startup download went from 8.4 MB to 3.8 MB.
 
-1. **Optimise** with glTF-Transform:
-   ```bash
-   gltf-transform optimize in.gltf out.glb --compress meshopt --texture-compress webp
-   ```
-2. **Bundle by zone, not by file**: pack the models a zone needs into one `.glb` (e.g. `village.glb`) to cut HTTP requests, and pull meshes out by node name at runtime.
+1. **Title screen first.** The title card goes up as soon as the page starts. Its Start button is the progress bar while the village loads behind it.
+2. **Compressed models.** `npm run optimize-assets` runs `tools/optimize-assets.mjs`, which rewrites every model in `public/assets/models/` with glTF-Transform:
+   - meshopt compression (`EXT_meshopt_compression`, decoded by three.js's `MeshoptDecoder`)
+   - quantized normals and skin weights
+   - positions and UVs stay float, so the wind-sway shader and texture atlases are unchanged
+   - pack textures stay as shared external files, so they download once per pack
+
+   Re-run it after adding models. It is safe to run twice.
+3. **Only the animations we use.** The same tool merges the 10 clips the game plays into `animations/Frostvale_Clips.glb`: 307 KB instead of 2.4 MB of animation packs.
+4. **Physics as a gzip file.** Rapier's 3 MB WebAssembly ships gzipped (1.2 MB) by the `rapier-gzip` plugin in `vite.config.ts`.
+   - The game unpacks it with `DecompressionStream`, so it is small even if the server doesn't compress `.wasm`.
+   - It is imported dynamically and downloads alongside the models.
+   - Browsers without `DecompressionStream` get the plain `.wasm`.
+5. **Repeat visits.** `public/sw.js` (production only) caches build files and models. The page itself is always fetched fresh, so new deploys show up immediately.
+6. **Smaller textures.** The snow normal map is 512 px (52 KB instead of 434 KB).
+
+Still to do:
+
+1. **Bundle by zone, not by file**: pack the models a zone needs into one `.glb` (e.g. `village.glb`) to cut HTTP requests, and pull meshes out by node name at runtime.
 3. **Materials**: KayKit imports as `MeshStandardMaterial`. One material instance per atlas lets meshes batch well.
 4. **Snow**: `src/shaders/snow.ts` patches `MeshStandardMaterial` via `onBeforeCompile` to blend towards white where the world-space normal faces up. Each prop in the world JSON has a `snow` amount from 0 to 1.
 5. **Loading**: `AssetLoader` caches by URL and reports progress to the loading screen. Mini-games load lazily when entered.

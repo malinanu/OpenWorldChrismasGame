@@ -23,6 +23,8 @@ const SAMPLE = 1;
 /** Strips across the road's width. */
 const ACROSS = 4;
 const LANTERN_EVERY = 28;
+/** Metres per cobblestone texture tile. UVs are world-aligned so overlapping roads match exactly. */
+const TILE = 2.5;
 
 /** A small tileable cobblestone texture, drawn once on a canvas. */
 function cobblestoneTexture(): THREE.CanvasTexture {
@@ -85,6 +87,34 @@ export class Roads {
     }
   }
 
+  /** A half-disc on the end of a road, so corners and junctions join without square gaps. */
+  private cap(line: [number, number][], i: number, heightAt: (x: number, z: number) => number, pos: number[], nor: number[], uv: number[], idx: number[]) {
+    const [x, z] = line[i];
+    const [ox, oz] = line[i === 0 ? 1 : i - 1];
+    const out = Math.atan2(z - oz, x - ox); // pointing away from the road
+    const base = pos.length / 3;
+    const push = (px: number, pz: number) => {
+      pos.push(px, heightAt(px, pz) + 0.08, pz);
+      nor.push(0, 1, 0);
+      uv.push(px / TILE, pz / TILE);
+    };
+    push(x, z);
+    const steps = 10;
+    for (let k = 0; k <= steps; k++) {
+      const a = out - Math.PI / 2 + (Math.PI * k) / steps;
+      push(x + Math.cos(a) * (WIDTH / 2), z + Math.sin(a) * (WIDTH / 2));
+    }
+    for (let k = 0; k < steps; k++) {
+      const p1 = base + 1 + k;
+      const p2 = p1 + 1;
+      // Counter-clockwise seen from above, i.e. the triangle's normal points up.
+      const ax = pos[p1 * 3] - x, az = pos[p1 * 3 + 2] - z;
+      const bx = pos[p2 * 3] - x, bz = pos[p2 * 3 + 2] - z;
+      if (az * bx - ax * bz > 0) idx.push(base, p1, p2);
+      else idx.push(base, p2, p1);
+    }
+  }
+
   /** One merged mesh for every road, draped on the terrain. Also fills `lanterns` and `signposts`. */
   build(heightAt: (x: number, z: number) => number): THREE.Mesh {
     const pos: number[] = [];
@@ -115,8 +145,7 @@ export class Roads {
           const ez = z + tx * (WIDTH / 2) * s;
           pos.push(ex, heightAt(ex, ez) + 0.08, ez);
           nor.push(0, 1, 0);
-          // Two stone tiles across the road and one every 2.5 m along it (~0.6 m stones).
-          uv.push((2 * k) / ACROSS, along / 2.5);
+          uv.push(ex / TILE, ez / TILE);
         }
         if (i > 0) {
           const row = ACROSS + 1;
@@ -132,6 +161,10 @@ export class Roads {
           side = -side;
           this.lanterns.push(new THREE.Vector3(x - tz * (WIDTH / 2 + 1.1) * side, 0, z + tx * (WIDTH / 2 + 1.1) * side));
         }
+      }
+      if (!def.loop) {
+        this.cap(line, 0, heightAt, pos, nor, uv, idx);
+        this.cap(line, line.length - 1, heightAt, pos, nor, uv, idx);
       }
       if (def.to) {
         // Signpost on the right-hand side, a few metres down the road from the plaza.
@@ -154,8 +187,12 @@ export class Roads {
       polygonOffset: true,
       polygonOffsetFactor: -2,
       polygonOffsetUnits: -2,
+      // Where roads overlap (junctions, corners) two ribbons sit a hair apart and would
+      // z-fight; without depth writes the later one simply paints over with the same stones.
+      depthWrite: false,
     });
     const mesh = new THREE.Mesh(geo, mat);
+    mesh.renderOrder = 1; // after the terrain, which must already be in the depth buffer
     mesh.receiveShadow = true;
     mesh.name = 'roads';
     return mesh;

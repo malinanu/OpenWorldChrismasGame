@@ -3,7 +3,6 @@ import { audio } from './core/Audio';
 import { maybeShowStats } from './core/DebugStats';
 import { Engine } from './core/Engine';
 import { Input, isTouchDevice } from './core/Input';
-import { initPhysics } from './core/Physics';
 import { SceneManager } from './core/SceneManager';
 import { gameState } from './game/GameState';
 import { Overworld } from './game/Overworld';
@@ -37,11 +36,12 @@ async function boot() {
   });
 
   assets.onProgress = (loaded, total) => hud.setLoading(loaded / Math.max(total, 1));
-  await initPhysics();
-
   const overworld = new Overworld(engine, input, hud);
   overworld.touch = touch;
-  await overworld.load((text) => hud.setLoadingText(text));
+  const loaded = overworld.load((text) => hud.setLoadingText(text));
+  // The title card goes up straight away; its Start button fills up while the village loads.
+  const title = hud.showTitle(loaded);
+  await loaded;
   const scenes = new SceneManager(engine, input, hud, overworld);
   overworld.sceneManager = scenes;
 
@@ -55,7 +55,7 @@ async function boot() {
     tickStats?.();
   });
   hud.hideLoading();
-  await hud.showTitle();
+  await title;
   audio.unlock();
   audio.music('village');
   // Still inside the tap's user activation: phones get the whole screen where the browser allows it.
@@ -69,6 +69,11 @@ async function boot() {
 
   // Debug handle for the console / automated tests.
   (window as unknown as { frostvale: unknown }).frostvale = { engine, overworld, scenes, gameState, hud, input, audio };
+}
+
+// Repeat visits load from the phone's cache (production builds only; dev reloads must stay fresh).
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => void navigator.serviceWorker.register('./sw.js').catch(() => {}));
 }
 
 boot().catch((e) => {

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { assets } from '../core/AssetLoader';
-import { Physics, RAPIER } from '../core/Physics';
+import { initPhysics, Physics, RAPIER } from '../core/Physics';
 import type { MiniGameId } from '../minigames/MiniGame';
 import { buildInstanced, modelBounds, type Placement } from './Instancing';
 import { Lighting } from './Lighting';
@@ -76,7 +76,7 @@ function mulberry32(seed: number) {
 /** Builds the overworld scene + static physics from `public/world/frostvale.json`. */
 export class World {
   readonly scene = new THREE.Scene();
-  readonly physics = new Physics();
+  physics!: Physics;
   terrain!: Terrain;
   lighting!: Lighting;
   data!: WorldData;
@@ -90,9 +90,14 @@ export class World {
   /** `forest` scales scatter counts (quality setting); `shadowSize` 0 turns sun shadows off. */
   async load(opts: { forest: number; shadowSize: number }, onStep?: (label: string) => void) {
     this.highShadows = opts.shadowSize >= 2048;
+    // The physics engine, the layout and every model download side by side.
+    const physicsReady = initPhysics();
     const res = await fetch(`${import.meta.env.BASE_URL}world/frostvale.json`);
     this.data = (await res.json()) as WorldData;
     const d = this.data;
+    for (const id of new Set([...d.scatter.flatMap((s) => s.models), ...d.props.map((p) => p.model), 'holiday/lantern'])) void assets.model(id).catch(() => {});
+    await physicsReady;
+    this.physics = new Physics();
 
     this.lighting = new Lighting(this.scene, opts.shadowSize);
     this.roads = new Roads(d.roads);
@@ -140,7 +145,9 @@ export class World {
           vFlicker = 0.5 + 0.1 * sin(uTime * 7.0 + position.x * 1.3 + position.z);
           vec4 mv = modelViewMatrix * vec4(position, 1.0);
           gl_Position = projectionMatrix * mv;
-          gl_PointSize = 1.3 * uPR * 300.0 / -mv.z;
+          // Capped and faded up close, so a lantern right by the camera isn't a giant blob.
+          gl_PointSize = min(1.3 * uPR * 300.0 / -mv.z, 110.0 * uPR);
+          vFlicker *= smoothstep(2.5, 7.0, -mv.z);
         }`,
       fragmentShader: /* glsl */ `
         uniform sampler2D uMap; varying vec3 vColor; varying float vFlicker;

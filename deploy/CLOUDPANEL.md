@@ -65,7 +65,7 @@ types {
   model/gltf-binary glb;
   application/manifest+json webmanifest;
 }
-gzip_types application/javascript text/css application/json model/gltf+json application/manifest+json;
+gzip_types application/javascript text/css application/json model/gltf+json model/gltf-binary application/octet-stream application/manifest+json;
 ```
 
 > Note: a `types { }` block inside `server` replaces nginx's defaults for that block. If HTML or CSS start being served as `application/octet-stream`, move the three lines into the global `mime.types` instead.

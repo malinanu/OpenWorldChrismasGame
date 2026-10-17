@@ -9,15 +9,20 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "manifest": "node tools/build-manifest.mjs",
-    "check-levels": "node --experimental-strip-types --no-warnings tools/check-levels.mjs"
+    "check-levels": "node --experimental-strip-types --no-warnings tools/check-levels.mjs",
+    "optimize-assets": "node tools/optimize-assets.mjs"
   },
   "dependencies": {
-    "@dimforge/rapier3d-compat": "^0.21.0",
+    "@dimforge/rapier3d": "^0.21.0",
     "stats-gl": "^4.2.3",
     "three": "^0.186.1"
   },
   "devDependencies": {
+    "@gltf-transform/core": "^4.5.1",
+    "@gltf-transform/extensions": "^4.5.1",
+    "@gltf-transform/functions": "^4.5.1",
     "@types/three": "^0.186.0",
+    "meshoptimizer": "^1.3.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.4"
   }
