@@ -113,8 +113,9 @@ jobs:
         run: |
           # --delay-updates swaps all new files in at the end; --delete-after then removes stale ones,
           # so players never load half an old build and half a new one.
-          # --omit-dir-times: the site root belongs to CloudPanel, so the site user may not touch its mtime.
-          rsync -az --omit-dir-times --delete-after --delay-updates --human-readable --stats \
+          # -rlt (not -a): copy files, symlinks and file times only. The site root belongs to CloudPanel, so the
+          # site user may not change its permissions or mtime; files keep the server's default (nginx-readable) modes.
+          rsync -rltz --omit-dir-times --delete-after --delay-updates --human-readable --stats \
             --exclude='.well-known/' --exclude='.user.ini' \
             -e "ssh -i ~/.ssh/deploy_key -p $PORT -o StrictHostKeyChecking=yes" \
             dist/ "$SSH_USER@$HOST:$TARGET/"
