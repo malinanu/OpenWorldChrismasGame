@@ -76,7 +76,7 @@ The deploy does the rest: it installs Node 22 and pm2 for the site user, writes 
 2. **Add Site → Create a Node.js Site**:
    - Domain: the same domain.
    - Node.js version: **22**.
-   - App Port: **3100**.
+   - App Port: **3089** (the deploy starts the server on it; another port needs the `FROSTVALE_PORT` variable).
    - Site user: the **same user name** as before (it must match the `CLOUDPANEL_USER` secret), plus a password.
 3. Site → **SSL/TLS → Actions → New Let's Encrypt Certificate**.
 4. The site user's home is new, so add the deploy key again. As the site user (Site → **SSH/FTP**):
@@ -102,7 +102,7 @@ Repository → **Settings → Environments → `CLOUDPANEL_STAGING`**:
 |---|---|---|
 | Secret | `FROSTVALE_DB_PASSWORD` | the database password from 5.2 (**required**) |
 | Variable | `FROSTVALE_DB_NAME` / `FROSTVALE_DB_USER` | only if not `frostvale` |
-| Variable | `FROSTVALE_PORT` | only if the App Port isn't `3100` |
+| Variable | `FROSTVALE_PORT` | only if the App Port isn't `3089` |
 | Variable | `FROSTVALE_AUTH_MODE` | `email` (default) or `phone` (phone number + SMS code, for production) |
 
 Then push, or **Actions → Deploy → Re-run**. The deploy writes `~/frostvale-server/.env` (mode 600) from these on every run, so change settings here, not on the server.

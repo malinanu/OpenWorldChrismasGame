@@ -179,7 +179,7 @@ jobs:
           DB_PASSWORD: ${{ secrets.FROSTVALE_DB_PASSWORD }}
           DB_NAME: ${{ vars.FROSTVALE_DB_NAME || 'frostvale' }}
           DB_USER: ${{ vars.FROSTVALE_DB_USER || 'frostvale' }}
-          APP_PORT: ${{ vars.FROSTVALE_PORT || '3100' }}
+          APP_PORT: ${{ vars.FROSTVALE_PORT || '3089' }}
           AUTH_MODE: ${{ vars.FROSTVALE_AUTH_MODE || 'email' }}
         run: |
           DIR="${SERVER_PATH:-/home/$SSH_USER/frostvale-server}"
