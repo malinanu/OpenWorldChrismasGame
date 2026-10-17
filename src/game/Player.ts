@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { audio } from '../core/Audio';
 import { assets } from '../core/AssetLoader';
 import type { Input } from '../core/Input';
 import { RAPIER } from '../core/Physics';
@@ -29,6 +30,7 @@ export class Player {
   private facing = 0;
   private oneShot = false;
   private airTime = 0;
+  private stepTimer = 0;
   /** Last finite body position, restored if the physics ever hands back NaN. */
   private safe = { x: 0, y: 2, z: 0 };
   /** Grounded with a little "coyote time", so tiny bumps don't count as leaving the ground. */
@@ -128,6 +130,7 @@ export class Player {
 
     if (this.grounded && input.justPressed('jump')) {
       this.velocityY = JUMP;
+      audio.sfx('jump');
       this.grounded = false;
       if (!this.oneShot) this.play('Jump_Start', 0.1);
     }
@@ -149,9 +152,16 @@ export class Player {
     this.body.setNextKinematicTranslation({ x: t.x + m.x, y: t.y + m.y, z: t.z + m.z });
     const wasGrounded = this.grounded;
     this.grounded = this.controller.computedGrounded();
+    if (this.grounded && this.airTime > 0.35) audio.sfx('step', 0.6); // landing thump
     this.airTime = this.grounded ? 0 : this.airTime + dt;
     if (this.grounded && this.velocityY < 0) this.velocityY = -1;
     this.speed = Math.hypot(m.x, m.z) / Math.max(dt, 1e-4);
+    // Crunchy footsteps in the snow, faster when running.
+    this.stepTimer -= dt;
+    if (this.grounded && moving && this.speed > 0.5 && this.stepTimer <= 0) {
+      this.stepTimer = sprint ? 0.28 : 0.42;
+      audio.sfx('step', 0.85 + Math.random() * 0.3);
+    }
 
     if (moving) {
       const target = Math.atan2(dir.x, dir.z);

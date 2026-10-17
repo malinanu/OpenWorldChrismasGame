@@ -2,6 +2,7 @@ import type { Engine } from './Engine';
 import type { Input } from './Input';
 import type { Hud } from '../ui/hud';
 import { gameState } from '../game/GameState';
+import { audio } from './Audio';
 import { starsFor, type MiniGame, type MiniGameContext, type MiniGameId } from '../minigames/MiniGame';
 import { MINI_GAMES } from '../minigames/registry';
 
@@ -46,6 +47,8 @@ export class SceneManager {
       return;
     }
 
+    audio.sfx('enter');
+    audio.music('none');
     await this.hud.fadeOut();
     const ctx: MiniGameContext = { input: this.input, hud: this.hud, engine: this.engine, thresholds: info.thresholds };
     let game: MiniGame;
@@ -63,6 +66,7 @@ export class SceneManager {
     this.engine.track(game.camera);
     this.hud.setWorldHudVisible(false);
     game.start();
+    audio.music(id === 'krampus-cellar' ? 'cellar' : 'game');
     this.active = game;
     this.hud.setQuitVisible(true);
     await this.hud.fadeIn();
@@ -72,6 +76,8 @@ export class SceneManager {
     const stars = result.quit ? 0 : starsFor(result.score, info.thresholds);
     const newOrnament = gameState.recordResult(id, result.score, stars);
     this.input.unlockPointer();
+    audio.music('none');
+    if (!result.quit) audio.sfx(newOrnament ? 'ornament' : stars > 0 ? 'fanfare' : 'fail');
     await this.hud.showResults(id, result, stars, newOrnament);
 
     await this.hud.fadeOut();
@@ -81,6 +87,7 @@ export class SceneManager {
     game.dispose();
     this.hud.setWorldHudVisible(true);
     this.world.resume();
+    audio.music('village');
     this.world.onReturn(id, newOrnament);
     await this.hud.fadeIn();
     this.busy = false;

@@ -222,3 +222,12 @@ body.is-touch .prompt { pointer-events: auto; cursor: pointer; padding: 12px 20p
 .catch-pop { position: absolute; font-weight: 700; font-size: 1.4rem; text-shadow: 0 2px 0 rgba(0,0,0,0.35); pointer-events: none; transform: translate(-50%, -50%); }
 .catch-pop.good { color: #ffe27a; }
 .catch-pop.bad { color: #ff8080; }
+
+/* Volume slider in the pause card */
+.settings input[type='range'] {
+  flex: 1;
+  min-width: 140px;
+  height: 36px;
+  accent-color: #ffd25a;
+  touch-action: none;
+}

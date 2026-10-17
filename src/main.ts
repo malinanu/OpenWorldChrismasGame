@@ -1,4 +1,5 @@
 import { assets } from './core/AssetLoader';
+import { audio } from './core/Audio';
 import { maybeShowStats } from './core/DebugStats';
 import { Engine } from './core/Engine';
 import { Input, isTouchDevice } from './core/Input';
@@ -25,6 +26,15 @@ async function boot() {
   const input = new Input(canvas);
   const touch = new TouchControls(uiRoot, input);
   input.onTouchDetected = () => hud.refreshDeviceMode();
+  const { music, sfx, volume } = gameState.data.settings;
+  audio.configure({ music, sfx, volume });
+  // Browsers only start audio from a user gesture; any tap or key press will do.
+  const unlock = () => audio.unlock();
+  for (const ev of ['pointerdown', 'keydown', 'touchend']) document.addEventListener(ev, unlock, { capture: true, passive: true });
+  // A soft click for every HUD button.
+  uiRoot.addEventListener('click', (e) => {
+    if ((e.target as HTMLElement).closest('button')) audio.sfx('click');
+  });
 
   assets.onProgress = (loaded, total) => hud.setLoading(loaded / Math.max(total, 1));
   await initPhysics();
@@ -46,6 +56,8 @@ async function boot() {
   });
   hud.hideLoading();
   await hud.showTitle();
+  audio.unlock();
+  audio.music('village');
   // Still inside the tap's user activation: phones get the whole screen where the browser allows it.
   if (isTouchDevice && canFullscreen()) void setFullscreen(true);
   overworld.resume();
@@ -56,7 +68,7 @@ async function boot() {
   });
 
   // Debug handle for the console / automated tests.
-  (window as unknown as { frostvale: unknown }).frostvale = { engine, overworld, scenes, gameState, hud, input };
+  (window as unknown as { frostvale: unknown }).frostvale = { engine, overworld, scenes, gameState, hud, input, audio };
 }
 
 boot().catch((e) => {

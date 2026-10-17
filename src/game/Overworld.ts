@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { assets } from '../core/AssetLoader';
+import { audio } from '../core/Audio';
 import type { Engine, Quality } from '../core/Engine';
 import { isTouchDevice, type Input } from '../core/Input';
 import type { Overworld as OverworldContract, SceneManager } from '../core/SceneManager';
@@ -117,6 +118,7 @@ export class Overworld implements OverworldContract {
     if (newOrnament) {
       this.refreshOrnaments();
       this.player.playOnce('Cheering');
+      audio.sfx('ornament');
       this.hud.toast(`🟡 ${MINI_GAMES[id].title} ornament hung on the Great Tree! (${gameState.ornamentCount}/6)`, 4000);
       if (gameState.ornamentCount === MINI_GAME_IDS.length && !gameState.data.finaleSeen) this.startFinale();
     }
@@ -127,6 +129,7 @@ export class Overworld implements OverworldContract {
     gameState.save();
     this.finaleTime = 0;
     this.hud.toast('🎄 The Great Tree is lit! Merry Christmas, Frostvale! 🎆', 8000);
+    audio.sfx('fanfare');
   }
 
   private nearestZone(): GameZone | undefined {
@@ -182,7 +185,10 @@ export class Overworld implements OverworldContract {
         const info = MINI_GAMES[z.id];
         const firstTime = !gameState.isDiscovered(z.id);
         gameState.discover(z.id);
-        if (firstTime) this.hud.toast(`✨ Discovered: ${info.emoji} ${info.title}`);
+        if (firstTime) {
+          this.hud.toast(`✨ Discovered: ${info.emoji} ${info.title}`);
+          audio.sfx('discover');
+        }
       }
     }
     const zone = active ? this.nearestZone() : undefined;
@@ -202,6 +208,7 @@ export class Overworld implements OverworldContract {
       if (Math.random() < dt * 3) {
         const p = new THREE.Vector3((Math.random() - 0.5) * 30, 16 + Math.random() * 10, (Math.random() - 0.5) * 30);
         const palette = [['#ff4d4d', '#ffd25a'], ['#5affb0', '#ffffff'], ['#6fb6ff', '#ffd25a'], ['#ff7ad9', '#ffffff']];
+        audio.sfx('firework', 0.8 + Math.random() * 0.4);
         this.fireworks.emit(p, 80, { color: palette[Math.floor(Math.random() * palette.length)], speed: 12, up: 0, size: 1.6, life: 1.6 });
       }
       if (this.finaleTime > 20) this.finaleTime = -1;
@@ -224,7 +231,9 @@ export class Overworld implements OverworldContract {
   private openPause() {
     this.paused = true;
     this.input.unlockPointer();
-    const current = gameState.data.settings.quality;
+    const s = gameState.data.settings;
+    const current = s.quality;
+    const toggle = (k: 'music' | 'sfx', label: string) => `<button class="chip ${s[k] ? 'on' : ''}" data-sound="${k}">${label}</button>`;
     const chip = (q: Quality, label: string) => `<button class="chip ${q === current ? 'on' : ''}" data-quality="${q}">${label}</button>`;
     const fs = canFullscreen()
       ? `<div class="row"><button class="chip" data-fullscreen>${document.fullscreenElement ? '🗗 Exit fullscreen' : '⛶ Fullscreen'}</button></div>`
@@ -235,6 +244,8 @@ export class Overworld implements OverworldContract {
          <p>Ornaments: ${gameState.ornamentCount}/6 · ⭐ ${gameState.totalStars}/18</p>
          <div class="settings">
            <div class="row"><span class="small">Graphics</span>${chip('low', 'Fast')}${chip('medium', 'Balanced')}${chip('high', 'Pretty')}</div>
+           <div class="row"><span class="small">Sound</span>${toggle('music', '🎵 Music')}${toggle('sfx', '🔔 Effects')}</div>
+           <div class="row"><span class="small">Volume</span><input type="range" min="0" max="1" step="0.05" value="${s.volume}" data-volume aria-label="Volume"></div>
            ${fs}
          </div>
          <div class="row"><button data-ok autofocus>Resume</button></div>`,
@@ -242,6 +253,21 @@ export class Overworld implements OverworldContract {
           card.querySelectorAll<HTMLButtonElement>('[data-quality]').forEach((b) =>
             b.addEventListener('click', () => this.changeQuality(b.dataset.quality as Quality)),
           );
+          card.querySelectorAll<HTMLButtonElement>('[data-sound]').forEach((b) =>
+            b.addEventListener('click', () => {
+              const k = b.dataset.sound as 'music' | 'sfx';
+              s[k] = !s[k];
+              b.classList.toggle('on', s[k]);
+              audio.configure({ [k]: s[k] });
+              gameState.save();
+            }),
+          );
+          const vol = card.querySelector<HTMLInputElement>('[data-volume]')!;
+          vol.addEventListener('input', () => audio.configure({ volume: (s.volume = Number(vol.value)) }));
+          vol.addEventListener('change', () => {
+            gameState.save();
+            audio.sfx('catch');
+          });
           card.querySelector('[data-fullscreen]')?.addEventListener('click', (e) => {
             const on = !document.fullscreenElement;
             void setFullscreen(on);

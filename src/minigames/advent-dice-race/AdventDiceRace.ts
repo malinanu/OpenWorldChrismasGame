@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { assets } from '../../core/AssetLoader';
+import { audio } from '../../core/Audio';
 import { haptic, isTouchDevice } from '../../core/Input';
 import { Physics, RAPIER } from '../../core/Physics';
 import { Burst } from '../../vfx/Burst';
@@ -314,6 +315,7 @@ export class AdventDiceRace implements MiniGame {
     r.die.visible = true;
     this.stillTime = 0;
     this.setPhase('rolling');
+    audio.sfx('dice');
   }
 
   private readDie(): number {
@@ -364,6 +366,7 @@ export class AdventDiceRace implements MiniGame {
         if (this.stillTime > 0.3 || this.phaseTime > 4.5) {
           this.roll = this.readDie();
           if (r.human) haptic(20);
+          audio.sfx('star', 0.8 + this.roll * 0.08);
           this.sparkles.emit(new THREE.Vector3(t.x, t.y + 0.6, t.z), 20, { color: ['#ffd25a', '#ffffff'], speed: 3, up: 2, size: 0.4, life: 0.7 });
           this.say(`${r.emoji} ${r.name} rolled a ${this.roll}!`);
           this.startMove(this.roll);
@@ -402,6 +405,7 @@ export class AdventDiceRace implements MiniGame {
       this.stepsLeft--;
       this.hopTo.copy(this.squarePos(r.square, slot));
       this.hopT = 0;
+      audio.sfx('hop', r.human ? 1.2 : 0.9);
     }
     this.hopT = Math.min(1, this.hopT + dt / 0.24);
     r.pawn.position.lerpVectors(this.hopFrom, this.hopTo, this.hopT);
@@ -416,22 +420,26 @@ export class AdventDiceRace implements MiniGame {
       r.place = this.nextPlace++;
       this.sparkles.emit(at.clone().setY(1), 80, { color: ['#ffd25a', '#ff5a5a', '#5affb0', '#ffffff'], speed: 5, up: 3, size: 0.6, life: 1.4 });
       this.say(`🏁 ${r.name} finished ${ORDINAL[r.place - 1]}!`);
+      audio.sfx(r.human ? 'fanfare' : 'gift');
       this.setPhase('pause');
       return;
     }
     if (!this.effectUsed && GIFTS.has(r.square)) {
       this.effectUsed = true;
       this.say(`🎁 A gift! ${r.name} ${r.human ? 'hop' : 'hops'} 2 extra steps.`);
+      audio.sfx('gift');
       this.sparkles.emit(at.clone().setY(0.8), 30, { color: ['#ff5a5a', '#ffd25a'], speed: 3, up: 2, size: 0.5, life: 0.9 });
       return this.startMove(2);
     }
     if (!this.effectUsed && DRIFTS.has(r.square)) {
       this.effectUsed = true;
       r.skip = true;
+      audio.sfx('bad');
       this.say(`❄️ Snow drift! ${r.name} will miss the next turn.`);
       this.puffs.emit(at.clone().setY(0.4), 20, { color: '#ffffff', speed: 2, up: 1, size: 0.9, life: 0.9 });
     } else if (!this.effectUsed && !this.rolledAgain && CANDY.has(r.square)) {
       this.rolledAgain = true;
+      audio.sfx('magic');
       this.say(`🍬 Candy cane! ${r.name} ${r.human ? 'roll' : 'rolls'} again.`);
       this.setPhase('await');
       this.phaseTime = -0.6;

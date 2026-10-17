@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { assets } from '../../core/AssetLoader';
+import { audio } from '../../core/Audio';
 import { haptic, isTouchDevice } from '../../core/Input';
 import { Burst } from '../../vfx/Burst';
 import { buildInstanced, type Placement } from '../../world/Instancing';
@@ -395,6 +396,7 @@ export class KrampusCellar implements MiniGame {
       p.copy(target);
       this.playerCell = next;
       this.path.shift();
+      audio.sfx('step', 0.7);
       if (!this.guards.some((g) => g.vision.has(key(next)))) this.lastSafe = next;
       this.onEnterCell(next);
     } else p.addScaledVector(d.normalize(), step);
@@ -419,6 +421,7 @@ export class KrampusCellar implements MiniGame {
       this.flying.push({ obj: present, t: 0, from: this.world(c, 1) });
       this.sparkles.emit(this.world(c, 1.5), 40, { color: ['#ffd25a', '#ffffff'], speed: 4, up: 3, size: 0.7, life: 1 });
       haptic(25);
+      audio.sfx('chest');
       this.ctx.hud.toast(`🎁 Present rescued! (${this.presents}/${this.chests.size})`, 1500);
     }
     if (key(c) === key(this.exit)) this.finish();
@@ -432,6 +435,7 @@ export class KrampusCellar implements MiniGame {
     this.path = [];
     this.puffs.emit(this.player.root.position.clone().setY(1), 30, { color: '#ff6b6b', speed: 4, up: 2, size: 1.2, life: 0.8 });
     haptic([60, 40, 60]);
+    audio.sfx('spotted');
     this.ctx.hud.toast(`😈 Spotted! −${PENALTY} s — wait for the red light to move away`, 2200);
     this.safeTime = STUN + 1.5;
   }

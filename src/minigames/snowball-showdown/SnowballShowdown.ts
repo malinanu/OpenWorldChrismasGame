@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { assets } from '../../core/AssetLoader';
+import { audio } from '../../core/Audio';
 import { haptic } from '../../core/Input';
 import { Physics, RAPIER } from '../../core/Physics';
 import { buildInstanced, modelBounds, type Placement } from '../../world/Instancing';
@@ -228,6 +229,7 @@ export class SnowballShowdown implements MiniGame {
     this.scene.add(mesh);
     this.balls.push({ body, mesh, age: 0 });
     this.throws++;
+    audio.sfx('throw', 0.9 + Math.random() * 0.2);
     this.puffs.emit(origin, 8, { color: '#ffffff', speed: 2.5, up: 0.5, size: 1.2, life: 0.4 });
   }
 
@@ -236,6 +238,8 @@ export class SnowballShowdown implements MiniGame {
     t.t = 0;
     this.score = Math.max(0, this.score + POINTS[t.kind]);
     haptic(t.kind === 'present' ? [30, 40, 30] : t.kind === 'golden' ? 40 : 15);
+    audio.sfx(t.kind === 'present' ? 'bad' : 'hit');
+    if (t.kind === 'golden') audio.sfx('golden');
     if (t.kind === 'present') {
       this.oops++;
       this.sparkles.emit(at, 25, { color: ['#ff5a5a', '#ffffff'], speed: 5, up: 2, size: 0.8, life: 0.8 });

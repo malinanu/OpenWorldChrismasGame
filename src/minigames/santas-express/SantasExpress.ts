@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { assets } from '../../core/AssetLoader';
+import { audio } from '../../core/Audio';
 import { haptic, isTouchDevice } from '../../core/Input';
 import { Burst } from '../../vfx/Burst';
 import { Snowfall } from '../../vfx/Snowfall';
@@ -392,6 +393,7 @@ export class SantasExpress implements MiniGame {
     this.buildPath(route.steps, route.outcome);
     this.distance = 0;
     this.setPhase('drive');
+    audio.sfx('whistle');
     this.puffs.emit(this.cars[0].position.clone().setY(1.6), 10, { color: '#ffffff', speed: 1.5, up: 2, size: 1.6, life: 1 });
   }
 
@@ -415,6 +417,7 @@ export class SantasExpress implements MiniGame {
     v.tile.rot = (v.tile.rot + 1) % rotStates(v.tile);
     v.angle -= Math.PI / 2;
     this.moves++;
+    audio.sfx('rotate');
   }
 
   update(dt: number) {
@@ -471,6 +474,7 @@ export class SantasExpress implements MiniGame {
       this.presentIndex++;
       this.message = `🎁 Delivered!`;
       haptic(25);
+      audio.sfx('deliver');
     } else {
       this.mistakes++;
       this.totalMistakes++;
@@ -478,6 +482,7 @@ export class SantasExpress implements MiniGame {
       if (out.type === 'derail') this.cars.forEach((c, i) => (c.rotation.z = (i % 2 ? -1 : 1) * 0.5));
       this.puffs.emit(this.cars[0].position.clone().setY(0.8), 30, { color: '#ffffff', speed: 5, up: 2, size: 1.6, life: 0.9 });
       haptic([40, 50, 40]);
+      audio.sfx(out.type === 'derail' ? 'crash' : 'bad');
     }
     this.ctx.hud.toast(this.message, 1500);
     this.setPhase('result');

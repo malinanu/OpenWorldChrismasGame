@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { assets } from '../../core/AssetLoader';
+import { audio } from '../../core/Audio';
 import { haptic, isTouchDevice } from '../../core/Input';
 import { WorldLabels } from '../../ui/worldLabels';
 import { Burst } from '../../vfx/Burst';
@@ -170,6 +171,7 @@ export class ElfWorkshop implements MiniGame {
     if (this.index >= BLUEPRINTS || this.time >= SHIFT) return this.finish();
     const size = this.index < 3 ? 3 : this.index < 6 ? 4 : 5;
     this.recipe = this.makeRecipe(size);
+    audio.sfx('blueprint');
     this.toy = TOYS[this.index % TOYS.length];
     this.tray = [];
     this.index++;
@@ -203,6 +205,7 @@ export class ElfWorkshop implements MiniGame {
     const pos = this.partPos.get(id)!;
     this.sparkles.emit(pos.clone().setY(2), 6, { color: ['#ffffff', '#ffd25a'], speed: 1.5, up: 1.5, size: 0.4, life: 0.5 });
     haptic(10);
+    audio.sfx('pick', 1 + this.tray.length * 0.08);
   }
 
   private unpick(i: number) {
@@ -226,10 +229,12 @@ export class ElfWorkshop implements MiniGame {
       this.builtToys.push(present);
       this.sparkles.emit(this.anvilTop.clone().add(new THREE.Vector3(0, 0.6, 0)), 60, { color: ['#ffd25a', '#ff5a5a', '#5affb0'], speed: 5, up: 3, size: 0.6, life: 1.1 });
       haptic(30);
+      audio.sfx('build');
       this.showCard(true, '<div class="ornament">✨ Toy built!</div>');
     } else {
       this.puffs.emit(this.anvilTop.clone(), 30, { color: '#888888', speed: 3, up: 2, size: 1.2, life: 1 });
       haptic([40, 50, 40]);
+      audio.sfx('crash');
       const got = this.tray.map((p) => BY_ID.get(p)!.emoji).join('');
       this.showCard(true, `<div>💥 Wobbly toy! You used <b>${got}</b></div>`);
     }

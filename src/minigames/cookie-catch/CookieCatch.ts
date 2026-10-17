@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { assets } from '../../core/AssetLoader';
+import { audio } from '../../core/Audio';
 import { haptic, isTouchDevice } from '../../core/Input';
 import { Burst } from '../../vfx/Burst';
 import { Snowfall } from '../../vfx/Snowfall';
@@ -216,6 +217,7 @@ export class CookieCatch implements MiniGame {
       this.streak = 0;
       this.puffs.emit(at, 24, { color: '#333333', speed: 3, up: 1.5, size: 1.2, life: 0.8 });
       haptic([40, 40, 40]);
+      audio.sfx('bad');
       this.popup(def.label, at, false);
       return;
     }
@@ -226,6 +228,7 @@ export class CookieCatch implements MiniGame {
     if (f.kind === 'golden') this.magnet = MAGNET_TIME;
     this.sparkles.emit(at, f.kind === 'golden' ? 50 : 16, { color: f.kind === 'golden' ? ['#ffd25a', '#fff2b0'] : ['#ffffff', '#ffd25a'], speed: 3, up: 2, size: 0.6, life: 0.7 });
     haptic(f.kind === 'golden' ? 40 : 10);
+    audio.sfx(f.kind === 'golden' ? 'magic' : 'catch', Math.pow(2, (Math.min(this.streak, 12) % 13) / 12));
     this.popup(def.label, at, true);
   }
 
