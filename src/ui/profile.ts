@@ -6,6 +6,7 @@ import { MINI_GAMES } from '../minigames/registry';
 import { api, CHARACTER_NAMES } from '../net/api';
 import { esc } from './account';
 import { mountAvatarStage, type AvatarStage } from './avatar';
+import { INK } from './ink';
 import { mountLeaderboard } from './leaderboard';
 import { mountSettings } from './settings';
 import type { Quality } from '../core/Engine';
@@ -17,15 +18,6 @@ export type ProfileNext = 'character' | 'signin' | 'signout' | null;
 export type HubTab = 'passport' | 'leaders' | 'settings';
 
 const SEEN_KEY = 'frostvale.passportStamps';
-/** Each mini-game's stamp ink. */
-const INK: Record<MiniGameId, string> = {
-  'snowball-showdown': '#2f6fd6',
-  'gingerbread-bakery': '#b5651d',
-  'santas-express': '#c62f3a',
-  'elf-workshop': '#2e8b57',
-  'krampus-cellar': '#6b3fa0',
-  'advent-dice-race': '#d4881a',
-};
 
 function seenStamps(): string[] {
   try {
@@ -119,6 +111,7 @@ export async function showProfile(hud: Hud, opts: { server: boolean; tab?: HubTa
           <button type="button" class="chip" data-tab="leaders">🏆 Leaders</button>
           <button type="button" class="chip" data-tab="settings">⚙️ Settings</button>
         </div>
+        <div class="hub-panes">
         <div class="hub-pane" data-pane="passport">
         <div class="pp-page">
           <div class="pp-head">
@@ -145,8 +138,9 @@ export async function showProfile(hud: Hud, opts: { server: boolean; tab?: HubTa
         </div>
         ${actions ? `<div class="row pp-actions">${actions}</div>` : ''}
         </div>
-        <div class="hub-pane" data-pane="leaders"></div>
-        <div class="hub-pane" data-pane="settings"></div>
+        <div class="hub-pane fill" data-pane="leaders"><div class="pp-page pane-page"></div></div>
+        <div class="hub-pane fill" data-pane="settings"><div class="pp-page pane-page"></div></div>
+        </div>
         <div class="row"><button data-ok>Close</button></div>
       </div>`,
       (card) => {
@@ -170,19 +164,16 @@ export async function showProfile(hud: Hud, opts: { server: boolean; tab?: HubTa
           }
         });
 
-        // Tabs. Each pane is built the first time it's shown.
+        // Tabs. All three panes are stacked in one grid cell, so the card keeps the passport's
+        // size whichever tab is showing; Leaders and Settings fill it and scroll inside.
         const photo = card.querySelector<HTMLElement>('.pp-photo')!;
-        const built = new Set<HubTab>();
+        mountLeaderboard(card.querySelector<HTMLElement>('[data-pane=leaders] .pane-page')!);
+        mountSettings(card.querySelector<HTMLElement>('[data-pane=settings] .pane-page')!, { onQuality: opts.onQuality });
         const showTab = (tab: HubTab) => {
           card.querySelectorAll<HTMLElement>('[data-tab]').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
-          card.querySelectorAll<HTMLElement>('[data-pane]').forEach((p) => (p.hidden = p.dataset.pane !== tab));
-          if (built.has(tab)) return;
-          built.add(tab);
-          const pane = card.querySelector<HTMLElement>(`[data-pane=${tab}]`)!;
-          if (tab === 'leaders') mountLeaderboard(pane);
-          else if (tab === 'settings') mountSettings(pane, { onQuality: opts.onQuality });
-          else {
-            // Live portrait: idle and turning slowly; tap it for a cheer.
+          card.querySelectorAll<HTMLElement>('[data-pane]').forEach((p) => p.classList.toggle('off', p.dataset.pane !== tab));
+          // Live portrait (idle, turning slowly; tap it for a cheer), started once the passport shows.
+          if (tab === 'passport' && !stage) {
             stage = mountAvatarStage(photo.querySelector('canvas')!, { spin: 0.35, stand: false });
             void stage.show(charId);
           }

@@ -133,8 +133,6 @@ body.is-touch .prompt { pointer-events: auto; cursor: pointer; padding: 12px 20p
 .card button.ghost { background: transparent; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.4); }
 .card button.chip { font-size: 0.95rem; padding: 8px 16px; min-height: 40px; background: rgba(255,255,255,0.12); box-shadow: none; }
 .card button.chip.on { background: var(--gold); color: #3a2400; }
-.card .settings { display: grid; gap: 8px; margin: 12px 0 4px; }
-.card .settings .row { margin-top: 0; align-items: center; }
 .card .soon { font-size: 1.05rem; }
 .bigstars { font-size: 3rem; letter-spacing: 8px; color: rgba(255,255,255,0.2); }
 .bigstars .on { color: var(--gold); display: inline-block; animation: star 0.5s backwards; text-shadow: 0 0 18px rgba(255,210,90,0.8); }
@@ -235,15 +233,6 @@ body.is-touch .prompt { pointer-events: auto; cursor: pointer; padding: 12px 20p
 .catch-pop.good { color: #ffe27a; }
 .catch-pop.bad { color: #ff8080; }
 
-/* Volume slider in the pause card */
-.settings input[type='range'] {
-  flex: 1;
-  min-width: 140px;
-  height: 36px;
-  accent-color: #ffd25a;
-  touch-action: none;
-}
-
 /* Title card shown while loading: the loading screen is its backdrop and Start is the progress bar. */
 .loading.backdrop > * { display: none; }
 .card button.start { position: relative; overflow: hidden; min-width: 220px; }
@@ -273,7 +262,6 @@ body.is-touch .prompt { pointer-events: auto; cursor: pointer; padding: 12px 20p
 .char-dots { display: flex; gap: 6px; justify-content: center; }
 .char-dots span { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.3); }
 .char-dots span.on { background: var(--gold); }
-.card .account-row { align-items: center; }
 
 /* Snowball button: up and to the left of Jump, under the right thumb's arc. */
 .tbtn.throw { width: 64px; height: 64px; right: calc(124px + var(--safe-r)); bottom: calc(150px + var(--safe-b));
@@ -296,17 +284,6 @@ body.is-touch .prompt { pointer-events: auto; cursor: pointer; padding: 12px 20p
   .tbtn.throw { right: calc(132px + var(--safe-r)); bottom: calc(80px + var(--safe-b)); }
 }
 
-/* ---------- leaderboard ---------- */
-.leaders .tabs { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
-.leaders .tabs .chip { padding: 6px 12px; min-height: 38px; font-size: 1.05rem; }
-.leaders .board { max-height: min(52vh, 420px); overflow-y: auto; margin-top: 4px; }
-.leaders table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.95rem; }
-.leaders td { padding: 7px 6px; border-bottom: 1px solid rgba(255,255,255,0.08); }
-.leaders td.rank { width: 2.4em; text-align: center; font-weight: 700; }
-.leaders td.val { text-align: right; white-space: nowrap; }
-.leaders td.who { overflow: hidden; text-overflow: ellipsis; }
-.leaders tr.me td { background: rgba(255, 210, 90, 0.16); }
-.leaders tr.gap td { text-align: center; color: var(--muted); border: none; padding: 2px; }
 .muted { color: var(--muted); }
 
 /* ---------- profile badge (top-right) ---------- */
@@ -335,7 +312,7 @@ body.is-touch .profile-badge .pf-txt, body.is-touch .profile-badge kbd { display
   text-shadow: 0 1px 0 #8a6510, 0 0 12px rgba(255,210,90,0.45); }
 .pp-flake { display: inline-block; animation: spin 8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.pp-page { color: #2b2a33; border-radius: 16px; padding: 14px; position: relative; overflow: hidden;
+.pp-page { color: #2b2a33; border-radius: 16px; text-align: left; padding: 14px; position: relative; overflow: hidden;
   background:
     repeating-linear-gradient(0deg, transparent 0 27px, rgba(120,100,70,0.07) 27px 28px),
     linear-gradient(180deg, #fffaf0, #f5ead3);
@@ -390,11 +367,55 @@ body.is-touch .profile-badge .pf-txt, body.is-touch .profile-badge kbd { display
 .pp-invite { margin-top: 12px; background: rgba(47,111,214,0.1); border: 2px dashed rgba(47,111,214,0.35); color: #1d3a66; border-radius: 12px; padding: 10px 12px;
   font-size: 0.9rem; text-align: center; }
 .card .pp-actions { margin-top: 12px; }
-.hub-tabs { display: flex; gap: 6px; justify-content: center; margin: -2px 0 10px; }
-.card .hub-tabs .chip { padding: 6px 12px; min-height: 36px; font-size: 0.92rem; }
-.hub-pane[hidden] { display: none; }
-.hub-pane .settings { margin-top: 4px; }
-.hub-pane .leaders .board { max-height: min(46vh, 380px); }
+/* Tabs sit on top of the paper like folder tabs; the open one is the same paper as the page. */
+.hub-tabs { display: flex; gap: 4px; justify-content: center; align-items: flex-end; margin: 0; padding: 0 10px; }
+.card .hub-tabs .chip { flex: 1; max-width: 150px; padding: 6px 8px; min-height: 36px; font-size: 0.92rem; border-radius: 14px 14px 0 0; }
+.card .hub-tabs .chip.on { min-height: 42px; background: #fffaf0; color: #1d3a66; box-shadow: none; position: relative; z-index: 1; }
+/* All panes share one grid cell, so the card is always the passport's size. */
+.hub-panes { display: grid; }
+.hub-pane { grid-area: 1 / 1; min-width: 0; display: flex; flex-direction: column; }
+.hub-pane.off { visibility: hidden; pointer-events: none; }
+/* Leaders and Settings fill the passport's height and scroll inside it rather than growing the card. */
+.hub-pane.fill { position: relative; }
+.hub-pane.fill > .pane-page { position: absolute; inset: 0 0 auto 0; height: 100%; overflow-y: auto; display: flex; flex-direction: column; }
+.pane-page > .pp-sub:first-child { margin-top: 0; }
+
+/* Leaders: a "Hall of Fame" ledger */
+.lb-boards { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; }
+.card button.lb-chip { width: 36px; height: 36px; min-height: 0; padding: 0; border-radius: 50%; font-size: 1.15rem; display: grid; place-items: center;
+  background: transparent; color: inherit; border: 2px dashed var(--ink); box-shadow: none; opacity: 0.85; }
+.card button.lb-chip.on { border-style: solid; background: var(--ink); box-shadow: 0 2px 0 rgba(0,0,0,0.25), inset 0 0 0 2px #fffaf0; opacity: 1; transform: rotate(-6deg); }
+.card .lb-title { margin: 8px 0 4px; text-align: center; font-size: 0.82rem; color: #6b6352; }
+.lb-list { flex: 1; min-height: 0; }
+.lb-row { display: grid; grid-template-columns: 30px 34px 1fr auto; gap: 8px; align-items: center; padding: 6px 4px; border-bottom: 1.5px dashed rgba(120,100,70,0.3); }
+.lb-rank { text-align: center; }
+.lb-rank i { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid #8a8270; font-style: normal; font-size: 0.78rem; font-weight: 700; color: #5b5547; }
+.lb-medal { font-size: 1.3rem; }
+.lb-ava { width: 34px; height: 34px; border-radius: 50%; overflow: hidden; background: radial-gradient(circle at 50% 35%, #8fbaf0, #2a4f86 80%); border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+.lb-ava img { width: 100%; height: 100%; object-fit: cover; }
+.lb-who { min-width: 0; display: grid; line-height: 1.15; }
+.lb-who b { color: #1d3a66; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb-who small { color: #8a8270; font-size: 0.75rem; }
+.lb-val { font-weight: 700; color: #8a6510; white-space: nowrap; }
+.lb-val small { color: #8a8270; font-weight: 600; }
+.lb-row.me { background: linear-gradient(transparent 12%, rgba(255, 214, 80, 0.55) 12% 88%, transparent 88%); border-radius: 4px; }
+.lb-row.me .lb-who b { text-decoration: underline wavy var(--accent); text-underline-offset: 3px; }
+.lb-gap { text-align: center; color: #8a8270; padding: 2px; }
+.card .lb-wait { text-align: center; color: #8a8270; font-size: 0.9rem; }
+
+/* Settings: "Travel preferences" on the paper */
+.pref { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 2px; border-bottom: 1.5px dashed rgba(120,100,70,0.3); flex-wrap: wrap; }
+.pref-l { font-weight: 700; color: #1d3a66; }
+.pref-c { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; align-items: center; flex: 1; }
+.card button.pchip { font-size: 0.88rem; padding: 6px 12px; min-height: 36px; color: #5b5547; background: transparent; border: 2px dashed #b9ad95; box-shadow: none; border-radius: 999px; }
+.card button.pchip.on { color: #3a2400; background: linear-gradient(180deg, #ffe08a, var(--gold)); border: 2px solid #d9a520; box-shadow: 0 2px 0 #b8871a; }
+.seg { display: inline-flex; background: rgba(120,100,70,0.1); border-radius: 999px; padding: 3px; gap: 2px; }
+.seg .pchip { border-color: transparent !important; }
+input.cane { -webkit-appearance: none; appearance: none; flex: 1; min-width: 140px; max-width: 260px; height: 14px; border-radius: 999px; touch-action: none;
+  background: linear-gradient(90deg, transparent var(--v, 50%), #e3d8c2 var(--v, 50%)), repeating-linear-gradient(-45deg, var(--accent) 0 7px, #fff 7px 14px);
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.18); }
+input.cane::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%; background: var(--gold); border: 3px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+input.cane::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: var(--gold); border: 3px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
 .card button.chip.ghosty { background: transparent; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.3); }
 @media (max-width: 380px) {
   .pp-page { padding: 10px; }
