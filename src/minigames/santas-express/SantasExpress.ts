@@ -9,6 +9,7 @@ import { Lighting } from '../../world/Lighting';
 import { createSnowGroundMaterial, setWorldUvs } from '../../world/SnowGround';
 import type { MiniGame, MiniGameContext, MiniGameResult } from '../MiniGame';
 import { LEVELS } from './levels';
+import { t } from './strings';
 import { DX, DY, parseLevel, rotStates, solve, traceRoute, type Colour, type Dir, type Level, type Outcome, type Tile } from './logic';
 
 /** Model units per grid cell: the KayKit curve is a radius-2 quarter arc, so cells are 4 wide. */
@@ -215,9 +216,9 @@ export class SantasExpress implements MiniGame {
     this.frameCamera();
     this.resetTrain();
     this.setPhase('plan');
-    this.ctx.hud.toast(`🚂 Level ${index + 1}/${LEVELS.length}: ${this.level.name}`, 2600);
+    this.ctx.hud.toast(t('level', { i: index + 1, n: LEVELS.length, name: this.levelName() }), 2600);
     if (index === 0) {
-      const tip = isTouchDevice ? 'Tap the glowing track to turn it, then tap 🚂 Go!' : 'Click the glowing track to turn it, then press Space or 🚂 Go!';
+      const tip = isTouchDevice ? t('tipTouch') : t('tipDesktop');
       this.ctx.hud.toast(tip, 4500);
     }
   }
@@ -472,13 +473,13 @@ export class SantasExpress implements MiniGame {
       marker.scale.setScalar(1.3);
       this.cargo.clear();
       this.presentIndex++;
-      this.message = `🎁 Delivered!`;
+      this.message = t('delivered');
       haptic(25);
       audio.sfx('deliver');
     } else {
       this.mistakes++;
       this.totalMistakes++;
-      this.message = out.type === 'derail' ? '💥 Derailed!' : out.type === 'loop' ? '🔁 Going in circles!' : '🏠 Wrong chimney!';
+      this.message = out.type === 'derail' ? t('derailed') : out.type === 'loop' ? t('loop') : t('wrongChimney');
       if (out.type === 'derail') this.cars.forEach((c, i) => (c.rotation.z = (i % 2 ? -1 : 1) * 0.5));
       this.puffs.emit(this.cars[0].position.clone().setY(0.8), 30, { color: '#ffffff', speed: 5, up: 2, size: 1.6, life: 0.9 });
       haptic([40, 50, 40]);
@@ -497,13 +498,18 @@ export class SantasExpress implements MiniGame {
     // Level complete.
     const score = this.mistakes === 0 && this.moves <= this.par ? 3 : this.mistakes <= 1 && this.moves <= this.par + 4 ? 2 : 1;
     this.levelScores.push(score);
-    this.ctx.hud.toast(`✅ ${this.level.name} complete: ${'★'.repeat(score)}${'☆'.repeat(3 - score)} (${this.moves} clicks, par ${this.par})`, 2600);
+    this.ctx.hud.toast(t('complete', { name: this.levelName(), stars: `${'★'.repeat(score)}${'☆'.repeat(3 - score)}`, n: this.moves, par: this.par }), 2600);
     if (this.levelIndex + 1 < LEVELS.length) {
       this.buildLevel(this.levelIndex + 1);
     } else {
       this.setPhase('done');
       this.finish();
     }
+  }
+
+  /** The current level's name in the active language. */
+  private levelName() {
+    return t(LEVELS[this.levelIndex].key);
   }
 
   private renderBar() {
@@ -513,16 +519,16 @@ export class SantasExpress implements MiniGame {
     const score = this.levelScores.reduce((a, b) => a + b, 0);
     this.ctx.hud.setGameBar(
       `<span>🚂 ${this.levelIndex + 1}/${LEVELS.length}</span><span class="queue">${queue}</span>` +
-        `<span>🔄 ${this.moves}<small class="muted"> / par ${this.par}</small></span><span>⭐ ${score}</span>`,
+        `<span>🔄 ${this.moves}<small class="muted">${t('par', { par: this.par })}</small></span><span>⭐ ${score}</span>`,
     );
-    this.ctx.hud.setAction({ id: 'go', label: '🚂 Go!', enabled: this.phase === 'plan' });
+    this.ctx.hud.setAction({ id: 'go', label: t('go'), enabled: this.phase === 'plan' });
   }
 
   private finish(quit = false) {
     const score = this.levelScores.reduce((a, b) => a + b, 0);
     const summary = quit
-      ? `You left the yard after ${this.levelScores.length} of ${LEVELS.length} levels.`
-      : `${LEVELS.length} levels · ${this.totalMistakes} mishap${this.totalMistakes === 1 ? '' : 's'} · level stars ${this.levelScores.join(' ')}`;
+      ? t('summaryQuit', { done: this.levelScores.length, total: LEVELS.length })
+      : t('summary', { levels: LEVELS.length, n: this.totalMistakes, stars: this.levelScores.join(' ') });
     this.resolve({ score, quit, summary });
   }
 

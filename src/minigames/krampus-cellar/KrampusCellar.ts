@@ -6,6 +6,7 @@ import { haptic, isTouchDevice } from '../../core/Input';
 import { Burst } from '../../vfx/Burst';
 import { buildInstanced, type Placement } from '../../world/Instancing';
 import type { MiniGame, MiniGameContext, MiniGameResult } from '../MiniGame';
+import { t } from './strings';
 
 /**
  * '#' wall · '.' floor · 'S' start · 'E' exit stairs · 'C' chest with a present.
@@ -323,7 +324,7 @@ export class KrampusCellar implements MiniGame {
       if (a === 'overview') this.overview = !this.overview;
     };
     this.tips.walk = true;
-    this.ctx.hud.toast(isTouchDevice ? '👆 Tap a floor tile to walk there — follow the ✨ dots to the chest' : '🖱️ Click a floor tile (or WASD) — follow the ✨ dots to the chest', 4500);
+    this.ctx.hud.toast(isTouchDevice ? t('tipTouch') : t('tipDesktop'), 4500);
   }
 
   // ---------------------------------------------------------------- movement
@@ -422,7 +423,7 @@ export class KrampusCellar implements MiniGame {
       this.sparkles.emit(this.world(c, 1.5), 40, { color: ['#ffd25a', '#ffffff'], speed: 4, up: 3, size: 0.7, life: 1 });
       haptic(25);
       audio.sfx('chest');
-      this.ctx.hud.toast(`🎁 Present rescued! (${this.presents}/${this.chests.size})`, 1500);
+      this.ctx.hud.toast(t('rescued', { a: this.presents, b: this.chests.size }), 1500);
     }
     if (key(c) === key(this.exit)) this.finish();
   }
@@ -436,7 +437,7 @@ export class KrampusCellar implements MiniGame {
     this.puffs.emit(this.player.root.position.clone().setY(1), 30, { color: '#ff6b6b', speed: 4, up: 2, size: 1.2, life: 0.8 });
     haptic([60, 40, 60]);
     audio.sfx('spotted');
-    this.ctx.hud.toast(`😈 Spotted! −${PENALTY} s — wait for the red light to move away`, 2200);
+    this.ctx.hud.toast(t('spotted', { p: PENALTY }), 2200);
     this.safeTime = STUN + 1.5;
   }
 
@@ -483,11 +484,11 @@ export class KrampusCellar implements MiniGame {
       return Math.abs(x - this.playerCell[0]) + Math.abs(y - this.playerCell[1]) <= 2;
     }))) {
       this.tips.red = true;
-      this.ctx.hud.toast('🟥 Red tiles = lantern light. Wait for it to move on, then sneak past!', 4000);
+      this.ctx.hud.toast(t('tipRed'), 4000);
     }
     if (!this.tips.chest && route.length > 0 && route.length <= 2 && goal !== this.exit) {
       this.tips.chest = true;
-      this.ctx.hud.toast('🎁 Walk onto the chest to grab the present', 3000);
+      this.ctx.hud.toast(t('tipChest'), 3000);
     }
   }
 
@@ -606,9 +607,9 @@ export class KrampusCellar implements MiniGame {
 
     const left = Math.max(0, Math.ceil(TIME_LIMIT - Math.max(0, this.time)));
     this.ctx.hud.setGameBar(
-      `<span>⏱ <b class="${left <= 20 ? 'warn' : ''}">${left}</b>s</span><span>🎁 ${this.presents}/${this.chests.size}</span><span>😈 ${this.caught}</span>`,
+      `<span>⏱ ${t('clock', { b: `<b class="${left <= 20 ? 'warn' : ''}">${left}</b>` })}</span><span>🎁 ${this.presents}/${this.chests.size}</span><span>😈 ${this.caught}</span>`,
     );
-    this.ctx.hud.setAction({ id: 'overview', label: this.overview ? '🔍 Zoom in' : '🗺️ Overview', enabled: !this.over });
+    this.ctx.hud.setAction({ id: 'overview', label: this.overview ? t('zoomIn') : t('overview'), enabled: !this.over });
   }
 
   private finish(quit = false) {
@@ -621,10 +622,10 @@ export class KrampusCellar implements MiniGame {
       score: this.presents + bonus,
       quit,
       summary: quit
-        ? 'You crept out of the cellar early.'
+        ? t('quit')
         : escaped
-          ? `Escaped with ${this.presents}/${this.chests.size} presents · speed bonus +${bonus} · spotted ${this.caught}×`
-          : `Time ran out with ${this.presents}/${this.chests.size} presents · spotted ${this.caught}×`,
+          ? t('escaped', { a: this.presents, b: this.chests.size, bonus, n: this.caught })
+          : t('timeUp', { a: this.presents, b: this.chests.size, n: this.caught }),
     });
   }
 

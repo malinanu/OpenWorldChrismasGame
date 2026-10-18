@@ -6,6 +6,7 @@ import { SNOW_GRAVITY, type LocalState, type Multiplayer } from '../net/Multipla
 import type { Hud } from '../ui/hud';
 import { Burst } from '../vfx/Burst';
 import type { Player } from './Player';
+import { t } from '../i18n/ui';
 import { RemotePlayer } from './RemotePlayer';
 
 const THROW_COOLDOWN = 0.45;
@@ -109,7 +110,7 @@ export class SnowballFight {
     const now = performance.now();
     if (now - this.roadHintAt < 4000) return;
     this.roadHintAt = now;
-    this.hud.toast('🛣️ No snow on the road. Step onto the snow to make a snowball!', 2200);
+    this.hud.toast(t('noSnow'), 2200);
   }
 
   /** Lock onto the nearest player in front of the camera; otherwise lob ~16 m ahead. */
@@ -190,16 +191,16 @@ export class SnowballFight {
     }
     this.puffs.emit(at, 30, { color: '#ffffff', speed: 4.5, up: 2, size: 1.3, life: 0.8 });
     const me = this.mp?.myId;
-    const name = (id: number) => this.mp?.players.get(id)?.name ?? 'Someone';
+    const name = (id: number) => this.mp?.players.get(id)?.name ?? t('someone');
     if (to === me) {
       audio.sfx('hit');
       haptic([30, 30, 60]);
-      this.hud.toast(`❄️ ${name(from)} got you!`, 1800);
+      this.hud.toast(t('gotYou', { name: name(from) }), 1800);
     } else {
       this.remotes.get(to)?.hit();
       if (from === me) {
         audio.sfx('hit');
-        this.hud.toast(`🎯 You hit ${name(to)}!`, 1800);
+        this.hud.toast(t('youHit', { name: name(to) }), 1800);
       }
     }
   }

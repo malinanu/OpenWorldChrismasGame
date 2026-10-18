@@ -9,6 +9,7 @@ export interface User {
   email: string | null;
   phone: string | null;
   characterId: string;
+  language: Lang;
   role: 'player' | 'admin';
   /** ISO time the account was made. */
   createdAt: string | null;
@@ -24,6 +25,16 @@ export class AuthError extends Error {
   }
 }
 
+export type Lang = 'en' | 'si' | 'ta';
+export const LANGS = ['en', 'si', 'ta'] as const;
+
+/** The one-time code text message, in the player's language. */
+const SMS_TEXT: Record<Lang, (code: string, min: number) => string> = {
+  en: (code, min) => `Your Frostvale code is ${code}. It expires in ${min} minutes.`,
+  si: (code, min) => `ඔබේ Frostvale කේතය ${code}. එය මිනිත්තු ${min}කින් කල් ඉකුත් වේ.`,
+  ta: (code, min) => `உங்கள் Frostvale குறியீடு ${code}. இது ${min} நிமிடங்களில் காலாவதியாகும்.`,
+};
+
 const sha256 = (s: string) => createHash('sha256').update(s).digest('hex');
 
 export const USERNAME_RE = /^[A-Za-z0-9_]{3,16}$/;
@@ -31,7 +42,7 @@ const OTP_TTL_MIN = 5;
 const OTP_MAX_ATTEMPTS = 5;
 
 function toUser(r: Row): User {
-  return { id: r.id, username: r.username, email: r.email, phone: r.phone, characterId: r.character_id, role: r.role, createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : null };
+  return { id: r.id, username: r.username, email: r.email, phone: r.phone, characterId: r.character_id, language: r.language ?? 'en', role: r.role, createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : null };
 }
 
 /** Accounts, sessions and one-time codes. All SQL for auth lives here. */
@@ -84,13 +95,13 @@ export class Auth {
 
   // ------------------------------------------------------------- email + password
 
-  async register(email: string, password: string, username: string): Promise<User> {
+  async register(email: string, password: string, username: string, language: Lang = 'en'): Promise<User> {
     email = email.trim().toLowerCase();
     await this.assertUsernameFree(username);
     const [dupe] = await this.db.query<Row[]>('SELECT id FROM users WHERE email = ?', [email]);
     if (dupe[0]) throw new AuthError(409, 'email_taken', 'An account with this email already exists.');
     const hash = await bcrypt.hash(password, 10);
-    const [res] = await this.db.query<import('mysql2').ResultSetHeader>('INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)', [username, email, hash]);
+    const [res] = await this.db.query<import('mysql2').ResultSetHeader>('INSERT INTO users (username, email, password_hash, language) VALUES (?, ?, ?, ?)', [username, email, hash, language]);
     return (await this.userById(res.insertId))!;
   }
 
@@ -106,7 +117,7 @@ export class Auth {
 
   // ------------------------------------------------------------- phone + one-time code
 
-  async requestOtp(phone: string, ip: string): Promise<void> {
+  async requestOtp(phone: string, ip: string, language: Lang = 'en'): Promise<void> {
     const [[recent]] = await this.db.query<Row[]>(
       `SELECT
          SUM(phone = ? AND created_at > DATE_SUB(UTC_TIMESTAMP(), INTERVAL 60 SECOND)) AS last_min,
@@ -124,11 +135,11 @@ export class Auth {
       ip,
       OTP_TTL_MIN,
     ]);
-    await this.sms.send(phone, `Your Frostvale code is ${code}. It expires in ${OTP_TTL_MIN} minutes.`);
+    await this.sms.send(phone, SMS_TEXT[language](code, OTP_TTL_MIN));
   }
 
   /** Checks the latest code for this phone; signs in (creating the account on first use). */
-  async verifyOtp(phone: string, code: string): Promise<User> {
+  async verifyOtp(phone: string, code: string, language: Lang = 'en'): Promise<User> {
     const [rows] = await this.db.query<Row[]>(
       'SELECT * FROM otp_codes WHERE phone = ? AND consumed_at IS NULL AND expires_at > UTC_TIMESTAMP() ORDER BY id DESC LIMIT 1',
       [phone],
@@ -146,7 +157,7 @@ export class Auth {
       await this.db.query('UPDATE users SET phone_verified_at = UTC_TIMESTAMP() WHERE id = ?', [users[0].id]);
       return toUser(users[0]);
     }
-    const [res] = await this.db.query<import('mysql2').ResultSetHeader>('INSERT INTO users (phone, phone_verified_at) VALUES (?, UTC_TIMESTAMP())', [phone]);
+    const [res] = await this.db.query<import('mysql2').ResultSetHeader>('INSERT INTO users (phone, phone_verified_at, language) VALUES (?, UTC_TIMESTAMP(), ?)', [phone, language]);
     return (await this.userById(res.insertId))!;
   }
 
@@ -158,12 +169,13 @@ export class Auth {
     if (rows[0] && rows[0].id !== exceptUserId) throw new AuthError(409, 'username_taken', 'That username is taken.');
   }
 
-  async updateProfile(userId: number, patch: { username?: string; characterId?: string }): Promise<User> {
+  async updateProfile(userId: number, patch: { username?: string; characterId?: string; language?: Lang }): Promise<User> {
     if (patch.username !== undefined) {
       await this.assertUsernameFree(patch.username, userId);
       await this.db.query('UPDATE users SET username = ? WHERE id = ?', [patch.username, userId]);
     }
     if (patch.characterId !== undefined) await this.db.query('UPDATE users SET character_id = ? WHERE id = ?', [patch.characterId, userId]);
+    if (patch.language !== undefined) await this.db.query('UPDATE users SET language = ? WHERE id = ?', [patch.language, userId]);
     return (await this.userById(userId))!;
   }
 }

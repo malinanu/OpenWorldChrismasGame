@@ -33,8 +33,12 @@ test('duplicates and validation', async () => {
   await s.api('POST', '/api/auth/register', { email: 'bo@example.com', password: 'snowball123', username: 'Bo_1' });
   assert.equal((await s.api('POST', '/api/auth/register', { email: 'bo@example.com', password: 'snowball123', username: 'other' })).body.error, 'email_taken');
   assert.equal((await s.api('POST', '/api/auth/register', { email: 'b2@example.com', password: 'snowball123', username: 'bo_1' })).body.error, 'username_taken', 'usernames are case-insensitive');
-  assert.equal((await s.api('POST', '/api/auth/register', { email: 'b3@example.com', password: 'short', username: 'bobo' })).status, 400);
-  assert.equal((await s.api('POST', '/api/auth/register', { email: 'b4@example.com', password: 'snowball123', username: 'no spaces' })).status, 400);
+  // Each bad field has its own code, so the game can explain it in the player's language.
+  const bad = async (body: object) => (await s.api('POST', '/api/auth/register', body)).body.error;
+  assert.equal(await bad({ email: 'b3@example.com', password: 'short', username: 'bobo' }), 'bad_password');
+  assert.equal(await bad({ email: 'b4@example.com', password: 'snowball123', username: 'no spaces' }), 'bad_username');
+  assert.equal(await bad({ email: 'not-an-email', password: 'snowball123', username: 'bobo' }), 'bad_email');
+  assert.equal(await bad({ email: 'b5@example.com', password: 'snowball123', username: 'bobo', language: 'fr' }), 'bad_language');
 });
 
 test('profile: username and character', async () => {
@@ -44,6 +48,24 @@ test('profile: username and character', async () => {
   assert.equal((await s.api('PUT', '/api/me', { characterId: 'Dragon' }, t)).status, 400);
   assert.equal((await s.api('PUT', '/api/me', { username: 'ada' }, t)).body.error, 'username_taken');
   assert.equal((await s.api('PUT', '/api/me', { username: 'cyrus' }, t)).body.user.username, 'cyrus');
+});
+
+test('language: chosen at sign-up, changeable, sent with the code', async () => {
+  const reg = await s.api('POST', '/api/auth/register', { email: 'si@example.com', password: 'snowball123', username: 'sinha', language: 'si' });
+  assert.equal(reg.body.user.language, 'si');
+  assert.equal((await s.api('GET', '/api/me', undefined, reg.body.token)).body.user.language, 'si');
+  assert.equal((await s.api('PUT', '/api/me', { language: 'ta' }, reg.body.token)).body.user.language, 'ta');
+  assert.equal((await s.api('PUT', '/api/me', { language: 'xx' }, reg.body.token)).status, 400);
+  const plain = await s.api('POST', '/api/auth/register', { email: 'en@example.com', password: 'snowball123', username: 'engl' });
+  assert.equal(plain.body.user.language, 'en', 'English when not given');
+  // The SMS text is in the language the player is using.
+  await s.api('POST', '/api/auth/otp/request', { phone: '+94770000001', language: 'ta' });
+  assert.match(s.sms.sent.at(-1)!.text, /குறியீடு \d{6}/);
+  await s.api('POST', '/api/auth/otp/request', { phone: '+94770000002', language: 'si' });
+  assert.match(s.sms.sent.at(-1)!.text, /කේතය \d{6}/);
+  const code = /(\d{6})/.exec(s.sms.sent.at(-1)!.text)![1];
+  const v = await s.api('POST', '/api/auth/otp/verify', { phone: '+94770000002', code, language: 'si' });
+  assert.equal(v.body.user.language, 'si', 'new phone accounts start in that language');
 });
 
 test('phone sign-in with a one-time code', async () => {

@@ -67,6 +67,9 @@ jobs:
       - name: Prove every Santa's Express level is solvable
         run: npm run check-levels
 
+      - name: Check the Sinhala and Tamil text
+        run: npm run check-i18n
+
       - name: Type-check and build
         run: npm run build
 

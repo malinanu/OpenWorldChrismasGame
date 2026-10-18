@@ -7,6 +7,7 @@ import { Snowfall } from '../../vfx/Snowfall';
 import { Lighting } from '../../world/Lighting';
 import { createSnowGroundMaterial, setWorldUvs } from '../../world/SnowGround';
 import type { MiniGame, MiniGameContext, MiniGameResult } from '../MiniGame';
+import { t } from './strings';
 
 type Kind = 'cookie' | 'cane' | 'ginger' | 'present' | 'coal' | 'golden';
 
@@ -24,7 +25,7 @@ const KINDS: Record<Kind, KindDef> = {
   ginger: { model: 'holiday/gingerbread_man', points: 2, weight: 14, scale: 2.6, label: '+2' },
   present: { model: 'holiday/present_A_red', points: 3, weight: 7, scale: 1.4, label: '+3' },
   coal: { model: 'resources/Stone_Chunks_Small', points: -2, weight: 15, scale: 1.3, label: '−2' },
-  golden: { model: 'holiday/cookie', points: 2, weight: 2, scale: 2.8, label: '✨ Magnet!' },
+  golden: { model: 'holiday/cookie', points: 2, weight: 2, scale: 2.8, get label() { return t('magnetPop'); } },
 };
 const ROUND = 60;
 const COUNTDOWN = 3;
@@ -163,7 +164,7 @@ export class CookieCatch implements MiniGame {
   start() {
     this.popLayer.className = 'world-labels';
     this.ctx.hud.root.prepend(this.popLayer);
-    this.ctx.hud.toast(isTouchDevice ? '👆 Drag anywhere to move the bowl' : '🖱️ Hold the mouse button and move, or use ← →', 3500);
+    this.ctx.hud.toast(isTouchDevice ? t('tipTouch') : t('tipDesktop'), 3500);
   }
 
   // ---------------------------------------------------------------- gameplay
@@ -296,10 +297,10 @@ export class CookieCatch implements MiniGame {
     this.snow.update(this.time + COUNTDOWN, this.camera.position, pr);
 
     const left = Math.ceil(THREE.MathUtils.clamp(ROUND - this.time, 0, ROUND));
-    const countdown = this.time < 0 ? `<span class="warn">Ready… ${Math.ceil(-this.time)}</span>` : '';
+    const countdown = this.time < 0 ? `<span class="warn">${t('ready', { n: Math.ceil(-this.time) })}</span>` : '';
     this.ctx.hud.setGameBar(
-      `${countdown}<span>⏱ <b class="${left <= 10 ? 'warn' : ''}">${left}</b>s</span><span>🍪 ${this.score}</span>` +
-        `${this.streak >= 5 ? `<span>🔥 ×${this.streak}</span>` : ''}${this.magnet > 0 ? '<span>✨ Magnet</span>' : ''}`,
+      `${countdown}<span>⏱ ${t('clock', { b: `<b class="${left <= 10 ? 'warn' : ''}">${left}</b>` })}</span><span>🍪 ${this.score}</span>` +
+        `${this.streak >= 5 ? `<span>🔥 ×${this.streak}</span>` : ''}${this.magnet > 0 ? `<span>${t('magnet')}</span>` : ''}`,
     );
     if (this.time >= ROUND && !this.over) this.finish();
   }
@@ -310,7 +311,7 @@ export class CookieCatch implements MiniGame {
     this.resolve({
       score: this.score,
       quit,
-      summary: quit ? 'You left the bakery yard early.' : `${this.caught} treats caught · best streak ${this.best} · ${this.coal} lump${this.coal === 1 ? '' : 's'} of coal`,
+      summary: quit ? t('quit') : t('summary', { n: this.coal, caught: this.caught, best: this.best }),
     });
   }
 

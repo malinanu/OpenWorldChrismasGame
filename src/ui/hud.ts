@@ -2,6 +2,7 @@ import { isTouchDevice } from '../core/Input';
 import { gameState } from '../game/GameState';
 import { titleFor } from '../game/titles';
 import { portrait } from './avatar';
+import { t } from '../i18n/ui';
 import { MINI_GAME_IDS, type MiniGameId, type MiniGameResult, type Stars } from '../minigames/MiniGame';
 import { MINI_GAMES } from '../minigames/registry';
 import './styles.css';
@@ -27,14 +28,12 @@ export interface GameAction {
   enabled: boolean;
 }
 
-const DESKTOP_HINT = 'WASD move · Mouse look · Shift sprint · Space jump · F snowball · E play · M map · C passport · L leaders · Esc settings';
-const TOUCH_HINT = 'Left thumb: move (push far to run) · Right thumb: look · ⤒ jump · ❄️ throw a snowball (in the snow)';
 
 /** All HTML overlay UI: loading, title, prompts, trackers, cards, map, mini-game bar. */
 export class Hud {
   readonly root: HTMLElement;
   private fade = el('div', 'fade');
-  private loading = el('div', 'loading', '<h1>Frostvale</h1><div class="bar"><div></div></div><p>Wrapping presents…</p>');
+  private loading = el('div', 'loading', `<h1>Frostvale</h1><div class="bar"><div></div></div><p>${t('loadingWrap')}</p>`);
   private prompt = el('div', 'prompt hidden');
   private tracker = el('div', 'tracker');
   private gameBar = el('div', 'gamebar hidden');
@@ -65,10 +64,10 @@ export class Hud {
       const id = this.actionBtn.dataset.action;
       if (id && !this.actionBtn.disabled) this.onGameAction?.(id);
     });
-    this.quitBtn.setAttribute('aria-label', 'Leave game');
+    this.quitBtn.setAttribute('aria-label', t('leaveGameAria'));
     this.quitBtn.addEventListener('click', () => this.onQuit?.());
     this.prompt.addEventListener('click', () => this.onPromptTap?.());
-    this.profileBtn.setAttribute('aria-label', 'Your passport');
+    this.profileBtn.setAttribute('aria-label', t('passportAria'));
     this.profileBtn.addEventListener('click', () => this.onProfile?.());
     this.mapBox.addEventListener('click', () => this.mapBox.classList.add('hidden'));
     root.append(this.tracker, this.profileBtn, this.prompt, this.gameBar, this.actionBtn, this.quitBtn, this.hint, this.toastBox, this.mapBox, this.card, this.loading, this.fade);
@@ -84,7 +83,7 @@ export class Hud {
   /** Re-render device-specific text after switching between mouse and touch. */
   refreshDeviceMode() {
     document.body.classList.toggle('is-touch', isTouchDevice);
-    this.hint.textContent = isTouchDevice ? TOUCH_HINT : DESKTOP_HINT;
+    this.hint.textContent = isTouchDevice ? t('hintTouch') : t('hintDesktop');
   }
 
   // ---------- loading / title ----------
@@ -94,7 +93,7 @@ export class Hud {
     const start = this.card.querySelector<HTMLButtonElement>('.title-card [data-ok][disabled]');
     if (start) {
       start.style.setProperty('--progress', pct);
-      start.querySelector('.label')!.textContent = fraction >= 1 ? 'Almost ready…' : `Loading… ${pct}`;
+      start.querySelector('.label')!.textContent = fraction >= 1 ? t('almostReady') : t('loadingPct', { pct });
     }
   }
 
@@ -115,15 +114,14 @@ export class Hud {
     this.card.before(this.loading);
     const hasSave = gameState.data.discovered.length > 0 || gameState.ornamentCount > 0;
     const controls = isTouchDevice
-      ? 'Left thumb moves · right thumb looks · tap <b>▶ Play</b> at a glowing beacon'
-      : DESKTOP_HINT;
+      ? t('titleTouch')
+      : t('hintDesktop');
     return this.showCard(`
       <div class="title-card">
         <h1>❄️ Frostvale ❄️</h1>
-        <p class="lead">The six golden ornaments of the Great Tree have been scattered across the village.
-        Find each festive challenge, win its ornament, and light the tree before Christmas Eve.</p>
-        <p class="small">${MINI_GAME_IDS.length} challenges · ${gameState.ornamentCount} ornaments found · ⭐ ${gameState.totalStars}/18</p>
-        <button data-ok class="start" disabled><span class="label">Loading…</span></button>
+        <p class="lead">${t('titleLead')}</p>
+        <p class="small">${t('titleStats', { games: MINI_GAME_IDS.length, orn: gameState.ornamentCount, stars: gameState.totalStars })}</p>
+        <button data-ok class="start" disabled><span class="label">${t('loadingPct', { pct: '0%' })}</span></button>
         <p class="small muted">${controls}</p>
       </div>`,
       (card) => {
@@ -131,7 +129,7 @@ export class Hud {
         ready
           .then(() => {
             start.disabled = false;
-            start.querySelector('.label')!.textContent = hasSave ? 'Continue' : 'Start exploring';
+            start.querySelector('.label')!.textContent = hasSave ? t('continue') : t('startExploring');
             start.focus();
           })
           .catch(() => {});
@@ -142,8 +140,8 @@ export class Hud {
   // ---------- overworld ----------
   showPlayPrompt(emoji: string, title: string) {
     const html = isTouchDevice
-      ? `<span class="play">▶ Play</span> ${emoji} ${title}`
-      : `Press <kbd>E</kbd> to play ${emoji} ${title}`;
+      ? `<span class="play">${t('playChip')}</span> ${emoji} ${title}`
+      : t('pressE', { game: `${emoji} ${title}` });
     if (this.prompt.innerHTML !== html) this.prompt.innerHTML = html;
     this.prompt.classList.remove('hidden');
   }
@@ -179,10 +177,10 @@ export class Hud {
     const p = this.profile;
     const { title } = titleFor(gameState.totalStars);
     this.profileBtn.classList.toggle('guest', !p);
-    this.profileBtn.title = p ? `${p.name} · ${title.name}` : 'Guest · open your passport';
+    this.profileBtn.title = p ? `${p.name} · ${title.name}` : t('guestBadge');
     this.profileBtn.innerHTML = `<span class="pf-ava"><img alt="" hidden><span class="pf-ghost">${p ? '🧝' : '👤'}</span><i class="pf-dot"></i></span>
       <span class="pf-txt"><b></b><small>${title.icon} ${title.name}</small></span><kbd>C</kbd>`;
-    this.profileBtn.querySelector('b')!.textContent = p ? p.name : 'Guest';
+    this.profileBtn.querySelector('b')!.textContent = p ? p.name : t('guest');
     if (!p) return;
     const img = this.profileBtn.querySelector('img')!;
     void portrait(p.charId).then((url) => {
@@ -235,10 +233,10 @@ export class Hud {
       .map((r) => `<polyline points="${r.map(([x, z]) => `${x.toFixed(1)},${z.toFixed(1)}`).join(' ')}" />`)
       .join('');
     const svg = `<svg class="map-roads" viewBox="${-half} ${-half} ${half * 2} ${half * 2}" preserveAspectRatio="none">${lines}</svg>`;
-    this.mapBox.innerHTML = `<div class="map-inner"><h2>Map of Frostvale</h2><div class="map-area">${svg}
-      <div class="pin hub" style="${pos(0, 0)}"><span>🎄</span><label>Great Tree</label></div>
+    this.mapBox.innerHTML = `<div class="map-inner"><h2>${t('mapTitle')}</h2><div class="map-area">${svg}
+      <div class="pin hub" style="${pos(0, 0)}"><span>🎄</span><label>${t('greatTree')}</label></div>
       ${pins}<div class="pin me" style="${pos(player.x, player.z)}"><span>📍</span></div></div>
-      <p class="small muted">${isTouchDevice ? 'Tap anywhere to close' : 'M or click to close'}</p></div>`;
+      <p class="small muted">${isTouchDevice ? t('mapCloseTouch') : t('mapCloseDesk')}</p></div>`;
     this.mapBox.classList.remove('hidden');
   }
 
@@ -289,9 +287,9 @@ export class Hud {
       <div class="emoji">${info.emoji}</div><h2>${info.title}</h2>
       <p>${info.blurb}</p>
       ${info.create ? `<ol class="howto">${info.howTo.map((step) => `<li>${typeof step === 'string' ? step : isTouchDevice ? step[0] : step[1]}</li>`).join('')}</ol>
-        <p class="small">⭐ ${a} · ⭐⭐ ${b} · ⭐⭐⭐ ${c}${best !== undefined ? ` — best: ${'★'.repeat(best) || 'no stars yet'}` : ''}</p>
-        <div class="row"><button data-cancel class="ghost">Not now</button><button data-ok autofocus>Play!</button></div>`
-      : `<p class="soon">🧝 The elves are still building this one — check back soon!</p><div class="row"><button data-cancel>OK</button></div>`}
+        <p class="small">⭐ ${a} · ⭐⭐ ${b} · ⭐⭐⭐ ${c}${best !== undefined ? ` — ${t('bestStars', { stars: '★'.repeat(best) || t('noStars') })}` : ''}</p>
+        <div class="row"><button data-cancel class="ghost">${t('notNow')}</button><button data-ok autofocus>${t('playBang')}</button></div>`
+      : `<p class="soon">${t('elvesBuilding')}</p><div class="row"><button data-cancel>${t('ok')}</button></div>`}
     </div>`;
     return this.showCard(html).then(() => true, () => false);
   }
@@ -302,10 +300,10 @@ export class Hud {
     const html = `<div class="result-card">
       <h2>${info.emoji} ${info.title}</h2>
       <div class="bigstars">${stars}</div>
-      <p class="score">Score: <b>${r.score}</b></p>
+      <p class="score">${t('score', { score: r.score })}</p>
       ${r.summary ? `<p>${r.summary}</p>` : ''}
-      ${newOrnament ? '<p class="ornament">🟡 You earned a golden ornament!</p>' : earned === 0 ? '<p class="muted">Get at least one star to earn the ornament.</p>' : ''}
-      <div class="row"><button data-ok autofocus>Back to Frostvale</button></div>
+      ${newOrnament ? `<p class="ornament">${t('earnedOrnament')}</p>` : earned === 0 ? `<p class="muted">${t('needStar')}</p>` : ''}
+      <div class="row"><button data-ok autofocus>${t('backToFrostvale')}</button></div>
     </div>`;
     return this.showCard(html).catch(() => {});
   }

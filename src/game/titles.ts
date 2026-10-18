@@ -1,12 +1,22 @@
+import { t } from '../i18n/ui';
+
+const title = (stars: number, key: Parameters<typeof t>[0], icon: string) => ({
+  stars,
+  icon,
+  get name() {
+    return t(key);
+  },
+});
+
 /** Festive ranks earned by total stars (0–18), shown on the profile badge and the passport. */
 export const TITLES = [
-  { stars: 0, name: 'Snowflake Newcomer', icon: '❄️' },
-  { stars: 3, name: 'Cocoa Apprentice', icon: '☕' },
-  { stars: 6, name: 'Lantern Keeper', icon: '🏮' },
-  { stars: 10, name: 'Sleigh Captain', icon: '🛷' },
-  { stars: 14, name: 'Frost Legend', icon: '🌟' },
-  { stars: 18, name: 'Spirit of Frostvale', icon: '🎄' },
-] as const;
+  title(0, 'title_newcomer', '❄️'),
+  title(3, 'title_apprentice', '☕'),
+  title(6, 'title_keeper', '🏮'),
+  title(10, 'title_captain', '🛷'),
+  title(14, 'title_legend', '🌟'),
+  title(18, 'title_spirit', '🎄'),
+];
 
 export type Title = (typeof TITLES)[number];
 

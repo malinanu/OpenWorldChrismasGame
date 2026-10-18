@@ -11,6 +11,8 @@ import { Overworld } from './game/Overworld';
 import { canFullscreen, Hud, setFullscreen } from './ui/hud';
 import { snowUniforms } from './shaders/snow';
 import { TouchControls } from './ui/touch';
+import { isLang, setLanguage } from './i18n';
+import { chooseLanguage } from './ui/language';
 
 // iOS Safari ignores user-scalable=no; stop pinch-zoom and double-tap zoom from moving the page.
 document.addEventListener('gesturestart', (e) => e.preventDefault());
@@ -21,6 +23,14 @@ document.addEventListener('contextmenu', (e) => e.preventDefault());
 async function boot() {
   const canvas = document.getElementById('game') as HTMLCanvasElement;
   const uiRoot = document.getElementById('ui')!;
+  // English, සිංහල or தமிழ්: asked once, before anything else, so everything is built in it.
+  let language = gameState.data.settings.language;
+  if (!isLang(language)) {
+    language = await chooseLanguage(uiRoot);
+    gameState.data.settings.language = language;
+    gameState.save();
+  }
+  setLanguage(language);
   const hud = new Hud(uiRoot);
   const engine = new Engine(canvas);
   engine.setQuality(gameState.data.settings.quality);

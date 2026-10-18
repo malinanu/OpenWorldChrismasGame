@@ -3,6 +3,9 @@
  * localStorage. Every call fails soft: if the server isn't there, the game plays offline.
  */
 
+import { lang, type Lang } from '../i18n';
+import { t } from '../i18n/ui';
+
 export interface User {
   id: number;
   username: string | null;
@@ -10,6 +13,7 @@ export interface User {
   phone: string | null;
   characterId: string;
   role: 'player' | 'admin';
+  language: Lang;
   /** ISO time the account was made. */
   createdAt: string | null;
 }
@@ -32,8 +36,10 @@ export interface LeaderRow {
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
+  /** The message is shown in the player's language when the code is known. */
   constructor(status: number, code: string, message: string) {
-    super(message);
+    const key = `err_${code}`;
+    super(t.has(key) ? t(key) : message);
     this.status = status;
     this.code = code;
   }
@@ -111,7 +117,7 @@ class Api {
   }
 
   async register(email: string, password: string, username: string) {
-    return this.signedIn(await this.call('POST', '/auth/register', { email, password, username }));
+    return this.signedIn(await this.call('POST', '/auth/register', { email, password, username, language: lang() }));
   }
 
   async login(email: string, password: string) {
@@ -119,11 +125,11 @@ class Api {
   }
 
   async requestCode(phone: string) {
-    await this.call('POST', '/auth/otp/request', { phone });
+    await this.call('POST', '/auth/otp/request', { phone, language: lang() });
   }
 
   async verifyCode(phone: string, code: string) {
-    return this.signedIn(await this.call('POST', '/auth/otp/verify', { phone, code }));
+    return this.signedIn(await this.call('POST', '/auth/otp/verify', { phone, code, language: lang() }));
   }
 
   async logout() {
@@ -144,7 +150,7 @@ class Api {
     }
   }
 
-  async updateMe(patch: { username?: string; characterId?: string }) {
+  async updateMe(patch: { username?: string; characterId?: string; language?: Lang }) {
     const r = await this.call<{ user: User }>('PUT', '/me', patch);
     this.user = r.user;
     return r.user;
@@ -175,12 +181,10 @@ class Api {
 
 export const api = new Api();
 
-/** Friendly names for the Adventurers. */
-export const CHARACTER_NAMES: Record<string, string> = {
-  Rogue_Hooded: 'Hooded Rogue',
-  Rogue: 'Rogue',
-  Knight: 'Knight',
-  Barbarian: 'Barbarian',
-  Mage: 'Mage',
-  Ranger: 'Ranger',
-};
+/** The Adventurers' names in the current language (`CHARACTER_NAMES[id]`). */
+export const CHARACTER_NAMES: Record<string, string> = new Proxy({} as Record<string, string>, {
+  get: (_, id) => {
+    const key = `char_${String(id)}`;
+    return t.has(key) ? t(key) : undefined;
+  },
+});

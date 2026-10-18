@@ -3,6 +3,8 @@ import { MINI_GAMES } from '../minigames/registry';
 import { api, CHARACTER_NAMES, type LeaderRow } from '../net/api';
 import { portrait } from './avatar';
 import { INK } from './ink';
+import { fmtNumber } from '../i18n';
+import { t } from '../i18n/ui';
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const medal = (rank: number) => (rank <= 3 ? `<span class="lb-medal">${['🥇', '🥈', '🥉'][rank - 1]}</span>` : `<i>${rank}</i>`);
@@ -13,8 +15,8 @@ const note = (html: string) => `<div class="pp-invite">${html}</div>`;
  * ornaments, then best score per mini-game (picked with stamp-like chips in each game's ink).
  */
 export function mountLeaderboard(root: HTMLElement) {
-  const boards = [{ id: 'stars', label: '⭐', ink: '#d9a520', name: 'Stars & ornaments' }, ...MINI_GAME_IDS.map((id) => ({ id, label: MINI_GAMES[id].emoji, ink: INK[id], name: MINI_GAMES[id].title }))];
-  root.innerHTML = `<h3 class="pp-sub">Hall of Fame <span class="lb-count"></span></h3>
+  const boards = [{ id: 'stars', label: '⭐', ink: '#d9a520', name: t('boardStars') }, ...MINI_GAME_IDS.map((id) => ({ id, label: MINI_GAMES[id].emoji, ink: INK[id], name: MINI_GAMES[id].title }))];
+  root.innerHTML = `<h3 class="pp-sub">${t('hallOfFame')} <span class="lb-count"></span></h3>
     <div class="lb-boards">${boards.map((b) => `<button type="button" class="lb-chip" data-board="${b.id}" style="--ink:${b.ink}" title="${b.name}" aria-label="${b.name}">${b.label}</button>`).join('')}</div>
     <p class="lb-title"></p>
     <div class="lb-list"></div>`;
@@ -24,19 +26,19 @@ export function mountLeaderboard(root: HTMLElement) {
   let token = 0;
   const load = async (board: string) => {
     root.querySelectorAll<HTMLElement>('[data-board]').forEach((b) => b.classList.toggle('on', b.dataset.board === board));
-    title.textContent = board === 'stars' ? 'Most stars, then most ornaments' : `${MINI_GAMES[board as MiniGameId].title} · best score`;
+    title.textContent = board === 'stars' ? t('boardStarsTitle') : t('boardGameTitle', { game: MINI_GAMES[board as MiniGameId].title });
     count.textContent = '';
     if (!api.online) {
-      list.innerHTML = note('Sign in to see the leaderboard and get your name in it.');
+      list.innerHTML = note(t('signInToSee'));
       return;
     }
     const mine = ++token;
-    list.innerHTML = '<p class="lb-wait">Turning the pages…</p>';
+    list.innerHTML = `<p class="lb-wait">${t('turningPages')}</p>`;
     try {
       const { rows, me } = await api.leaderboard(board);
       if (mine !== token) return;
-      count.textContent = me ? `You: #${me.rank}` : '';
-      list.innerHTML = rows.length ? ledger(board, rows, me) : note('No scores yet. Be the first name in the book!');
+      count.textContent = me ? t('youRank', { rank: me.rank }) : '';
+      list.innerHTML = rows.length ? ledger(board, rows, me) : note(t('noScores'));
       // Little portraits beside each name, filled in as they're ready (cached per character).
       list.querySelectorAll<HTMLImageElement>('img[data-char]').forEach((img) =>
         void portrait(img.dataset.char!).then((url) => {
@@ -56,7 +58,7 @@ export function mountLeaderboard(root: HTMLElement) {
 function ledger(board: string, rows: LeaderRow[], me: LeaderRow | null): string {
   const myId = api.user?.id;
   const row = (r: LeaderRow) => {
-    const value = board === 'stars' ? `⭐ ${r.value} <small>· 🟡 ${r.ornaments}</small>` : `${r.value.toLocaleString()} <small>${'★'.repeat(r.stars ?? 0)}</small>`;
+    const value = board === 'stars' ? `⭐ ${r.value} <small>· 🟡 ${r.ornaments}</small>` : `${fmtNumber(r.value)} <small>${'★'.repeat(r.stars ?? 0)}</small>`;
     return `<div class="lb-row${r.userId === myId ? ' me' : ''}">
         <span class="lb-rank">${medal(r.rank)}</span>
         <span class="lb-ava"><img alt="" hidden data-char="${esc(r.characterId)}"></span>

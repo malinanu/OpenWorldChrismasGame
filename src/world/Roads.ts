@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { FONT_STACK } from '../i18n';
 import type { MiniGameId } from '../minigames/MiniGame';
 
 export interface RoadDef {
@@ -232,9 +233,12 @@ export function buildSignposts(signs: Signpost[], labels: string[], groundY: (x:
     x.lineWidth = 6;
     x.stroke();
     x.fillStyle = '#fff8ea';
-    x.font = 'bold 46px Fredoka, system-ui, sans-serif';
     x.textAlign = 'center';
     x.textBaseline = 'middle';
+    // Shrink the type to fit rather than squashing it: Sinhala and Tamil names run longer.
+    let size = 46;
+    x.font = `bold ${size}px ${FONT_STACK}`;
+    while (size > 24 && x.measureText(text).width > 400) x.font = `bold ${(size -= 2)}px ${FONT_STACK}`;
     x.fillText(text, arrowRight ? 230 : 282, y0 + 66, 400);
   };
 

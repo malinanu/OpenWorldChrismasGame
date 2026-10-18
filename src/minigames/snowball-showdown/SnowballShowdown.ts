@@ -9,6 +9,7 @@ import { createSnowGroundMaterial, setWorldUvs } from '../../world/SnowGround';
 import { Burst } from '../../vfx/Burst';
 import { Snowfall } from '../../vfx/Snowfall';
 import { starsFor, type MiniGame, type MiniGameContext, type MiniGameResult } from '../MiniGame';
+import { t } from './strings';
 
 type Kind = 'snowman' | 'golden' | 'present';
 type State = 'rising' | 'up' | 'sinking' | 'hit' | 'gone';
@@ -418,11 +419,11 @@ export class SnowballShowdown implements MiniGame {
     this.sparkles.update(dt, pr);
     this.snow.update(this.time + COUNTDOWN, this.camera.position, pr);
 
-    const countdown = this.time < 0 ? `<span class="warn">Ready… ${Math.ceil(-this.time)}</span>` : '';
+    const countdown = this.time < 0 ? `<span class="warn">${t('ready', { n: Math.ceil(-this.time) })}</span>` : '';
     const clock = Math.ceil(this.timeLeft);
     const stars = starsFor(this.score, this.ctx.thresholds);
     this.ctx.hud.setGameBar(
-      `${countdown}<span>⏱ <b class="${clock <= 10 ? 'warn' : ''}">${clock}</b>s</span><span>⛄ ${this.score} pts</span><span>${stars ? '★'.repeat(stars) : '☆'}</span>`,
+      `${countdown}<span>⏱ ${t('clock', { b: `<b class="${clock <= 10 ? 'warn' : ''}">${clock}</b>` })}</span><span>⛄ ${t('pts', { n: this.score })}</span><span>${stars ? '★'.repeat(stars) : '☆'}</span>`,
     );
 
     if (this.time >= ROUND && !this.over) this.finish();
@@ -510,11 +511,11 @@ export class SnowballShowdown implements MiniGame {
     if (this.over) return;
     this.over = true;
     const accuracy = this.throws ? Math.round((this.hits / this.throws) * 100) : 0;
-    const parts = [`${this.hits} snowmen toppled`];
-    if (this.golden) parts.push(`${this.golden} golden`);
-    if (this.oops) parts.push(`${this.oops} present${this.oops > 1 ? 's' : ''} squashed`);
-    parts.push(`${accuracy}% accuracy`);
-    this.resolve({ score: this.score, quit, summary: quit ? 'You left the lake early.' : parts.join(' · ') });
+    const parts = [t('toppled', { n: this.hits })];
+    if (this.golden) parts.push(t('golden', { n: this.golden }));
+    if (this.oops) parts.push(t('squashed', { n: this.oops }));
+    parts.push(t('accuracy', { n: accuracy }));
+    this.resolve({ score: this.score, quit, summary: quit ? t('quit') : parts.join(' · ') });
   }
 
   quit() {

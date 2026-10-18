@@ -18,7 +18,7 @@
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; height: 100%; overflow: hidden; background: #0d1626; overscroll-behavior: none; }
 body {
-  font-family: 'Fredoka', system-ui, sans-serif; color: var(--ink); font-size: 15px;
+  font-family: 'Fredoka', 'Noto Sans Sinhala', 'Noto Sans Tamil', system-ui, sans-serif; color: var(--ink); font-size: 15px;
   user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-text-size-adjust: 100%;
 }
 #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; outline: none; touch-action: none; }
@@ -426,3 +426,30 @@ input.cane::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; ba
   .stamp { padding: 6px; }
   .stamp.empty small { display: none; }
 }
+
+/* ---------- Sinhala and Tamil ---------- */
+/* Letter-spacing breaks up the joined vowel signs, and these scripts need a little more size to read. */
+html[lang=si] *, html[lang=ta] * { letter-spacing: normal !important; text-transform: none !important; }
+/* Longer game names: keep the stamp to its name (and stars), drop the "not visited" line. */
+html[lang=si] .stamp b, html[lang=ta] .stamp b { font-size: 0.55rem; line-height: 1.25; overflow-wrap: break-word; }
+html[lang=si] .stamp.empty small, html[lang=ta] .stamp.empty small { display: none; }
+html[lang=si] .stamp.got small, html[lang=ta] .stamp.got small,
+html[lang=si] .tbtn.jump span, html[lang=ta] .tbtn.jump span,
+html[lang=si] .tbtn.throw span:last-child, html[lang=ta] .tbtn.throw span:last-child { font-size: 0.62rem; }
+
+/* ---------- language picker (first launch) and switch ---------- */
+.lang-wrap { z-index: 5; }
+.lang-page { text-align: center; }
+.card .lang-sub { margin: 0 0 12px; color: #6b6352; font-size: 0.95rem; }
+.lang-choices { display: grid; gap: 10px; }
+.card .lang-choices button { display: grid; gap: 2px; justify-items: center; padding: 12px 18px; background: #fffaf0; color: #1d3a66;
+  border: 3px solid #d9c9a6; box-shadow: 0 4px 0 #c9b48a; border-radius: 16px; }
+.card .lang-choices button b { font-size: 1.35rem; }
+.card .lang-choices button small { color: #8a6510; font-weight: 600; }
+.card .lang-choices button:hover { border-color: var(--gold); }
+.lang-switch { display: flex; justify-content: flex-end; gap: 4px; margin: -6px -4px 4px 0; }
+.card .lang-switch .pchip { color: var(--ink); border-color: rgba(255,255,255,0.35); padding: 4px 10px; min-height: 30px; font-size: 0.8rem; }
+.card .lang-switch .pchip.on { color: #3a2400; }
+/* Tamil words run long ("சாண்டாவின்"): a touch smaller and the full stamp width, so they don't split. */
+html[lang=ta] .stamp { padding: 4px; }
+html[lang=ta] .stamp b { font-size: 0.5rem; max-width: 100%; }

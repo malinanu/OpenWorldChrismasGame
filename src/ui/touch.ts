@@ -1,4 +1,5 @@
 import { haptic, type Input } from '../core/Input';
+import { t } from '../i18n/ui';
 
 const STICK_RADIUS = 56;
 
@@ -28,10 +29,10 @@ export class TouchControls {
 
   constructor(parent: HTMLElement, private readonly input: Input) {
     this.knob = this.base.querySelector('.stick-knob')!;
-    const jump = this.button('tbtn jump', '', 'Jump');
-    jump.innerHTML = `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 4 L27 15 H20.5 V21 H11.5 V15 H5 Z" /><rect x="11.5" y="24" width="9" height="3.2" rx="1.6" /></svg><span>JUMP</span>`;
-    const snow = this.button('tbtn throw', '', 'Snowball');
-    snow.innerHTML = '<span class="ico">❄️</span><span>THROW</span>';
+    const jump = this.button('tbtn jump', '', t('jumpAria'));
+    jump.innerHTML = `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 4 L27 15 H20.5 V21 H11.5 V15 H5 Z" /><rect x="11.5" y="24" width="9" height="3.2" rx="1.6" /></svg><span>${t('jump')}</span>`;
+    const snow = this.button('tbtn throw', '', t('snowballAria'));
+    snow.innerHTML = `<span class="ico">❄️</span><span>${t('throw')}</span>`;
     snow.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       input.tap('throw');
@@ -39,8 +40,8 @@ export class TouchControls {
     });
     for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) snow.addEventListener(ev, () => snow.classList.remove('down'));
     this.snow = snow;
-    const map = this.button('tbtn small tb-map', '🗺️', 'Map');
-    const pause = this.button('tbtn small tb-pause', '⚙️', 'Settings');
+    const map = this.button('tbtn small tb-map', '🗺️', t('mapAria'));
+    const pause = this.button('tbtn small tb-pause', '⚙️', t('settingsAria'));
     jump.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       input.tap('jump');

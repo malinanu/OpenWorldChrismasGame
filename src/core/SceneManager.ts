@@ -5,6 +5,7 @@ import { gameState } from '../game/GameState';
 import { api } from '../net/api';
 import { audio } from './Audio';
 import { starsFor, type MiniGame, type MiniGameContext, type MiniGameId } from '../minigames/MiniGame';
+import { t } from '../i18n/ui';
 import { MINI_GAMES } from '../minigames/registry';
 
 export interface Overworld {
@@ -58,7 +59,7 @@ export class SceneManager {
       await game.load();
     } catch (e) {
       console.error(e);
-      this.hud.toast('Could not load that game 😢');
+      this.hud.toast(t('loadFail'));
       await this.hud.fadeIn();
       this.world.resume();
       this.busy = false;
@@ -101,8 +102,8 @@ export class SceneManager {
     this.confirming = true;
     const leave = await this.hud
       .showCard(
-        `<h2>Leave the game?</h2><p>This round won't count towards your stars.</p>
-         <div class="row"><button data-cancel class="ghost" autofocus>Keep playing</button><button data-ok>Leave</button></div>`,
+        `<h2>${t('leaveTitle')}</h2><p>${t('leaveText')}</p>
+         <div class="row"><button data-cancel class="ghost" autofocus>${t('keepPlaying')}</button><button data-ok>${t('leave')}</button></div>`,
       )
       .then(() => true, () => false);
     this.confirming = false;

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { assets } from '../core/AssetLoader';
+import { FONT_STACK } from '../i18n';
 import type { Snapshot } from '../net/Multiplayer';
 
 /** Rendered this far behind the newest snapshot, so there are always two to interpolate between. */
@@ -19,7 +20,7 @@ const ANIM: Record<string, string> = {
 function nameTag(text: string): THREE.Sprite {
   const c = document.createElement('canvas');
   const g = c.getContext('2d')!;
-  const font = 'bold 44px Fredoka, system-ui, sans-serif';
+  const font = `bold 44px ${FONT_STACK}`;
   g.font = font;
   const w = Math.ceil(g.measureText(text).width) + 44;
   c.width = w;

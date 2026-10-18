@@ -19,6 +19,10 @@ import { World } from '../world/World';
 import { FollowCamera } from './FollowCamera';
 import { GameZone } from './GameZone';
 import { gameState } from './GameState';
+import { t } from '../i18n/ui';
+import type { Lang } from '../i18n';
+import { api } from '../net/api';
+import { switchLanguage } from '../ui/language';
 import { Player } from './Player';
 
 /** Seconds for a full day and night in the village. */
@@ -133,7 +137,7 @@ export class Overworld implements OverworldContract {
       this.refreshOrnaments();
       this.player.playOnce('Cheering');
       audio.sfx('ornament');
-      this.hud.toast(`🟡 ${MINI_GAMES[id].title} ornament hung on the Great Tree! (${gameState.ornamentCount}/6)`, 4000);
+      this.hud.toast(t('ornamentHung', { game: MINI_GAMES[id].title, n: gameState.ornamentCount }), 4000);
       if (gameState.ornamentCount === MINI_GAME_IDS.length && !gameState.data.finaleSeen) this.startFinale();
     }
   }
@@ -142,7 +146,7 @@ export class Overworld implements OverworldContract {
     gameState.data.finaleSeen = true;
     gameState.save();
     this.finaleTime = 0;
-    this.hud.toast('🎄 The Great Tree is lit! Merry Christmas, Frostvale! 🎆', 8000);
+    this.hud.toast(t('finale'), 8000);
     audio.sfx('fanfare');
   }
 
@@ -209,7 +213,7 @@ export class Overworld implements OverworldContract {
         const firstTime = !gameState.isDiscovered(z.id);
         gameState.discover(z.id);
         if (firstTime) {
-          this.hud.toast(`✨ Discovered: ${info.emoji} ${info.title}`);
+          this.hud.toast(t('discovered', { game: `${info.emoji} ${info.title}` }));
           audio.sfx('discover');
         }
       }
@@ -273,10 +277,19 @@ export class Overworld implements OverworldContract {
   }
 
   private async profileFlow(tab: HubTab) {
-    const next = await showProfile(this.hud, { server: !!serverConfig, tab, onQuality: (q) => this.changeQuality(q) });
+    const next = await showProfile(this.hud, { server: !!serverConfig, tab, onQuality: (q) => this.changeQuality(q), onLanguage: (l) => this.changeLanguage(l) });
     if (next === 'character') await changeCharacter(this.hud, this);
     else if (next === 'signin') signInAgain();
     else if (next === 'signout') await signOut();
+  }
+
+  /** A new language rebuilds every card, label and signpost: save where we are, tell the account, reload. */
+  private changeLanguage(l: Lang) {
+    const p = this.player.position;
+    gameState.data.playerPosition = [+p.x.toFixed(2), +p.y.toFixed(2), +p.z.toFixed(2)];
+    void switchLanguage(l, async () => {
+      if (api.user) await api.updateMe({ language: l });
+    });
   }
 
   /** Quality is baked into shaders and the forest, so the simplest correct switch is a reload. */

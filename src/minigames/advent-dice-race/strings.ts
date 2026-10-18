@@ -1,0 +1,85 @@
+import { list, strings } from '../../i18n';
+
+/** Text shown by Advent Dice Race. "you…" lines are for the player, "elf…" lines for an AI racer. */
+export const t = strings({
+  en: {
+    tipTouch: 'Tap 🎲 Roll to throw. First to door 23 wins!',
+    tipDesktop: 'Press Space or 🎲 Roll to throw. First to door 23 wins!',
+    roll: '🎲 Roll',
+    youDrift: '❄️ You are digging out of a snow drift…',
+    elfDrift: '❄️ {name} is digging out of a snow drift…',
+    yourTurn: '🎲 Your turn — roll the die!',
+    elfRolling: '{emoji} {name} is rolling…',
+    youRolled: '{emoji} You rolled a {n}!',
+    elfRolled: '{emoji} {name} rolled a {n}!',
+    youFinished: '🏁 You finished {ord}!',
+    elfFinished: '🏁 {name} finished {ord}!',
+    youGift: '🎁 A gift! You hop 2 extra steps.',
+    elfGift: '🎁 A gift! {name} hops 2 extra steps.',
+    youSnowDrift: '❄️ Snow drift! You will miss the next turn.',
+    elfSnowDrift: '❄️ Snow drift! {name} will miss the next turn.',
+    youCandy: '🍬 Candy cane! You roll again.',
+    elfCandy: '🍬 Candy cane! {name} rolls again.',
+    quit: 'You left the race early.',
+    won: 'You beat all three elves to the finish! 🏆',
+    placed: 'You finished {ord}. {name} won the race.',
+  },
+  si: {
+    tipTouch: 'දාදු කැටය දමන්න 🎲 දමන්න තට්ටු කරන්න. 23 වැනි දොරට මුලින්ම යන කෙනා දිනනවා!',
+    tipDesktop: 'දාදු කැටය දමන්න Space හෝ 🎲 දමන්න ඔබන්න. 23 වැනි දොරට මුලින්ම යන කෙනා දිනනවා!',
+    roll: '🎲 දමන්න',
+    youDrift: '❄️ ඔබ හිම ගොඩකින් හාරගෙන එළියට එනවා…',
+    elfDrift: '❄️ {name} හිම ගොඩකින් හාරගෙන එළියට එනවා…',
+    yourTurn: '🎲 ඔබේ වාරය — දාදු කැටය දමන්න!',
+    elfRolling: '{emoji} {name} දාදු දමනවා…',
+    youRolled: '{emoji} ඔබට {n}ක් වැටුණා!',
+    elfRolled: '{emoji} {name}ට {n}ක් වැටුණා!',
+    youFinished: '🏁 ඔබ {ord} තැනට ආවා!',
+    elfFinished: '🏁 {name} {ord} තැනට ආවා!',
+    youGift: '🎁 තෑග්ගක්! ඔබ තව පියවර 2ක් පනිනවා.',
+    elfGift: '🎁 තෑග්ගක්! {name} තව පියවර 2ක් පනිනවා.',
+    youSnowDrift: '❄️ හිම ගොඩක්! ඔබට ඊළඟ වාරය මඟහැරෙනවා.',
+    elfSnowDrift: '❄️ හිම ගොඩක්! {name}ට ඊළඟ වාරය මඟහැරෙනවා.',
+    youCandy: '🍬 කැන්ඩි කේන්! ඔබට ආයෙත් දාදු දමන්න පුළුවන්.',
+    elfCandy: '🍬 කැන්ඩි කේන්! {name}ට ආයෙත් දාදු දමන්න පුළුවන්.',
+    quit: 'ඔබ කලින්ම තරඟයෙන් අයින් වුණා.',
+    won: 'ඔබ එල්ෆ්ලා තුන්දෙනාටම කලින් ඉවරයට ආවා! 🏆',
+    placed: 'ඔබ {ord} තැනට ආවා. {name} තරඟය දිනුවා.',
+  },
+  ta: {
+    tipTouch: 'வீச 🎲 உருட்டு-ஐத் தட்டுங்கள். 23-ஆம் கதவை முதலில் அடைபவர் வெல்வார்!',
+    tipDesktop: 'வீச Space அல்லது 🎲 உருட்டு-ஐ அழுத்துங்கள். 23-ஆம் கதவை முதலில் அடைபவர் வெல்வார்!',
+    roll: '🎲 உருட்டு',
+    youDrift: '❄️ நீங்கள் பனிக்குவியலில் இருந்து தோண்டி வெளியே வருகிறீர்கள்…',
+    elfDrift: '❄️ {name} பனிக்குவியலில் இருந்து தோண்டி வெளியே வருகிறார்…',
+    yourTurn: '🎲 உங்கள் முறை — பகடையை உருட்டுங்கள்!',
+    elfRolling: '{emoji} {name} உருட்டுகிறார்…',
+    youRolled: '{emoji} உங்களுக்கு {n} விழுந்தது!',
+    elfRolled: '{emoji} {name} {n} உருட்டினார்!',
+    youFinished: '🏁 நீங்கள் {ord} இடம் பிடித்தீர்கள்!',
+    elfFinished: '🏁 {name} {ord} இடம் பிடித்தார்!',
+    youGift: '🎁 ஒரு பரிசு! நீங்கள் இன்னும் 2 அடி தாவுகிறீர்கள்.',
+    elfGift: '🎁 ஒரு பரிசு! {name} இன்னும் 2 அடி தாவுகிறார்.',
+    youSnowDrift: '❄️ பனிக்குவியல்! நீங்கள் அடுத்த முறையைத் தவறவிடுவீர்கள்.',
+    elfSnowDrift: '❄️ பனிக்குவியல்! {name} அடுத்த முறையைத் தவறவிடுவார்.',
+    youCandy: '🍬 மிட்டாய்க் குச்சி! நீங்கள் மீண்டும் உருட்டலாம்.',
+    elfCandy: '🍬 மிட்டாய்க் குச்சி! {name} மீண்டும் உருட்டுவார்.',
+    quit: 'நீங்கள் பந்தயத்திலிருந்து முன்கூட்டியே விலகினீர்கள்.',
+    won: 'மூன்று எல்ஃப்களையும் முந்தி நீங்கள் முதலில் வந்தீர்கள்! 🏆',
+    placed: 'நீங்கள் {ord} இடம் பிடித்தீர்கள். {name} பந்தயத்தை வென்றார்.',
+  },
+});
+
+/** Racer display names by internal name; read when shown. */
+export const racerNames = list<Record<'You' | 'Jingle' | 'Tinsel' | 'Sprinkle', string>>({
+  en: { You: 'You', Jingle: 'Jingle', Tinsel: 'Tinsel', Sprinkle: 'Sprinkle' },
+  si: { You: 'ඔබ', Jingle: 'ජිංගල්', Tinsel: 'ටින්සල්', Sprinkle: 'ස්ප්‍රින්කල්' },
+  ta: { You: 'நீங்கள்', Jingle: 'ஜிங்கிள்', Tinsel: 'டின்சல்', Sprinkle: 'ஸ்ப்ரிங்கிள்' },
+});
+
+/** Finishing places 1st..4th, as used in "{ord}" above. */
+export const ordinals = list({
+  en: ['1st', '2nd', '3rd', '4th'],
+  si: ['1 වැනි', '2 වැනි', '3 වැනි', '4 වැනි'],
+  ta: ['முதல்', 'இரண்டாம்', 'மூன்றாம்', 'நான்காம்'],
+});

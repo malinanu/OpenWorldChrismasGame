@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { AuthError, USERNAME_RE, type Auth, type User } from './auth.ts';
+import { AuthError, LANGS, USERNAME_RE, type Auth, type User } from './auth.ts';
 import type { Config } from './config.ts';
 import { CHARACTERS, isGameId } from './games.ts';
 import type { Progress } from './progress.ts';
@@ -9,6 +9,7 @@ const email = z.string().trim().toLowerCase().email().max(254);
 const password = z.string().min(8, 'Passwords need at least 8 characters.').max(200);
 const username = z.string().regex(USERNAME_RE, 'Usernames are 3–16 letters, numbers or _.');
 // E.164 after stripping spaces/dashes, e.g. +94771234567.
+const language = z.enum(LANGS).default('en');
 const phone = z
   .string()
   .transform((s) => s.replace(/[\s-]/g, ''))
@@ -24,7 +25,7 @@ export function bearer(req: FastifyRequest): string | null {
   return h?.startsWith('Bearer ') ? h.slice(7) : null;
 }
 
-const publicUser = (u: User) => ({ id: u.id, username: u.username, email: u.email, phone: u.phone, characterId: u.characterId, role: u.role, createdAt: u.createdAt });
+const publicUser = (u: User) => ({ id: u.id, username: u.username, email: u.email, phone: u.phone, characterId: u.characterId, language: u.language, role: u.role, createdAt: u.createdAt });
 
 export function registerRoutes(app: FastifyInstance, cfg: Config, auth: Auth, progress: Progress, hooks: Hooks = {}) {
   const authLimit = { rateLimit: { max: 20, timeWindow: '1 minute' } };
@@ -42,7 +43,11 @@ export function registerRoutes(app: FastifyInstance, cfg: Config, auth: Auth, pr
 
   app.setErrorHandler((err, _req, reply) => {
     if (err instanceof AuthError) return reply.status(err.status).send({ error: err.code, message: err.message });
-    if (err instanceof z.ZodError) return reply.status(400).send({ error: 'invalid', message: err.issues[0]?.message ?? 'Invalid request.' });
+    // Validation errors carry the field ("bad_email", "bad_password", …) so the game can say it in the player's language.
+    if (err instanceof z.ZodError) {
+      const field = err.issues[0]?.path[0];
+      return reply.status(400).send({ error: typeof field === 'string' ? `bad_${field}` : 'invalid', message: err.issues[0]?.message ?? 'Invalid request.' });
+    }
     const status = (err as { statusCode?: number }).statusCode;
     if (status && status < 500) return reply.status(status).send({ error: 'request', message: (err as Error).message });
     app.log.error(err);
@@ -53,8 +58,8 @@ export function registerRoutes(app: FastifyInstance, cfg: Config, auth: Auth, pr
   app.get('/api/config', async () => ({ authMode: cfg.authMode, characters: CHARACTERS }));
 
   app.post('/api/auth/register', { config: authLimit }, async (req, reply) => {
-    const body = z.object({ email, password, username }).parse(req.body);
-    return signedIn(reply, req, await auth.register(body.email, body.password, body.username));
+    const body = z.object({ email, password, username, language }).parse(req.body);
+    return signedIn(reply, req, await auth.register(body.email, body.password, body.username, body.language));
   });
 
   app.post('/api/auth/login', { config: authLimit }, async (req, reply) => {
@@ -63,14 +68,14 @@ export function registerRoutes(app: FastifyInstance, cfg: Config, auth: Auth, pr
   });
 
   app.post('/api/auth/otp/request', { config: authLimit }, async (req) => {
-    const body = z.object({ phone }).parse(req.body);
-    await auth.requestOtp(body.phone, req.ip);
+    const body = z.object({ phone, language }).parse(req.body);
+    await auth.requestOtp(body.phone, req.ip, body.language);
     return { ok: true };
   });
 
   app.post('/api/auth/otp/verify', { config: authLimit }, async (req, reply) => {
-    const body = z.object({ phone, code: z.string().regex(/^\d{6}$/, 'The code has 6 digits.') }).parse(req.body);
-    return signedIn(reply, req, await auth.verifyOtp(body.phone, body.code));
+    const body = z.object({ phone, code: z.string().regex(/^\d{6}$/, 'The code has 6 digits.'), language }).parse(req.body);
+    return signedIn(reply, req, await auth.verifyOtp(body.phone, body.code, body.language));
   });
 
   app.post('/api/auth/logout', async (req) => {
@@ -86,7 +91,7 @@ export function registerRoutes(app: FastifyInstance, cfg: Config, auth: Auth, pr
 
   app.put('/api/me', async (req) => {
     const user = await requireUser(req);
-    const body = z.object({ username: username.optional(), characterId: z.enum(CHARACTERS).optional() }).parse(req.body);
+    const body = z.object({ username: username.optional(), characterId: z.enum(CHARACTERS).optional(), language: z.enum(LANGS).optional() }).parse(req.body);
     const updated = await auth.updateProfile(user.id, body);
     hooks.onProfile?.(updated);
     return { user: publicUser(updated) };

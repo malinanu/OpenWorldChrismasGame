@@ -3,6 +3,8 @@ import type { Overworld } from '../game/Overworld';
 import { MINI_GAME_IDS, type MiniGameId } from '../minigames/MiniGame';
 import type { Hud } from '../ui/hud';
 import { chooseCharacter, chooseUsername, signIn } from '../ui/account';
+import { t } from '../i18n/ui';
+import { lang } from '../i18n';
 import { api, type ServerConfig } from './api';
 
 const OFFLINE_KEY = 'frostvale.offline';
@@ -30,7 +32,7 @@ export let serverConfig: ServerConfig | null = null;
 export async function startSession(hud: Hud, overworld: Overworld): Promise<boolean> {
   serverConfig = await api.config();
   if (!serverConfig) {
-    hud.toast('📴 Online play is unavailable right now, playing offline.', 4000);
+    hud.toast(t('offline'), 4000);
     return false;
   }
   let me = await api.me();
@@ -54,12 +56,14 @@ export async function startSession(hud: Hud, overworld: Overworld): Promise<bool
     if (id !== user.characterId) user = await api.updateMe({ characterId: id });
     store(localStorage, `${PICKED_KEY}.${user.id}`, '1');
   }
+  // The language chosen on this device is the player's latest choice: keep the account in step.
+  if (user.language !== lang()) void api.updateMe({ language: lang() }).catch(() => {});
   await overworld.player.setCharacter(user.characterId);
   refreshBadge(hud);
   await syncProgress(me.progress);
   hud.renderTracker();
   overworld.refreshOrnaments();
-  hud.toast(`👋 Welcome, ${user.username}!`);
+  hud.toast(t('welcome', { name: user.username ?? '' }));
   return true;
 }
 
@@ -92,7 +96,7 @@ export async function changeCharacter(hud: Hud, overworld: Overworld) {
 /** The top-right badge follows the signed-in player (or shows a guest). */
 export function refreshBadge(hud: Hud) {
   const u = api.user;
-  hud.setProfile(u ? { name: u.username ?? 'Adventurer', charId: u.characterId } : null);
+  hud.setProfile(u ? { name: u.username ?? t('adventurer'), charId: u.characterId } : null);
 }
 
 export async function signOut() {

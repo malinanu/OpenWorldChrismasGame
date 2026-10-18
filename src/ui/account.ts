@@ -1,5 +1,8 @@
 import { api, ApiError, CHARACTER_NAMES, type ServerConfig, type User } from '../net/api';
 import { mountAvatarStage, type AvatarStage } from './avatar';
+import { langChips, switchLanguage } from './language';
+import { lang, type Lang } from '../i18n';
+import { t } from '../i18n/ui';
 import type { Hud } from './hud';
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -34,7 +37,7 @@ function wireForm(card: HTMLElement, submit: () => Promise<void>) {
     try {
       await submit();
     } catch (ex) {
-      err.textContent = ex instanceof ApiError || ex instanceof Error ? ex.message : 'Something went wrong.';
+      err.textContent = ex instanceof ApiError || ex instanceof Error ? ex.message : t('wentWrong');
     } finally {
       btn.disabled = false;
     }
@@ -43,6 +46,12 @@ function wireForm(card: HTMLElement, submit: () => Promise<void>) {
 }
 
 type SignInResult = User | 'offline';
+
+/** Language switch at the top of the sign-in card; switching reloads the game in that language. */
+const langRow = () => `<div class="lang-switch">${langChips(lang())}</div>`;
+function wireLang(card: HTMLElement) {
+  card.querySelectorAll<HTMLButtonElement>('[data-setlang]').forEach((b) => b.addEventListener('click', () => void switchLanguage(b.dataset.setlang as Lang)));
+}
 
 /** Email + password sign-in / registration, or phone + SMS code when the server is in phone mode. */
 export function signIn(hud: Hud, cfg: ServerConfig): Promise<SignInResult> {
@@ -53,18 +62,20 @@ function emailSignIn(hud: Hud): Promise<SignInResult> {
   return formCard<SignInResult>(
     hud,
     `<div class="account">
-      <h2>❄️ Join Frostvale</h2>
-      <div class="tabs"><button type="button" class="chip on" data-tab="login">Sign in</button><button type="button" class="chip" data-tab="register">Create account</button></div>
+      ${langRow()}
+      <h2>${t('joinTitle')}</h2>
+      <div class="tabs"><button type="button" class="chip on" data-tab="login">${t('tabSignIn')}</button><button type="button" class="chip" data-tab="register">${t('tabCreate')}</button></div>
       <form novalidate>
-        <label class="reg-only">Username<input name="username" autocomplete="username" maxlength="16" placeholder="snowy_elf" /></label>
-        <label>Email<input name="email" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com" /></label>
-        <label>Password<input name="password" type="password" autocomplete="current-password" placeholder="At least 8 characters" /></label>
+        <label class="reg-only">${t('username')}<input name="username" autocomplete="username" maxlength="16" placeholder="snowy_elf" /></label>
+        <label>${t('email')}<input name="email" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com" /></label>
+        <label>${t('password')}<input name="password" type="password" autocomplete="current-password" placeholder="${t('passwordHint')}" /></label>
         <p class="form-error" role="alert"></p>
-        <button type="submit">Sign in</button>
+        <button type="submit">${t('tabSignIn')}</button>
       </form>
-      <button type="button" class="ghost small-btn" data-offline>Play offline</button>
+      <button type="button" class="ghost small-btn" data-offline>${t('playOffline')}</button>
     </div>`,
     (card, finish) => {
+      wireLang(card);
       let mode: 'login' | 'register' = 'login';
       const root = card.querySelector<HTMLElement>('.account')!;
       const submit = card.querySelector<HTMLButtonElement>('button[type=submit]')!;
@@ -73,7 +84,7 @@ function emailSignIn(hud: Hud): Promise<SignInResult> {
         mode = m;
         root.classList.toggle('registering', m === 'register');
         card.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) => b.classList.toggle('on', b.dataset.tab === m));
-        submit.textContent = m === 'register' ? 'Create account' : 'Sign in';
+        submit.textContent = m === 'register' ? t('tabCreate') : t('tabSignIn');
         pw.autocomplete = m === 'register' ? 'new-password' : 'current-password';
         card.querySelector<HTMLElement>('.form-error')!.textContent = '';
       };
@@ -92,18 +103,20 @@ function phoneSignIn(hud: Hud): Promise<SignInResult> {
   return formCard<SignInResult>(
     hud,
     `<div class="account">
-      <h2>❄️ Join Frostvale</h2>
-      <p class="small">We'll text you a 6-digit code.</p>
+      ${langRow()}
+      <h2>${t('joinTitle')}</h2>
+      <p class="small">${t('smsInfo')}</p>
       <form novalidate>
-        <label class="step-phone">Phone number<input name="phone" type="tel" autocomplete="tel" inputmode="tel" placeholder="+94 77 123 4567" /></label>
-        <label class="step-code" hidden>Code<input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456" /></label>
+        <label class="step-phone">${t('phone')}<input name="phone" type="tel" autocomplete="tel" inputmode="tel" placeholder="+94 77 123 4567" /></label>
+        <label class="step-code" hidden>${t('code')}<input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456" /></label>
         <p class="form-error" role="alert"></p>
-        <button type="submit">Send code</button>
+        <button type="submit">${t('sendCode')}</button>
       </form>
-      <button type="button" class="ghost small-btn" data-back hidden>Use another number</button>
-      <button type="button" class="ghost small-btn" data-offline>Play offline</button>
+      <button type="button" class="ghost small-btn" data-back hidden>${t('otherNumber')}</button>
+      <button type="button" class="ghost small-btn" data-offline>${t('playOffline')}</button>
     </div>`,
     (card, finish) => {
+      wireLang(card);
       let phone = '';
       const submit = card.querySelector<HTMLButtonElement>('button[type=submit]')!;
       const codeRow = card.querySelector<HTMLElement>('.step-code')!;
@@ -113,7 +126,7 @@ function phoneSignIn(hud: Hud): Promise<SignInResult> {
         codeRow.hidden = !on;
         phoneRow.hidden = on;
         back.hidden = !on;
-        submit.textContent = on ? 'Verify' : 'Send code';
+        submit.textContent = on ? t('verify') : t('sendCode');
         (on ? codeRow : phoneRow).querySelector('input')!.focus();
       };
       back.addEventListener('click', () => showCode(false));
@@ -136,12 +149,12 @@ export function chooseUsername(hud: Hud): Promise<User> {
   return formCard<User>(
     hud,
     `<div class="account">
-      <h2>Pick a username</h2>
-      <p class="small">Other players will see it above your head.</p>
+      <h2>${t('pickUsername')}</h2>
+      <p class="small">${t('pickUsernameInfo')}</p>
       <form novalidate>
-        <label>Username<input name="username" maxlength="16" autocomplete="username" placeholder="snowy_elf" /></label>
+        <label>${t('username')}<input name="username" maxlength="16" autocomplete="username" placeholder="snowy_elf" /></label>
         <p class="form-error" role="alert"></p>
-        <button type="submit">Continue</button>
+        <button type="submit">${t('next')}</button>
       </form>
     </div>`,
     (card, finish) => wireForm(card, async () => finish(await api.updateMe({ username: card.querySelector<HTMLInputElement>('input')!.value.trim() }))),
@@ -158,15 +171,15 @@ export async function chooseCharacter(hud: Hud, characters: string[], current: s
   const choice = await formCard<string>(
     hud,
     `<div class="account">
-      <h2>Choose your adventurer</h2>
+      <h2>${t('chooseAdventurer')}</h2>
       <div class="char-pick">
-        <button type="button" class="chip arrow" data-prev aria-label="Previous">‹</button>
+        <button type="button" class="chip arrow" data-prev aria-label="${t('previous')}">‹</button>
         <canvas width="240" height="260"></canvas>
-        <button type="button" class="chip arrow" data-next aria-label="Next">›</button>
+        <button type="button" class="chip arrow" data-next aria-label="${t('following')}">›</button>
       </div>
       <p class="char-name"></p>
       <div class="char-dots">${characters.map((_, i) => `<span data-i="${i}"></span>`).join('')}</div>
-      <div class="row"><button type="button" data-choose>Choose</button></div>
+      <div class="row"><button type="button" data-choose>${t('choose')}</button></div>
     </div>`,
     (card, finish) => {
       const canvas = card.querySelector('canvas')!;

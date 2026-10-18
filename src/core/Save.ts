@@ -1,3 +1,4 @@
+import type { Lang } from '../i18n';
 import type { MiniGameId } from '../minigames/MiniGame';
 import type { Quality } from './Engine';
 import { isTouchDevice } from './Input';
@@ -10,7 +11,7 @@ export interface SaveData {
   discovered: MiniGameId[];
   playerPosition: [number, number, number] | null;
   finaleSeen: boolean;
-  settings: { volume: number; music: boolean; sfx: boolean; dayNight: boolean; quality: Quality; invertY: boolean; sensitivity: number };
+  settings: { language?: Lang; volume: number; music: boolean; sfx: boolean; dayNight: boolean; quality: Quality; invertY: boolean; sensitivity: number };
 }
 
 const KEY = 'frostvale.save.v1';

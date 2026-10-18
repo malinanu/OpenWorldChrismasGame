@@ -6,31 +6,30 @@ import { WorldLabels } from '../../ui/worldLabels';
 import { Burst } from '../../vfx/Burst';
 import { Lighting } from '../../world/Lighting';
 import type { MiniGame, MiniGameContext, MiniGameResult } from '../MiniGame';
+import { t, toys } from './strings';
 
 type Part = 'wood' | 'stone' | 'iron' | 'copper' | 'gold' | 'fabric' | 'hammer' | 'saw' | 'wrench';
 
 interface PartDef {
   id: Part;
   emoji: string;
-  name: string;
   model: string;
   scale: number;
   tool: boolean;
 }
 
 const PARTS: PartDef[] = [
-  { id: 'wood', emoji: '🪵', name: 'Wood', model: 'resources/Wood_Plank_A', scale: 1.6, tool: false },
-  { id: 'stone', emoji: '🪨', name: 'Stone', model: 'resources/Stone_Brick', scale: 1.8, tool: false },
-  { id: 'iron', emoji: '🔩', name: 'Iron', model: 'resources/Iron_Bar', scale: 1.8, tool: false },
-  { id: 'copper', emoji: '🟠', name: 'Copper', model: 'resources/Copper_Bar', scale: 1.8, tool: false },
-  { id: 'gold', emoji: '🟡', name: 'Gold', model: 'resources/Gold_Bar', scale: 1.8, tool: false },
-  { id: 'fabric', emoji: '🧶', name: 'Fabric', model: 'resources/Textiles_A', scale: 1.4, tool: false },
-  { id: 'hammer', emoji: '🔨', name: 'Hammer', model: 'rpg_tools/hammer', scale: 1.6, tool: true },
-  { id: 'saw', emoji: '🪚', name: 'Saw', model: 'rpg_tools/saw', scale: 1.1, tool: true },
-  { id: 'wrench', emoji: '🔧', name: 'Wrench', model: 'rpg_tools/wrench_A', scale: 1.8, tool: true },
+  { id: 'wood', emoji: '🪵', model: 'resources/Wood_Plank_A', scale: 1.6, tool: false },
+  { id: 'stone', emoji: '🪨', model: 'resources/Stone_Brick', scale: 1.8, tool: false },
+  { id: 'iron', emoji: '🔩', model: 'resources/Iron_Bar', scale: 1.8, tool: false },
+  { id: 'copper', emoji: '🟠', model: 'resources/Copper_Bar', scale: 1.8, tool: false },
+  { id: 'gold', emoji: '🟡', model: 'resources/Gold_Bar', scale: 1.8, tool: false },
+  { id: 'fabric', emoji: '🧶', model: 'resources/Textiles_A', scale: 1.4, tool: false },
+  { id: 'hammer', emoji: '🔨', model: 'rpg_tools/hammer', scale: 1.6, tool: true },
+  { id: 'saw', emoji: '🪚', model: 'rpg_tools/saw', scale: 1.1, tool: true },
+  { id: 'wrench', emoji: '🔧', model: 'rpg_tools/wrench_A', scale: 1.8, tool: true },
 ];
 const BY_ID = new Map(PARTS.map((p) => [p.id, p]));
-const TOYS = ['🐴 Rocking Horse', '🚂 Toy Train', '🧸 Teddy Bear', '🤖 Wind-up Robot', "🏠 Doll's House", '🪀 Spinning Top', '⛵ Toy Sailboat', '🪁 Kite', '🥁 Drum'];
 const SHIFT = 150;
 const BLUEPRINTS = 9;
 const COLOURS = ['red', 'green', 'blue', 'yellow'];
@@ -151,7 +150,7 @@ export class ElfWorkshop implements MiniGame {
       if (a === 'build') this.build();
       if (a === 'next') this.nextBlueprint();
     };
-    this.ctx.hud.toast(isTouchDevice ? 'Memorise the blueprint, then tap the parts and 🔨 Build' : 'Memorise the blueprint, then click the parts and 🔨 Build', 3500);
+    this.ctx.hud.toast(isTouchDevice ? t('tipTouch') : t('tipDesktop'), 3500);
     this.phase = 'intro';
     this.phaseTime = 0;
   }
@@ -172,7 +171,8 @@ export class ElfWorkshop implements MiniGame {
     const size = this.index < 3 ? 3 : this.index < 6 ? 4 : 5;
     this.recipe = this.makeRecipe(size);
     audio.sfx('blueprint');
-    this.toy = TOYS[this.index % TOYS.length];
+    const names = toys();
+    this.toy = names[this.index % names.length];
     this.tray = [];
     this.index++;
     this.phase = 'memorise';
@@ -190,17 +190,17 @@ export class ElfWorkshop implements MiniGame {
       return;
     }
     const items = this.recipe.map((p) => BY_ID.get(p)!.emoji).join('');
-    this.card.innerHTML = `<div class="small muted">Blueprint ${this.index}/${BLUEPRINTS}</div><h3>${this.toy}</h3><div class="items">${items}</div>${extra || '<div class="timer"><i></i></div>'}`;
+    this.card.innerHTML = `<div class="small muted">${t('blueprint', { i: this.index, n: BLUEPRINTS })}</div><h3>${this.toy}</h3><div class="items">${items}</div>${extra || '<div class="timer"><i></i></div>'}`;
     this.card.classList.remove('hidden');
   }
 
   private partLabel(p: PartDef) {
-    return `<span class="big">${p.emoji}</span><span class="nm">${p.name}</span>`;
+    return `<span class="big">${p.emoji}</span><span class="nm">${t(`part_${p.id}`)}</span>`;
   }
 
   private pick(id: Part) {
     if (this.phase !== 'build' || this.ctx.hud.cardOpen) return;
-    if (this.tray.length >= 6) return this.ctx.hud.toast('The tray is full — build or remove something', 1400);
+    if (this.tray.length >= 6) return this.ctx.hud.toast(t('trayFull'), 1400);
     this.tray.push(id);
     const pos = this.partPos.get(id)!;
     this.sparkles.emit(pos.clone().setY(2), 6, { color: ['#ffffff', '#ffd25a'], speed: 1.5, up: 1.5, size: 0.4, life: 0.5 });
@@ -230,13 +230,13 @@ export class ElfWorkshop implements MiniGame {
       this.sparkles.emit(this.anvilTop.clone().add(new THREE.Vector3(0, 0.6, 0)), 60, { color: ['#ffd25a', '#ff5a5a', '#5affb0'], speed: 5, up: 3, size: 0.6, life: 1.1 });
       haptic(30);
       audio.sfx('build');
-      this.showCard(true, '<div class="ornament">✨ Toy built!</div>');
+      this.showCard(true, `<div class="ornament">${t('built')}</div>`);
     } else {
       this.puffs.emit(this.anvilTop.clone(), 30, { color: '#888888', speed: 3, up: 2, size: 1.2, life: 1 });
       haptic([40, 50, 40]);
       audio.sfx('crash');
       const got = this.tray.map((p) => BY_ID.get(p)!.emoji).join('');
-      this.showCard(true, `<div>💥 Wobbly toy! You used <b>${got}</b></div>`);
+      this.showCard(true, `<div>${t('wobbly', { got })}</div>`);
     }
   }
 
@@ -305,9 +305,9 @@ export class ElfWorkshop implements MiniGame {
   private renderUi() {
     const left = Math.max(0, Math.ceil(SHIFT - this.time));
     const tray = this.tray.map((p, i) => `<button class="order" data-i="${i}">${BY_ID.get(p)!.emoji}</button>`).join('');
-    const status = this.phase === 'memorise' ? '👀 Memorise!' : this.phase === 'build' ? (tray ? '' : 'Tap the parts…') : '';
+    const status = this.phase === 'memorise' ? t('memorise') : this.phase === 'build' ? (tray ? '' : t('tapParts')) : '';
     this.ctx.hud.setGameBar(
-      `<span>⏱ <b class="${left <= 15 ? 'warn' : ''}">${left}</b>s</span><span>🎁 ${this.made}/${BLUEPRINTS}</span>` +
+      `<span>${t('timer', { cls: left <= 15 ? 'warn' : '', left })}</span><span>🎁 ${this.made}/${BLUEPRINTS}</span>` +
         `<span class="chips">${tray}${status ? `<span class="chip">${status}</span>` : ''}</span>`,
     );
     document.querySelectorAll<HTMLButtonElement>('.gamebar button.order').forEach((b) => {
@@ -317,7 +317,7 @@ export class ElfWorkshop implements MiniGame {
     });
     for (const p of PARTS) this.labels?.set(p.id, this.partLabel(p), this.tray.includes(p.id) ? 'picked' : '');
     this.labels?.setVisible(this.phase === 'build' || this.phase === 'result');
-    this.ctx.hud.setAction({ id: 'build', label: '🔨 Build', enabled: this.phase === 'build' && this.tray.length > 0 });
+    this.ctx.hud.setAction({ id: 'build', label: t('build'), enabled: this.phase === 'build' && this.tray.length > 0 });
   }
 
   private finish(quit = false) {
@@ -327,7 +327,7 @@ export class ElfWorkshop implements MiniGame {
     this.resolve({
       score: this.made,
       quit,
-      summary: quit ? 'You left the workshop early.' : `${this.made} of ${BLUEPRINTS} toys built${this.time >= SHIFT ? ' before the shift bell' : ''}`,
+      summary: quit ? t('summaryQuit') : t(this.time >= SHIFT ? 'summaryBell' : 'summary', { made: this.made, n: BLUEPRINTS }),
     });
   }
 

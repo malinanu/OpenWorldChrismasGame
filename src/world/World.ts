@@ -8,6 +8,8 @@ import { Lighting } from './Lighting';
 import { MINI_GAMES } from '../minigames/registry';
 import { buildSignposts, Roads, type RoadDef } from './Roads';
 import { applyNightLight, createSnowGroundMaterial, type NightLightUniforms } from './SnowGround';
+import { fontsReady } from '../i18n';
+import { t } from '../i18n/ui';
 import { Terrain, type FlatSpot } from './Terrain';
 
 /** Half the cobbled road's width (Roads.ts WIDTH = 5). */
@@ -126,11 +128,13 @@ export class World {
     lanterns.push(...this.zoneLanterns());
     d.props.push({ model: 'holiday/lantern', at: lanterns, scale: 1, light: '#ffb35a', collider: 'trunk', shadow: false });
     const signs = this.roads.signposts;
+    // The names are baked into a texture, so the Sinhala/Tamil font must be there first.
+    await fontsReady();
     this.scene.add(buildSignposts(signs, signs.map((s) => `${MINI_GAMES[s.to].emoji} ${MINI_GAMES[s.to].title}`), (x, z) => this.groundY(x, z)));
 
-    onStep?.('Growing the forest…');
+    onStep?.(t('growingForest'));
     await Promise.all(d.scatter.map((s) => this.scatter({ ...s, count: Math.round(s.count * opts.forest) })));
-    onStep?.('Decorating the village…');
+    onStep?.(t('decorating'));
     await Promise.all(d.props.map((p) => this.prop(p)));
 
     for (let i = 0; i < 4; i++) {

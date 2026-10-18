@@ -7,6 +7,8 @@ import { api, CHARACTER_NAMES } from '../net/api';
 import { esc } from './account';
 import { mountAvatarStage, type AvatarStage } from './avatar';
 import { INK } from './ink';
+import { fmtMonthYear, fmtNumber, type Lang } from '../i18n';
+import { t } from '../i18n/ui';
 import { mountLeaderboard } from './leaderboard';
 import { mountSettings } from './settings';
 import type { Quality } from '../core/Engine';
@@ -51,7 +53,7 @@ function stamp(id: MiniGameId, i: number, fresh: boolean) {
   const got = gameState.hasOrnament(id);
   const stars = d.bestStars[id] ?? 0;
   if (!got) {
-    const status = gameState.isDiscovered(id) ? 'Discovered' : 'Not visited';
+    const status = gameState.isDiscovered(id) ? t('stampDiscovered') : t('stampNotVisited');
     return `<div class="stamp empty"><span class="st-emoji">${info.emoji}</span><b>${info.title}</b><small>${status}</small></div>`;
   }
   // A slightly different tilt for each stamp, the same every time.
@@ -59,7 +61,7 @@ function stamp(id: MiniGameId, i: number, fresh: boolean) {
   const best = d.bestScore[id];
   return `<div class="stamp got${fresh ? ' fresh' : ''}" style="--ink:${INK[id]};--tilt:${tilt}deg;--delay:${fresh ? 0.35 + i * 0.28 : 0}s">
       <span class="st-ring"></span><span class="st-emoji">${info.emoji}</span><b>${info.title}</b>
-      <span class="st-stars">${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}</span>${best ? `<small>Best ${best.toLocaleString()}</small>` : ''}
+      <span class="st-stars">${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}</span>${best ? `<small>${t('stampBest', { n: fmtNumber(best) })}</small>` : ''}
     </div>`;
 }
 
@@ -72,7 +74,7 @@ function stamp(id: MiniGameId, i: number, fresh: boolean) {
  * - Settings: graphics, day & night, sound.
  * The game is paused while it's open.
  */
-export async function showProfile(hud: Hud, opts: { server: boolean; tab?: HubTab; onQuality: (q: Quality) => void }): Promise<ProfileNext> {
+export async function showProfile(hud: Hud, opts: { server: boolean; tab?: HubTab; onQuality: (q: Quality) => void; onLanguage: (l: Lang) => void }): Promise<ProfileNext> {
   const startTab = opts.tab ?? 'passport';
   const user = api.user;
   const stars = gameState.totalStars;
@@ -82,58 +84,58 @@ export async function showProfile(hud: Hud, opts: { server: boolean; tab?: HubTa
   // New stamps thump in only when the passport is what you opened (not hidden behind another tab).
   const fresh = new Set(startTab === 'passport' ? earned.filter((id) => !seen.includes(id)) : []);
   const charId = user?.characterId ?? 'Rogue_Hooded';
-  const since = user?.createdAt ? new Date(user.createdAt).toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : '';
+  const since = user?.createdAt ? fmtMonthYear(new Date(user.createdAt)) : '';
   let result: ProfileNext = null;
   let stage: AvatarStage | null = null;
   const timers: number[] = [];
 
   const header = user
     ? `<h2 class="pp-name"></h2>
-       <p class="pp-line">${CHARACTER_NAMES[charId] ?? charId}${since ? ` · Resident since ${since}` : ''}</p>
+       <p class="pp-line">${CHARACTER_NAMES[charId] ?? charId}${since ? ` · ${t('resident', { date: since })}` : ''}</p>
        <p class="pp-line muted">${esc(masked(user.email, user.phone))}</p>
        <p class="pp-rank hidden"></p>`
-    : `<h2 class="pp-name">Guest traveller</h2>
-       <p class="pp-line">Your progress lives on this device only.</p>`;
+    : `<h2 class="pp-name">${t('guestName')}</h2>
+       <p class="pp-line">${t('guestLine')}</p>`;
 
   const actions = user
-    ? `<button class="chip" data-act="character">🎭 Change adventurer</button>
-       <button class="chip ghosty" data-signout>Sign out</button>`
+    ? `<button class="chip" data-act="character">${t('changeAdventurer')}</button>
+       <button class="chip ghosty" data-signout>${t('signOut')}</button>`
     : opts.server
-      ? `<button class="chip on" data-act="signin">✨ Sign in</button>`
+      ? `<button class="chip on" data-act="signin">${t('signInChip')}</button>`
       : '';
 
   await hud
     .showCard(
       `<div class="passport">
-        <div class="pp-cover"><span class="pp-flake">❄</span> FROSTVALE PASSPORT <span class="pp-flake">❄</span></div>
+        <div class="pp-cover"><span class="pp-flake">❄</span> ${t('cover')} <span class="pp-flake">❄</span></div>
         <div class="hub-tabs" role="tablist">
-          <button type="button" class="chip" data-tab="passport">🛂 Passport</button>
-          <button type="button" class="chip" data-tab="leaders">🏆 Leaders</button>
-          <button type="button" class="chip" data-tab="settings">⚙️ Settings</button>
+          <button type="button" class="chip" data-tab="passport">${t('tabPassport')}</button>
+          <button type="button" class="chip" data-tab="leaders">${t('tabLeaders')}</button>
+          <button type="button" class="chip" data-tab="settings">${t('tabSettings')}</button>
         </div>
         <div class="hub-panes">
         <div class="hub-pane" data-pane="passport">
         <div class="pp-page">
           <div class="pp-head">
-            <div class="pp-photo" title="Tap me!"><canvas width="132" height="150"></canvas></div>
+            <div class="pp-photo" title="${t('tapMe')}"><canvas width="132" height="150"></canvas></div>
             <div class="pp-who">${header}</div>
           </div>
           <div class="pp-title">
             <div class="pp-title-row"><span class="pp-badge">${title.icon} ${title.name}</span><span class="pp-stars">⭐ ${stars}/18</span></div>
             <div class="pp-bar"><i style="width:${Math.round(progress * 100)}%"></i></div>
-            <p class="pp-next">${next ? `${next.stars - stars} ⭐ to <b>${next.icon} ${next.name}</b>` : 'Every star in Frostvale is yours. 🎄'}</p>
+            <p class="pp-next">${next ? t('toNext', { n: next.stars - stars, title: `${next.icon} ${next.name}` }) : t('allStars')}</p>
           </div>
-          <h3 class="pp-sub">Stamps <span>${earned.length}/6</span></h3>
+          <h3 class="pp-sub">${t('stamps')} <span>${earned.length}/6</span></h3>
           <div class="stamps">${MINI_GAME_IDS.map((id, i) => stamp(id, i, fresh.has(id))).join('')}</div>
           ${
             user
-              ? `<h3 class="pp-sub">Snowball record</h3>
+              ? `<h3 class="pp-sub">${t('record')}</h3>
                  <div class="tickets">
-                   <div class="ticket"><b data-stat="hits">–</b><small>Hits</small></div>
-                   <div class="ticket"><b data-stat="taken">–</b><small>Splatted</small></div>
-                   <div class="ticket"><b data-stat="ratio">–</b><small>Hits per splat</small></div>
+                   <div class="ticket"><b data-stat="hits">–</b><small>${t('hits')}</small></div>
+                   <div class="ticket"><b data-stat="taken">–</b><small>${t('splatted')}</small></div>
+                   <div class="ticket"><b data-stat="ratio">–</b><small>${t('ratio')}</small></div>
                  </div>`
-              : `<div class="pp-invite">${opts.server ? 'Sign in to keep your passport safe, play with friends and get on the leaderboard.' : 'Online play is unavailable right now. Your stamps are saved on this device.'}</div>`
+              : `<div class="pp-invite">${opts.server ? t('inviteServer') : t('inviteOffline')}</div>`
           }
         </div>
         ${actions ? `<div class="row pp-actions">${actions}</div>` : ''}
@@ -141,10 +143,10 @@ export async function showProfile(hud: Hud, opts: { server: boolean; tab?: HubTa
         <div class="hub-pane fill" data-pane="leaders"><div class="pp-page pane-page"></div></div>
         <div class="hub-pane fill" data-pane="settings"><div class="pp-page pane-page"></div></div>
         </div>
-        <div class="row"><button data-ok>Close</button></div>
+        <div class="row"><button data-ok>${t('close')}</button></div>
       </div>`,
       (card) => {
-        if (user) card.querySelector('.pp-name')!.textContent = user.username ?? 'Adventurer';
+        if (user) card.querySelector('.pp-name')!.textContent = user.username ?? t('adventurer');
         const close = () => card.querySelector<HTMLButtonElement>('[data-ok]')!.click();
         card.querySelectorAll<HTMLButtonElement>('[data-act]').forEach((b) =>
           b.addEventListener('click', () => {
@@ -160,7 +162,7 @@ export async function showProfile(hud: Hud, opts: { server: boolean; tab?: HubTa
             close();
           } else {
             out.dataset.armed = '1';
-            out.textContent = 'Tap again to sign out';
+            out.textContent = t('signOutConfirm');
           }
         });
 
@@ -168,7 +170,7 @@ export async function showProfile(hud: Hud, opts: { server: boolean; tab?: HubTa
         // size whichever tab is showing; Leaders and Settings fill it and scroll inside.
         const photo = card.querySelector<HTMLElement>('.pp-photo')!;
         mountLeaderboard(card.querySelector<HTMLElement>('[data-pane=leaders] .pane-page')!);
-        mountSettings(card.querySelector<HTMLElement>('[data-pane=settings] .pane-page')!, { onQuality: opts.onQuality });
+        mountSettings(card.querySelector<HTMLElement>('[data-pane=settings] .pane-page')!, { onQuality: opts.onQuality, onLanguage: opts.onLanguage });
         const showTab = (tab: HubTab) => {
           card.querySelectorAll<HTMLElement>('[data-tab]').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
           card.querySelectorAll<HTMLElement>('[data-pane]').forEach((p) => p.classList.toggle('off', p.dataset.pane !== tab));
@@ -201,7 +203,7 @@ export async function showProfile(hud: Hud, opts: { server: boolean; tab?: HubTa
           .then(({ me }) => {
             const el = card.querySelector<HTMLElement>('.pp-rank');
             if (!me || !el || !root.isConnected) return;
-            el.textContent = `${me.rank <= 3 ? ['🥇', '🥈', '🥉'][me.rank - 1] : '🏅'} #${me.rank} in Frostvale`;
+            el.textContent = `${me.rank <= 3 ? ['🥇', '🥈', '🥉'][me.rank - 1] : '🏅'} ${t('rank', { rank: me.rank })}`;
             el.classList.remove('hidden');
           })
           .catch(() => {});

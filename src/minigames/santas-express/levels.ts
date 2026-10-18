@@ -1,9 +1,12 @@
 import type { LevelDef } from './logic';
+import type { LevelKey } from './strings';
 
 /** Hand-made levels; every one is checked solvable by `solve()` (see tools/check-levels.mjs). */
-export const LEVELS: LevelDef[] = [
+/** `name` stays English (dev tools and errors); `key` is the translated name shown in game. */
+export const LEVELS: (LevelDef & { key: LevelKey })[] = [
   {
     name: 'First Delivery',
+    key: 'level_firstDelivery',
     presents: ['red'],
     rows: [
       '.. .. .. .. ..',
@@ -13,6 +16,7 @@ export const LEVELS: LevelDef[] = [
   },
   {
     name: 'Fork in the Snow',
+    key: 'level_forkInTheSnow',
     presents: ['red', 'blue'],
     rows: [
       '.. .. c1 s1 Hb',
@@ -22,6 +26,7 @@ export const LEVELS: LevelDef[] = [
   },
   {
     name: 'Up the Hill',
+    key: 'level_upTheHill',
     presents: ['green', 'red', 'yellow'],
     rows: [
       '.. Hy C0 s1 Hg',
@@ -33,6 +38,7 @@ export const LEVELS: LevelDef[] = [
   },
   {
     name: 'The Crossing',
+    key: 'level_theCrossing',
     presents: ['red', 'green', 'blue'],
     rows: [
       '.. c1 s1 C0 s1 Hb',
@@ -44,6 +50,7 @@ export const LEVELS: LevelDef[] = [
   },
   {
     name: 'Christmas Eve Rush',
+    key: 'level_christmasEveRush',
     presents: ['blue', 'red', 'green', 'yellow'],
     rows: [
       'Hy s1 C3 Hg c1 s1 Hb',

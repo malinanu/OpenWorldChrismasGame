@@ -1,0 +1,47 @@
+import { strings } from '../../i18n';
+
+/** Text shown by Krampus' Cellar. */
+export const t = strings({
+  en: {
+    tipTouch: '👆 Tap a floor tile to walk there — follow the ✨ dots to the chest',
+    tipDesktop: '🖱️ Click a floor tile (or WASD) — follow the ✨ dots to the chest',
+    rescued: '🎁 Present rescued! ({a}/{b})',
+    spotted: '😈 Spotted! −{p} s — wait for the red light to move away',
+    tipRed: '🟥 Red tiles = lantern light. Wait for it to move on, then sneak past!',
+    tipChest: '🎁 Walk onto the chest to grab the present',
+    clock: '{b}s',
+    zoomIn: '🔍 Zoom in',
+    overview: '🗺️ Overview',
+    quit: 'You crept out of the cellar early.',
+    escaped: 'Escaped with {a}/{b} presents · speed bonus +{bonus} · spotted {n}×',
+    timeUp: 'Time ran out with {a}/{b} presents · spotted {n}×',
+  },
+  si: {
+    tipTouch: '👆 යන්න ඕන බිම් කොටුව තට්ටු කරන්න — ✨ තිත් පස්සෙන් පෙට්ටිය ළඟට යන්න',
+    tipDesktop: '🖱️ බිම් කොටුවක් ක්ලික් කරන්න (නැත්නම් WASD) — ✨ තිත් පස්සෙන් පෙට්ටිය ළඟට යන්න',
+    rescued: '🎁 තෑග්ග බේරා ගත්තා! ({a}/{b})',
+    spotted: '😈 අහු වුණා! −{p} තත් — රතු එළිය ඈතට යනකම් ඉන්න',
+    tipRed: '🟥 රතු කොටු = පහන් එළිය. ඒක ඉවතට යනකම් ඉඳලා, හොරෙන් පහු කරලා යන්න!',
+    tipChest: '🎁 තෑග්ග ගන්න පෙට්ටිය උඩට ඇවිදින්න',
+    clock: '{b}තත්',
+    zoomIn: '🔍 ළං කරන්න',
+    overview: '🗺️ මුළු සිතියම',
+    quit: 'ඔබ කලින්ම බිම් මාළිගයෙන් හොරෙන් එළියට ගියා.',
+    escaped: 'තෑගි {a}/{b} එක්ක පැනලා ගියා · වේග ත්‍යාගය +{bonus} · අහු වුණේ {n}×',
+    timeUp: 'වෙලාව ඉවරයි — තෑගි {a}/{b} · අහු වුණේ {n}×',
+  },
+  ta: {
+    tipTouch: '👆 நடக்க ஒரு தரைக் கட்டத்தைத் தட்டுங்கள் — ✨ புள்ளிகளைப் பின்தொடர்ந்து பெட்டிக்குச் செல்லுங்கள்',
+    tipDesktop: '🖱️ ஒரு தரைக் கட்டத்தைக் கிளிக் செய்யுங்கள் (அல்லது WASD) — ✨ புள்ளிகளைப் பின்தொடர்ந்து பெட்டிக்குச் செல்லுங்கள்',
+    rescued: '🎁 பரிசு மீட்கப்பட்டது! ({a}/{b})',
+    spotted: '😈 பிடிபட்டீர்கள்! −{p} வி — சிவப்பு ஒளி விலகும் வரை காத்திருங்கள்',
+    tipRed: '🟥 சிவப்புக் கட்டங்கள் = லாந்தர் ஒளி. அது நகரும் வரை காத்திருந்து, மெல்லக் கடந்து செல்லுங்கள்!',
+    tipChest: '🎁 பரிசை எடுக்கப் பெட்டியின் மேல் நடந்து செல்லுங்கள்',
+    clock: '{b}வி',
+    zoomIn: '🔍 அருகே காட்டு',
+    overview: '🗺️ முழு வரைபடம்',
+    quit: 'நீங்கள் முன்கூட்டியே நிலவறையிலிருந்து மெல்ல வெளியேறினீர்கள்.',
+    escaped: '{a}/{b} பரிசுகளுடன் தப்பினீர்கள் · வேக போனஸ் +{bonus} · பிடிபட்டது {n}×',
+    timeUp: 'நேரம் முடிந்தது — {a}/{b} பரிசுகள் · பிடிபட்டது {n}×',
+  },
+});

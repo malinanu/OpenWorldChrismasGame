@@ -8,6 +8,7 @@ import { Snowfall } from '../../vfx/Snowfall';
 import { Lighting } from '../../world/Lighting';
 import { createSnowGroundMaterial, setWorldUvs } from '../../world/SnowGround';
 import type { MiniGame, MiniGameContext, MiniGameResult } from '../MiniGame';
+import { ordinals, racerNames, t as tr } from './strings';
 
 /** Squares 0..23 run round the edge of a 7×7 grid; 23 is the finish. */
 const SQUARES = 24;
@@ -24,10 +25,10 @@ const FACES: [THREE.Vector3, number][] = [
   [new THREE.Vector3(0, 0, 1), 3], [new THREE.Vector3(0, 0, -1), 4],
 ];
 const SLOT_OFFSETS = [[-0.24, -0.22], [0.24, -0.22], [-0.24, 0.24], [0.24, 0.24]];
-const ORDINAL = ['1st', '2nd', '3rd', '4th'];
 
 interface Racer {
-  name: string;
+  /** Internal name; shown via `racerNames()`. */
+  name: RacerName;
   colour: 'red' | 'green' | 'blue' | 'yellow';
   emoji: string;
   human: boolean;
@@ -37,6 +38,10 @@ interface Racer {
   pawn: THREE.Object3D;
   die: THREE.Object3D;
 }
+
+type RacerName = 'You' | 'Jingle' | 'Tinsel' | 'Sprinkle';
+/** A racer's name in the current language. */
+const shownName = (r: Racer) => racerNames()[r.name];
 
 type Phase = 'await' | 'rolling' | 'moving' | 'pause' | 'done';
 
@@ -133,7 +138,7 @@ export class AdventDiceRace implements MiniGame {
     this.buildSquares();
     this.decorate();
 
-    const names: [string, Racer['colour'], string, boolean][] = [
+    const names: [RacerName, Racer['colour'], string, boolean][] = [
       ['You', 'red', '🔴', true], ['Jingle', 'green', '🟢', false], ['Tinsel', 'blue', '🔵', false], ['Sprinkle', 'yellow', '🟡', false],
     ];
     this.racers = names.map(([name, colour, emoji, human]) => {
@@ -259,7 +264,7 @@ export class AdventDiceRace implements MiniGame {
     this.ctx.hud.onGameAction = (a) => {
       if (a === 'roll') this.tryHumanRoll();
     };
-    this.ctx.hud.toast(isTouchDevice ? 'Tap 🎲 Roll to throw. First to door 23 wins!' : 'Press Space or 🎲 Roll to throw. First to door 23 wins!', 3500);
+    this.ctx.hud.toast(isTouchDevice ? tr('tipTouch') : tr('tipDesktop'), 3500);
     this.beginTurn();
   }
 
@@ -279,12 +284,12 @@ export class AdventDiceRace implements MiniGame {
     if (r.place) return this.endTurn();
     if (r.skip) {
       r.skip = false;
-      this.say(`❄️ ${r.name} ${r.human ? 'are' : 'is'} digging out of a snow drift…`);
+      this.say(r.human ? tr('youDrift') : tr('elfDrift', { name: shownName(r) }));
       this.setPhase('pause');
       return;
     }
     this.setPhase('await');
-    this.say(r.human ? '🎲 Your turn — roll the die!' : `${r.emoji} ${r.name} is rolling…`);
+    this.say(r.human ? tr('yourTurn') : tr('elfRolling', { emoji: r.emoji, name: shownName(r) }));
   }
 
   private say(text: string) {
@@ -368,7 +373,7 @@ export class AdventDiceRace implements MiniGame {
           if (r.human) haptic(20);
           audio.sfx('star', 0.8 + this.roll * 0.08);
           this.sparkles.emit(new THREE.Vector3(t.x, t.y + 0.6, t.z), 20, { color: ['#ffd25a', '#ffffff'], speed: 3, up: 2, size: 0.4, life: 0.7 });
-          this.say(`${r.emoji} ${r.name} rolled a ${this.roll}!`);
+          this.say(r.human ? tr('youRolled', { emoji: r.emoji, n: this.roll }) : tr('elfRolled', { emoji: r.emoji, name: shownName(r), n: this.roll }));
           this.startMove(this.roll);
         }
         break;
@@ -419,14 +424,15 @@ export class AdventDiceRace implements MiniGame {
     if (r.square >= FINISH) {
       r.place = this.nextPlace++;
       this.sparkles.emit(at.clone().setY(1), 80, { color: ['#ffd25a', '#ff5a5a', '#5affb0', '#ffffff'], speed: 5, up: 3, size: 0.6, life: 1.4 });
-      this.say(`🏁 ${r.name} finished ${ORDINAL[r.place - 1]}!`);
+      const ord = ordinals()[r.place - 1];
+      this.say(r.human ? tr('youFinished', { ord }) : tr('elfFinished', { name: shownName(r), ord }));
       audio.sfx(r.human ? 'fanfare' : 'gift');
       this.setPhase('pause');
       return;
     }
     if (!this.effectUsed && GIFTS.has(r.square)) {
       this.effectUsed = true;
-      this.say(`🎁 A gift! ${r.name} ${r.human ? 'hop' : 'hops'} 2 extra steps.`);
+      this.say(r.human ? tr('youGift') : tr('elfGift', { name: shownName(r) }));
       audio.sfx('gift');
       this.sparkles.emit(at.clone().setY(0.8), 30, { color: ['#ff5a5a', '#ffd25a'], speed: 3, up: 2, size: 0.5, life: 0.9 });
       return this.startMove(2);
@@ -435,12 +441,12 @@ export class AdventDiceRace implements MiniGame {
       this.effectUsed = true;
       r.skip = true;
       audio.sfx('bad');
-      this.say(`❄️ Snow drift! ${r.name} will miss the next turn.`);
+      this.say(r.human ? tr('youSnowDrift') : tr('elfSnowDrift', { name: shownName(r) }));
       this.puffs.emit(at.clone().setY(0.4), 20, { color: '#ffffff', speed: 2, up: 1, size: 0.9, life: 0.9 });
     } else if (!this.effectUsed && !this.rolledAgain && CANDY.has(r.square)) {
       this.rolledAgain = true;
       audio.sfx('magic');
-      this.say(`🍬 Candy cane! ${r.name} ${r.human ? 'roll' : 'rolls'} again.`);
+      this.say(r.human ? tr('youCandy') : tr('elfCandy', { name: shownName(r) }));
       this.setPhase('await');
       this.phaseTime = -0.6;
       return;
@@ -461,7 +467,7 @@ export class AdventDiceRace implements MiniGame {
       .map((r, i) => `<span${i === this.turn ? ' class="now"' : ''}>${r.emoji} ${r.place ? '🏁' : r.square}</span>`)
       .join(' ');
     this.ctx.hud.setGameBar(`<span class="race">${standings}</span><span class="log">${this.log}</span>`);
-    this.ctx.hud.setAction({ id: 'roll', label: '🎲 Roll', enabled: this.phase === 'await' && this.current.human });
+    this.ctx.hud.setAction({ id: 'roll', label: tr('roll'), enabled: this.phase === 'await' && this.current.human });
   }
 
   private finish(quit = false) {
@@ -471,10 +477,10 @@ export class AdventDiceRace implements MiniGame {
     const place = human.place || 4;
     const winner = this.racers.find((r) => r.place === 1);
     const summary = quit
-      ? 'You left the race early.'
+      ? tr('quit')
       : place === 1
-        ? 'You beat all three elves to the finish! 🏆'
-        : `You finished ${ORDINAL[place - 1]}. ${winner?.name} won the race.`;
+        ? tr('won')
+        : tr('placed', { ord: ordinals()[place - 1], name: winner ? shownName(winner) : '' });
     this.resolve({ score: Math.max(0, 4 - place), quit, summary });
   }
 
