@@ -10,6 +10,8 @@ export interface User {
   phone: string | null;
   characterId: string;
   role: 'player' | 'admin';
+  /** ISO time the account was made. */
+  createdAt: string | null;
 }
 
 export interface ServerConfig {

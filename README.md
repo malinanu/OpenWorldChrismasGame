@@ -285,7 +285,7 @@ Browser ── https ──► nginx (CloudPanel Node.js site) ──► Node se
 
 **Shared village.**
 - **Rooms:** players join a room of up to 30 and see each other live, with their character, name tag and animations, interpolated 110 ms behind.
-- **Snowballs:** F, right-click or the ❄️ button scoops a snowball; press again to throw it, with a gentle lock-on to the nearest player in front.
+- **Snowballs:** F, right-click or the ❄️ THROW button grabs a handful of snow and throws it, with a gentle lock-on to the nearest player in front. It only works standing in snow: on the cobbled roads the button hides.
 - **Hits are server-checked:** the server simulates every snowball and decides hits, rejecting impossible speeds and throw origins. Players inside a mini-game are hidden and can't be hit.
 
 **Progress and leaderboards.**

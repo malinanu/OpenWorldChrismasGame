@@ -63,6 +63,7 @@ async function boot() {
   // Still inside the tap's user activation: phones get the whole screen where the browser allows it.
   if (isTouchDevice && canFullscreen()) void setFullscreen(true);
   // Sign in (or continue offline), pick a character, sync progress; then into the village.
+  hud.onProfile = () => overworld.openProfile();
   if (await startSession(hud, overworld)) overworld.goOnline();
   overworld.resume();
 

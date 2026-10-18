@@ -8,7 +8,6 @@ import { Burst } from '../vfx/Burst';
 import type { Player } from './Player';
 import { RemotePlayer } from './RemotePlayer';
 
-const SCOOP_TIME = 0.6;
 const THROW_COOLDOWN = 0.45;
 const BALL_LIFE = 1.6;
 const AIM_CONE = (18 * Math.PI) / 180;
@@ -22,20 +21,20 @@ interface Ball {
 }
 
 /**
- * Snowball fights in the village: scoop a snowball (button / F / right-click), then throw it
- * along the camera's aim with a gentle lock-on to the nearest player in front. Draws everyone's
- * snowballs and other players; the server decides who got hit.
+ * Snowball fights in the village: one press (button / F / right-click) grabs a handful of snow
+ * and throws it along the camera's aim, with a gentle lock-on to the nearest player in front.
+ * Only works standing in snow, not on the cobbled roads. Draws everyone's snowballs and other
+ * players; the server decides who got hit.
  */
 export class SnowballFight {
   readonly group = new THREE.Group();
   private ballModel!: THREE.Object3D;
-  private inHand: THREE.Object3D | null = null;
   private puffs!: Burst;
   private balls: Ball[] = [];
   private remotes = new Map<number, RemotePlayer>();
   private clips: THREE.AnimationClip[] = [];
-  private scoop = 0;
   private throwAnim = 0;
+  private roadHintAt = -Infinity;
   private cooldown = 0;
   private mp: Multiplayer | null = null;
   private busy = () => false;
@@ -44,6 +43,7 @@ export class SnowballFight {
     private readonly player: Player,
     private readonly hud: Hud,
     private readonly groundY: (x: number, z: number) => number,
+    private readonly snowAt: (x: number, z: number) => boolean,
   ) {}
 
   async load() {
@@ -58,9 +58,10 @@ export class SnowballFight {
     this.group.add(this.puffs.points);
   }
 
-  /** Has a snowball ready to throw. */
-  get holding() {
-    return !!this.inHand;
+  /** Standing in snow, so a snowball can be made right here. */
+  get onSnow() {
+    const p = this.player.position;
+    return this.snowAt(p.x, p.z);
   }
 
   /** Join the shared village; `busy` reports when a mini-game is on screen. */
@@ -87,43 +88,28 @@ export class SnowballFight {
   /** What we tell the server each tick. */
   localState(): LocalState {
     const p = this.player.position;
-    const a = this.scoop > 0 ? 'scoop' : this.throwAnim > 0 ? 'throw' : !this.player.isGrounded ? 'jump' : this.player.speed > 7 ? 'run' : this.player.speed > 0.5 ? 'walk' : 'idle';
+    const a = this.throwAnim > 0 ? 'throw' : !this.player.isGrounded ? 'jump' : this.player.speed > 7 ? 'run' : this.player.speed > 0.5 ? 'walk' : 'idle';
     return { x: +p.x.toFixed(2), y: +p.y.toFixed(2), z: +p.z.toFixed(2), yaw: +this.player.facingAngle.toFixed(2), a, busy: this.busy() };
   }
 
   update(dt: number, input: Input | null, cameraYaw: number, pr: number) {
     this.cooldown -= dt;
     this.throwAnim = Math.max(0, this.throwAnim - dt);
-    if (this.scoop > 0) {
-      this.scoop -= dt;
-      if (this.scoop <= 0) this.grabBall();
-    } else if (input?.justPressed('throw') && this.cooldown <= 0) {
-      if (this.inHand) this.throwBall(cameraYaw);
-      else this.startScoop();
-    }
-    // The snowball rides in the right hand.
-    if (this.inHand) {
-      const f = this.player.facingAngle;
-      this.inHand.position.set(this.player.position.x + Math.cos(f) * -0.38 + Math.sin(f) * 0.2, this.player.position.y + 1.0, this.player.position.z - Math.sin(f) * -0.38 + Math.cos(f) * 0.2);
+    if (input?.justPressed('throw') && this.cooldown <= 0) {
+      if (this.onSnow) this.throwBall(cameraYaw);
+      else this.roadHint();
     }
     for (const [id, r] of this.remotes) r.update(dt, this.mp?.players.get(id)?.snaps ?? []);
     this.updateBalls(dt);
     this.puffs.update(dt, pr);
   }
 
-  private startScoop() {
-    this.scoop = SCOOP_TIME;
-    this.player.playOnce('Interact');
-    audio.sfx('step', 0.6);
-    this.puffs.emit(this.player.position.clone().setY(this.player.position.y + 0.2), 10, { color: '#ffffff', speed: 1.5, up: 1, size: 0.8, life: 0.5 });
-  }
-
-  private grabBall() {
-    this.inHand = this.ballModel.clone(true);
-    this.inHand.scale.setScalar(0.9);
-    this.group.add(this.inHand);
-    audio.sfx('pick');
-    haptic(10);
+  /** Pressed throw on the road: say why nothing happened (not every press, though). */
+  private roadHint() {
+    const now = performance.now();
+    if (now - this.roadHintAt < 4000) return;
+    this.roadHintAt = now;
+    this.hud.toast('🛣️ No snow on the road. Step onto the snow to make a snowball!', 2200);
   }
 
   /** Lock onto the nearest player in front of the camera; otherwise lob ~16 m ahead. */
@@ -159,9 +145,9 @@ export class SnowballFight {
     const dist = Math.hypot(target.x - o.x, target.z - o.z);
     const t = THREE.MathUtils.clamp(dist / 24, 0.3, 1);
     const v = new THREE.Vector3((target.x - o.x) / t, (target.y - o.y + 0.5 * SNOW_GRAVITY * t * t) / t, (target.z - o.z) / t);
-    if (this.inHand) this.group.remove(this.inHand);
-    this.inHand = null;
     this.cooldown = THROW_COOLDOWN;
+    // A handful of snow kicked up where it was scooped from.
+    this.puffs.emit(p.clone().setY(p.y + 0.2), 8, { color: '#ffffff', speed: 1.5, up: 1, size: 0.7, life: 0.45 });
     this.throwAnim = 0.4;
     this.player.playOnce('Interact');
     this.spawnBall(o, v);

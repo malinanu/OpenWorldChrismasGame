@@ -55,6 +55,7 @@ export async function startSession(hud: Hud, overworld: Overworld): Promise<bool
     store(localStorage, `${PICKED_KEY}.${user.id}`, '1');
   }
   await overworld.player.setCharacter(user.characterId);
+  refreshBadge(hud);
   await syncProgress(me.progress);
   hud.renderTracker();
   overworld.refreshOrnaments();
@@ -85,6 +86,13 @@ export async function changeCharacter(hud: Hud, overworld: Overworld) {
   const id = await chooseCharacter(hud, serverConfig.characters, api.user.characterId);
   if (id !== api.user.characterId) await api.updateMe({ characterId: id });
   await overworld.player.setCharacter(id);
+  refreshBadge(hud);
+}
+
+/** The top-right badge follows the signed-in player (or shows a guest). */
+export function refreshBadge(hud: Hud) {
+  const u = api.user;
+  hud.setProfile(u ? { name: u.username ?? 'Adventurer', charId: u.characterId } : null);
 }
 
 export async function signOut() {

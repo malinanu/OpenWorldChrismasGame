@@ -1,4 +1,4 @@
-export type Action = 'forward' | 'back' | 'left' | 'right' | 'jump' | 'sprint' | 'interact' | 'pause' | 'map' | 'fire' | 'throw' | 'leaderboard';
+export type Action = 'forward' | 'back' | 'left' | 'right' | 'jump' | 'sprint' | 'interact' | 'pause' | 'map' | 'fire' | 'throw' | 'leaderboard' | 'profile';
 
 const KEYS: Record<string, Action> = {
   KeyW: 'forward', ArrowUp: 'forward',
@@ -12,6 +12,7 @@ const KEYS: Record<string, Action> = {
   KeyM: 'map',
   KeyF: 'throw',
   KeyL: 'leaderboard',
+  KeyC: 'profile',
 };
 
 // Standard gamepad mapping: A=0, X=2, LB=4, RT=7, Back=8, Start=9.

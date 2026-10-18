@@ -31,7 +31,7 @@ export class TouchControls {
     const jump = this.button('tbtn jump', '', 'Jump');
     jump.innerHTML = `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 4 L27 15 H20.5 V21 H11.5 V15 H5 Z" /><rect x="11.5" y="24" width="9" height="3.2" rx="1.6" /></svg><span>JUMP</span>`;
     const snow = this.button('tbtn throw', '', 'Snowball');
-    snow.innerHTML = '<span class="ico">❄️</span><span>SCOOP</span>';
+    snow.innerHTML = '<span class="ico">❄️</span><span>THROW</span>';
     snow.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       input.tap('throw');
@@ -76,11 +76,11 @@ export class TouchControls {
     });
   }
 
-  /** The snowball button reads SCOOP until you hold one, then THROW. */
-  setSnowball(holding: boolean) {
-    if (this.snow.classList.contains('ready') === holding) return;
-    this.snow.classList.toggle('ready', holding);
-    this.snow.lastElementChild!.textContent = holding ? 'THROW' : 'SCOOP';
+  /** Throwing needs snow underfoot: the button hides on the cobbled roads. */
+  setThrowReady(onSnow: boolean) {
+    if (this.snow.classList.contains('off') === !onSnow) return;
+    this.snow.classList.toggle('off', !onSnow);
+    this.snow.setAttribute('aria-hidden', String(!onSnow));
   }
 
   private button(cls: string, label: string, title: string) {

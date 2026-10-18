@@ -24,7 +24,7 @@ export function bearer(req: FastifyRequest): string | null {
   return h?.startsWith('Bearer ') ? h.slice(7) : null;
 }
 
-const publicUser = (u: User) => ({ id: u.id, username: u.username, email: u.email, phone: u.phone, characterId: u.characterId, role: u.role });
+const publicUser = (u: User) => ({ id: u.id, username: u.username, email: u.email, phone: u.phone, characterId: u.characterId, role: u.role, createdAt: u.createdAt });
 
 export function registerRoutes(app: FastifyInstance, cfg: Config, auth: Auth, progress: Progress, hooks: Hooks = {}) {
   const authLimit = { rateLimit: { max: 20, timeWindow: '1 minute' } };

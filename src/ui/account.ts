@@ -1,7 +1,5 @@
-import * as THREE from 'three';
-import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { assets } from '../core/AssetLoader';
 import { api, ApiError, CHARACTER_NAMES, type ServerConfig, type User } from '../net/api';
+import { mountAvatarStage, type AvatarStage } from './avatar';
 import type { Hud } from './hud';
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -152,14 +150,11 @@ export function chooseUsername(hud: Hud): Promise<User> {
 
 /**
  * Character select: a small turntable preview of each Adventurer with the idle animation.
- * Resolves with the chosen id. Uses its own small renderer, disposed when the card closes.
+ * Resolves with the chosen id. The preview's renderer is disposed when the card closes.
  */
 export async function chooseCharacter(hud: Hud, characters: string[], current: string): Promise<string> {
   let index = Math.max(0, characters.indexOf(current));
-  const clips = (await assets.model('animations/Frostvale_Clips.glb')).animations;
-  const idle = clips.find((c) => c.name === 'Idle_A')!;
-  let renderer: THREE.WebGLRenderer | null = null;
-  let raf = 0;
+  let stage: AvatarStage | null = null;
   const choice = await formCard<string>(
     hud,
     `<div class="account">
@@ -175,91 +170,28 @@ export async function chooseCharacter(hud: Hud, characters: string[], current: s
     </div>`,
     (card, finish) => {
       const canvas = card.querySelector('canvas')!;
-      renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      renderer.outputColorSpace = THREE.SRGBColorSpace;
-      renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      const scene = new THREE.Scene();
-      scene.add(new THREE.HemisphereLight('#e8f0ff', '#6a7a99', 2));
-      const key = new THREE.DirectionalLight('#fff1dc', 2.2);
-      key.position.set(2, 4, 3);
-      scene.add(key);
-      // Render at the canvas' real size and the screen's pixel ratio (sharp on phones).
-      const w = canvas.clientWidth || 240;
-      const h = canvas.clientHeight || 260;
-      renderer.setSize(w, h, false);
-      const camera = new THREE.PerspectiveCamera(30, w / h, 0.1, 50);
-      // Framing for the current character; the camera eases towards it.
-      const aim = { y: 1.1, look: 1.0, dist: 5.2 };
-      const cam = { ...aim };
-      const place = () => {
-        camera.position.set(0, cam.y, cam.dist);
-        camera.lookAt(0, cam.look, 0);
-      };
-      place();
-      /** Fit the whole figure and the stand in view, whichever way it's turned. */
-      const frame = (model: THREE.Object3D) => {
-        const box = new THREE.Box3().setFromObject(model);
-        const size = box.getSize(new THREE.Vector3());
-        const bottom = Math.min(box.min.y, -0.12);
-        const tall = box.max.y - bottom;
-        const mid = (box.max.y + bottom) / 2;
-        const tanHalf = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-        const across = Math.hypot(size.x, size.z) / camera.aspect;
-        aim.dist = (Math.max(tall, across) / 2) * 1.15 / tanHalf + Math.max(size.x, size.z) / 2;
-        aim.look = mid;
-        aim.y = mid + tall * 0.06;
-      };
-      const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.95, 0.12, 40), new THREE.MeshStandardMaterial({ color: '#e9f1fb', roughness: 0.9 }));
-      stand.position.y = -0.06;
-      scene.add(stand);
-      const turntable = new THREE.Group();
-      scene.add(turntable);
-      let mixer: THREE.AnimationMixer | null = null;
-      let token = 0;
-      const show = async (i: number) => {
+      stage = mountAvatarStage(canvas);
+      const show = (i: number) => {
         index = (i + characters.length) % characters.length;
         const id = characters[index];
         card.querySelector('.char-name')!.textContent = CHARACTER_NAMES[id] ?? id;
         card.querySelectorAll<HTMLElement>('.char-dots span').forEach((d) => d.classList.toggle('on', Number(d.dataset.i) === index));
-        const mine = ++token;
-        const model = cloneSkinned((await assets.model(`characters/${id}.glb`)).scene);
-        if (mine !== token) return;
-        turntable.clear();
-        turntable.add(model);
-        frame(model);
-        mixer = new THREE.AnimationMixer(model);
-        mixer.clipAction(idle).play();
+        void stage!.show(id);
       };
-      card.querySelector('[data-prev]')!.addEventListener('click', () => void show(index - 1));
-      card.querySelector('[data-next]')!.addEventListener('click', () => void show(index + 1));
+      card.querySelector('[data-prev]')!.addEventListener('click', () => show(index - 1));
+      card.querySelector('[data-next]')!.addEventListener('click', () => show(index + 1));
       card.querySelector('[data-choose]')!.addEventListener('click', () => finish(characters[index]));
       // Swipe on the preview to browse.
       let downX: number | null = null;
       canvas.addEventListener('pointerdown', (e) => (downX = e.clientX));
       canvas.addEventListener('pointerup', (e) => {
-        if (downX !== null && Math.abs(e.clientX - downX) > 30) void show(index + (e.clientX < downX ? 1 : -1));
+        if (downX !== null && Math.abs(e.clientX - downX) > 30) show(index + (e.clientX < downX ? 1 : -1));
         downX = null;
       });
-      const clock = new THREE.Clock();
-      const loop = () => {
-        raf = requestAnimationFrame(loop);
-        const dt = Math.min(clock.getDelta(), 0.05);
-        turntable.rotation.y += dt * 0.6;
-        mixer?.update(dt);
-        const k = 1 - Math.exp(-dt * 8);
-        cam.y += (aim.y - cam.y) * k;
-        cam.look += (aim.look - cam.look) * k;
-        cam.dist += (aim.dist - cam.dist) * k;
-        place();
-        renderer!.render(scene, camera);
-      };
-      void show(index).then(loop);
+      show(index);
     },
   );
-  cancelAnimationFrame(raf);
-  (renderer as THREE.WebGLRenderer | null)?.dispose();
-  (renderer as THREE.WebGLRenderer | null)?.forceContextLoss();
+  (stage as AvatarStage | null)?.dispose();
   return choice;
 }
 

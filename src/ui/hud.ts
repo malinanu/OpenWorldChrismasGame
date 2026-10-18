@@ -1,5 +1,7 @@
 import { isTouchDevice } from '../core/Input';
 import { gameState } from '../game/GameState';
+import { titleFor } from '../game/titles';
+import { portrait } from './avatar';
 import { MINI_GAME_IDS, type MiniGameId, type MiniGameResult, type Stars } from '../minigames/MiniGame';
 import { MINI_GAMES } from '../minigames/registry';
 import './styles.css';
@@ -25,8 +27,8 @@ export interface GameAction {
   enabled: boolean;
 }
 
-const DESKTOP_HINT = 'WASD move · Mouse look · Shift sprint · Space jump · F snowball · E play · M map · L leaders · Esc pause';
-const TOUCH_HINT = 'Left thumb: move (push far to run) · Right thumb: look · ⤒ jump · ❄️ scoop & throw';
+const DESKTOP_HINT = 'WASD move · Mouse look · Shift sprint · Space jump · F snowball · E play · M map · L leaders · C profile · Esc pause';
+const TOUCH_HINT = 'Left thumb: move (push far to run) · Right thumb: look · ⤒ jump · ❄️ throw a snowball (in the snow)';
 
 /** All HTML overlay UI: loading, title, prompts, trackers, cards, map, mini-game bar. */
 export class Hud {
@@ -42,6 +44,8 @@ export class Hud {
   private card = el('div', 'card-wrap hidden');
   private mapBox = el('div', 'map hidden');
   private hint = el('div', 'hint');
+  private profileBtn = el('button', 'profile-badge guest');
+  private profile: { name: string; charId: string } | null = null;
   private gameBarHtml = '';
   private actionHtml = '';
   private worldHudVisible = true;
@@ -52,6 +56,8 @@ export class Hud {
   onPromptTap?: () => void;
   /** The ✕ button shown during mini-games. */
   onQuit?: () => void;
+  /** The profile badge in the top-right corner. */
+  onProfile?: () => void;
 
   constructor(root: HTMLElement) {
     this.root = root;
@@ -62,10 +68,16 @@ export class Hud {
     this.quitBtn.setAttribute('aria-label', 'Leave game');
     this.quitBtn.addEventListener('click', () => this.onQuit?.());
     this.prompt.addEventListener('click', () => this.onPromptTap?.());
+    this.profileBtn.setAttribute('aria-label', 'Your passport');
+    this.profileBtn.addEventListener('click', () => this.onProfile?.());
     this.mapBox.addEventListener('click', () => this.mapBox.classList.add('hidden'));
-    root.append(this.tracker, this.prompt, this.gameBar, this.actionBtn, this.quitBtn, this.hint, this.toastBox, this.mapBox, this.card, this.loading, this.fade);
-    gameState.events.on('change', () => this.renderTracker());
+    root.append(this.tracker, this.profileBtn, this.prompt, this.gameBar, this.actionBtn, this.quitBtn, this.hint, this.toastBox, this.mapBox, this.card, this.loading, this.fade);
+    gameState.events.on('change', () => {
+      this.renderTracker();
+      this.renderProfile();
+    });
     this.renderTracker();
+    this.renderProfile();
     this.refreshDeviceMode();
   }
 
@@ -147,8 +159,38 @@ export class Hud {
   setWorldHudVisible(v: boolean) {
     this.worldHudVisible = v;
     this.tracker.classList.toggle('hidden', !v);
+    this.profileBtn.classList.toggle('hidden', !v);
     this.hint.classList.toggle('hidden', !v);
     if (!v) this.hidePrompt();
+  }
+
+  /** Signed-in player for the badge, or null for a guest. */
+  setProfile(p: { name: string; charId: string } | null) {
+    this.profile = p;
+    this.renderProfile();
+  }
+
+  /** Green dot while connected to the shared village. */
+  setOnline(on: boolean) {
+    this.profileBtn.classList.toggle('online', on);
+  }
+
+  private renderProfile() {
+    const p = this.profile;
+    const { title } = titleFor(gameState.totalStars);
+    this.profileBtn.classList.toggle('guest', !p);
+    this.profileBtn.title = p ? `${p.name} · ${title.name}` : 'Guest · open your passport';
+    this.profileBtn.innerHTML = `<span class="pf-ava"><img alt="" hidden><span class="pf-ghost">${p ? '🧝' : '👤'}</span><i class="pf-dot"></i></span>
+      <span class="pf-txt"><b></b><small>${title.icon} ${title.name}</small></span><kbd>C</kbd>`;
+    this.profileBtn.querySelector('b')!.textContent = p ? p.name : 'Guest';
+    if (!p) return;
+    const img = this.profileBtn.querySelector('img')!;
+    void portrait(p.charId).then((url) => {
+      if (!url || this.profile?.charId !== p.charId) return;
+      img.src = url;
+      img.hidden = false;
+      this.profileBtn.querySelector('.pf-ghost')?.remove();
+    });
   }
 
   renderTracker() {

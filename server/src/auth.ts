@@ -10,6 +10,8 @@ export interface User {
   phone: string | null;
   characterId: string;
   role: 'player' | 'admin';
+  /** ISO time the account was made. */
+  createdAt: string | null;
 }
 
 export class AuthError extends Error {
@@ -29,7 +31,7 @@ const OTP_TTL_MIN = 5;
 const OTP_MAX_ATTEMPTS = 5;
 
 function toUser(r: Row): User {
-  return { id: r.id, username: r.username, email: r.email, phone: r.phone, characterId: r.character_id, role: r.role };
+  return { id: r.id, username: r.username, email: r.email, phone: r.phone, characterId: r.character_id, role: r.role, createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : null };
 }
 
 /** Accounts, sessions and one-time codes. All SQL for auth lives here. */

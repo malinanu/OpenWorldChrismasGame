@@ -10,6 +10,9 @@ import { buildSignposts, Roads, type RoadDef } from './Roads';
 import { applyNightLight, createSnowGroundMaterial, type NightLightUniforms } from './SnowGround';
 import { Terrain, type FlatSpot } from './Terrain';
 
+/** Half the cobbled road's width (Roads.ts WIDTH = 5). */
+const ROAD_HALF_WIDTH = 2.5;
+
 type Vec3 = [number, number, number];
 type ColliderKind = 'trunk' | 'box';
 
@@ -252,6 +255,13 @@ export class World {
     const pts = new THREE.Points(geo, mat);
     pts.frustumCulled = false;
     return pts;
+  }
+
+  /** Fresh snow to make a snowball from: not on the cobbled roads or the frozen lake. */
+  onSnow(x: number, z: number) {
+    const lake = this.data.lake;
+    if (lake && Math.hypot(x - lake.x, z - lake.z) < lake.r) return false;
+    return this.terrain.pathDistance(x, z) > ROAD_HALF_WIDTH + 0.1;
   }
 
   groundY(x: number, z: number) {

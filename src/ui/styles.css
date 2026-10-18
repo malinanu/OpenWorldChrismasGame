@@ -85,8 +85,8 @@ body.is-touch .prompt { pointer-events: auto; cursor: pointer; padding: 12px 20p
 .tbtn.jump:active, .tbtn.jump.down { transform: translateY(5px); background: radial-gradient(circle at 50% 28%, #ff8a8f 0%, var(--accent) 45%, #b8293a 100%);
   box-shadow: 0 1px 0 var(--accent-dark), 0 4px 8px rgba(0, 0, 0, 0.3), inset 0 3px 0 rgba(255, 255, 255, 0.25); }
 .tbtn.small { width: 46px; height: 46px; font-size: 1.2rem; top: calc(var(--gap) + var(--safe-t)); }
-.tbtn.tb-pause { right: calc(var(--gap) + var(--safe-r)); }
-.tbtn.tb-map { right: calc(var(--gap) + 54px + var(--safe-r)); }
+.tbtn.tb-pause { right: calc(var(--gap) + 54px + var(--safe-r)); }
+.tbtn.tb-map { right: calc(var(--gap) + 108px + var(--safe-r)); }
 
 /* ---------- mini-game HUD ---------- */
 .gamebar { position: absolute; top: calc(var(--gap) + var(--safe-t)); left: 50%; transform: translateX(-50%); background: var(--panel);
@@ -282,9 +282,18 @@ body.is-touch .prompt { pointer-events: auto; cursor: pointer; padding: 12px 20p
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; -webkit-tap-highlight-color: transparent; }
 .tbtn.throw .ico { font-size: 1.35rem; line-height: 1; }
 .tbtn.throw span:last-child { font-size: 0.6rem; letter-spacing: 0.06em; font-weight: 800; }
-.tbtn.throw.ready { background: radial-gradient(circle at 50% 28%, #fff6d6 0%, var(--gold) 55%, #d9a520 100%); color: #3a2400; box-shadow: 0 5px 0 #8a6510, 0 8px 14px rgba(0,0,0,0.3); }
+/* On the cobbled roads there's no snow to throw: the button fades away until you step back onto the snow. */
+.tbtn.throw { transition: opacity 0.2s, transform 0.2s, visibility 0.2s; }
+.tbtn.throw.off { opacity: 0; visibility: hidden; transform: scale(0.6); pointer-events: none; }
 .tbtn.throw:active, .tbtn.throw.down { transform: translateY(4px); box-shadow: 0 1px 0 #4c6f9e; }
-.tbtn.tb-trophy { right: calc(var(--gap) + 108px + var(--safe-r)); }
+.tbtn.tb-trophy { right: calc(var(--gap) + 162px + var(--safe-r)); }
+/* Narrow phones: the ornament tracker needs the top row, so the small buttons stack under the profile badge. */
+@media (max-width: 520px) {
+  .tbtn.tb-pause, .tbtn.tb-map, .tbtn.tb-trophy { right: calc(var(--gap) + var(--safe-r)); }
+  .tbtn.tb-pause { top: calc(var(--gap) + 54px + var(--safe-t)); }
+  .tbtn.tb-map { top: calc(var(--gap) + 108px + var(--safe-t)); }
+  .tbtn.tb-trophy { top: calc(var(--gap) + 162px + var(--safe-t)); }
+}
 @media (max-height: 460px) {
   .tbtn.throw { right: calc(132px + var(--safe-r)); bottom: calc(80px + var(--safe-b)); }
 }
@@ -301,3 +310,95 @@ body.is-touch .prompt { pointer-events: auto; cursor: pointer; padding: 12px 20p
 .leaders tr.me td { background: rgba(255, 210, 90, 0.16); }
 .leaders tr.gap td { text-align: center; color: var(--muted); border: none; padding: 2px; }
 .muted { color: var(--muted); }
+
+/* ---------- profile badge (top-right) ---------- */
+.profile-badge { position: absolute; top: calc(var(--gap) + var(--safe-t)); right: calc(var(--gap) + var(--safe-r)); display: flex; align-items: center; gap: 9px;
+  font: inherit; color: var(--ink); background: var(--panel); border: 2px solid rgba(255, 210, 90, 0.55); border-radius: 999px; padding: 4px 12px 4px 4px;
+  cursor: pointer; box-shadow: 0 6px 18px rgba(0,0,0,0.25); transition: transform 0.12s, border-color 0.12s; text-align: left; }
+.profile-badge:hover { transform: translateY(-2px); border-color: var(--gold); }
+.profile-badge:active { transform: scale(0.96); }
+.pf-ava { position: relative; width: 44px; height: 44px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: 1.4rem;
+  background: radial-gradient(circle at 50% 35%, #5d8fd1, #1f3a63 75%); border: 2px solid var(--gold); }
+.pf-ava img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+.pf-dot { position: absolute; right: -2px; bottom: -2px; width: 13px; height: 13px; border-radius: 50%; background: #8a96a8; border: 2px solid #14223a; }
+.profile-badge.online .pf-dot { background: #4ade80; box-shadow: 0 0 8px #4ade80; }
+.profile-badge.guest .pf-ava { border-style: dashed; filter: saturate(0.6); }
+.pf-txt { display: grid; line-height: 1.15; }
+.pf-txt b { font-size: 0.95rem; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pf-txt small { font-size: 0.72rem; color: var(--gold); white-space: nowrap; }
+.profile-badge kbd { font-family: inherit; font-size: 0.7rem; font-weight: 700; background: rgba(255,255,255,0.14); border-radius: 6px; padding: 1px 6px; }
+body.is-touch .profile-badge { padding: 0; gap: 0; background: none; border: none; box-shadow: none; }
+body.is-touch .profile-badge .pf-ava { width: 46px; height: 46px; box-shadow: 0 4px 12px rgba(0,0,0,0.35); }
+body.is-touch .profile-badge .pf-txt, body.is-touch .profile-badge kbd { display: none; }
+
+/* ---------- the Frostvale Passport ---------- */
+.passport { text-align: left; }
+.pp-cover { text-align: center; font-weight: 700; letter-spacing: 0.18em; font-size: 0.82rem; color: var(--gold); margin: -4px 0 10px;
+  text-shadow: 0 1px 0 #8a6510, 0 0 12px rgba(255,210,90,0.45); }
+.pp-flake { display: inline-block; animation: spin 8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.pp-page { color: #2b2a33; border-radius: 16px; padding: 14px; position: relative; overflow: hidden;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 27px, rgba(120,100,70,0.07) 27px 28px),
+    linear-gradient(180deg, #fffaf0, #f5ead3);
+  box-shadow: inset 0 0 0 2px rgba(160,130,90,0.25), inset 0 0 30px rgba(170,140,90,0.18); }
+.pp-page::after { content: '❄'; position: absolute; top: -18px; right: -6px; font-size: 7rem; line-height: 1; color: rgba(47,111,214,0.08);
+  transform: rotate(18deg); pointer-events: none; }
+.pp-head { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; }
+.pp-photo { position: relative; width: 112px; aspect-ratio: 132 / 150; border-radius: 10px; border: 4px solid #fff; transform: rotate(-3deg); cursor: pointer;
+  background: radial-gradient(circle at 50% 30%, #8fbaf0, #2a4f86 80%); box-shadow: 0 6px 14px rgba(60,40,10,0.3); }
+.pp-photo::before { content: '📎'; position: absolute; top: -14px; left: 10px; font-size: 1.3rem; transform: rotate(-20deg); z-index: 1; }
+.pp-photo canvas { width: 100%; height: 100%; display: block; border-radius: 6px; }
+.pp-who { min-width: 0; }
+.card .pp-name { margin: 0; font-size: 1.45rem; color: #1d3a66; overflow-wrap: anywhere; }
+.card .pp-line { margin: 2px 0; font-size: 0.85rem; color: #5b5547; }
+.card .pp-line.muted { color: #8a8270; }
+.card .pp-rank { display: inline-block; margin: 6px 0 0; background: var(--accent); color: #fff; font-weight: 700; font-size: 0.85rem; padding: 3px 14px;
+  clip-path: polygon(0 0, 100% 0, 94% 50%, 100% 100%, 0 100%, 6% 50%); }
+.pp-title { margin: 12px 0 4px; }
+.pp-title-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pp-badge { background: linear-gradient(180deg, #ffe08a, var(--gold)); color: #3a2400; font-weight: 700; border-radius: 999px; padding: 3px 12px;
+  box-shadow: 0 2px 0 #b8871a; }
+.pp-stars { font-weight: 700; color: #8a6510; }
+.pp-bar { height: 12px; border-radius: 999px; background: #e3d8c2; margin-top: 8px; overflow: hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,0.15); }
+.pp-bar i { display: block; height: 100%; border-radius: 999px; min-width: 12px;
+  background: repeating-linear-gradient(-45deg, var(--accent) 0 8px, #fff 8px 16px); background-size: 22.6px 22.6px; animation: cane 1.2s linear infinite; }
+@keyframes cane { to { background-position: 22.6px 0; } }
+.card .pp-next { margin: 4px 0 0; font-size: 0.82rem; color: #6b6352; }
+.pp-sub { margin: 14px 0 8px; font-size: 0.95rem; color: #1d3a66; display: flex; justify-content: space-between; border-bottom: 2px dashed rgba(120,100,70,0.3); padding-bottom: 4px; }
+.pp-sub span { color: #8a6510; }
+/* Columns may shrink below their text's width (narrow phones), and stay stamp-sized on wide screens. */
+.stamps { display: grid; grid-template-columns: repeat(3, minmax(0, 108px)); justify-content: center; gap: 8px 14px; }
+.stamp { position: relative; aspect-ratio: 1; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; padding: 8px; line-height: 1.1; min-width: 0; overflow: hidden; }
+.stamp b { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.04em; max-width: 90%; overflow-wrap: anywhere; }
+.stamp small { font-size: 0.6rem; }
+.st-emoji { font-size: 1.6rem; line-height: 1.1; }
+.stamp.got { color: var(--ink); border: 3px solid var(--ink); transform: rotate(var(--tilt)); opacity: 0.88; mix-blend-mode: multiply;
+  background: radial-gradient(circle, transparent 55%, color-mix(in srgb, var(--ink) 8%, transparent) 100%); }
+.stamp.got .st-ring { position: absolute; inset: 4px; border-radius: 50%; border: 1.5px dashed var(--ink); opacity: 0.7; }
+.stamp.got .st-stars { font-size: 0.85rem; letter-spacing: 1px; }
+.stamp.got .st-emoji { filter: drop-shadow(0 1px 0 rgba(0,0,0,0.15)); }
+.stamp.empty { border: 2px dashed #c4b9a3; color: #9a917f; }
+.stamp.empty .st-emoji { filter: grayscale(1); opacity: 0.45; }
+.stamp.fresh { animation: stamp-in 0.42s cubic-bezier(0.2, 1.4, 0.4, 1) backwards; animation-delay: var(--delay); }
+@keyframes stamp-in { 0% { transform: scale(2.6) rotate(calc(var(--tilt) - 25deg)); opacity: 0; } 70% { opacity: 0.95; } 100% { transform: scale(1) rotate(var(--tilt)); } }
+.tickets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.ticket { background: #fff; border: 2px dashed #c8bfae; border-radius: 12px; padding: 6px 4px; text-align: center; display: grid;
+  -webkit-mask: radial-gradient(circle 7px at 0 50%, transparent 98%, #000) left / 51% 100% no-repeat, radial-gradient(circle 7px at 100% 50%, transparent 98%, #000) right / 51% 100% no-repeat;
+  mask: radial-gradient(circle 7px at 0 50%, transparent 98%, #000) left / 51% 100% no-repeat, radial-gradient(circle 7px at 100% 50%, transparent 98%, #000) right / 51% 100% no-repeat; }
+.ticket b { font-size: 1.35rem; color: #1d3a66; }
+.ticket small { font-size: 0.7rem; color: #7a7262; }
+.pp-invite { margin-top: 12px; background: rgba(47,111,214,0.1); border: 2px dashed rgba(47,111,214,0.35); color: #1d3a66; border-radius: 12px; padding: 10px 12px;
+  font-size: 0.9rem; text-align: center; }
+.card .pp-actions { margin-top: 12px; }
+.card button.chip.ghosty { background: transparent; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.3); }
+@media (max-width: 380px) {
+  .pp-page { padding: 10px; }
+  .pp-photo { width: 92px; }
+  .card .pp-name { font-size: 1.2rem; }
+  .st-emoji { font-size: 1.3rem; }
+  .stamp b { font-size: 0.5rem; letter-spacing: 0; overflow-wrap: normal; }
+  .stamp { padding: 6px; }
+  .stamp.empty small { display: none; }
+}

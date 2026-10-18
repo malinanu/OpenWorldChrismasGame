@@ -1,10 +1,12 @@
 import * as THREE from 'three';
 import { assets } from '../core/AssetLoader';
 import { audio } from '../core/Audio';
-import { api, CHARACTER_NAMES } from '../net/api';
+import { api } from '../net/api';
 import { changeCharacter, serverConfig, signInAgain, signOut } from '../net/session';
 import { Multiplayer } from '../net/Multiplayer';
 import { showLeaderboard } from '../ui/leaderboard';
+import { showProfile } from '../ui/profile';
+import { esc } from '../ui/account';
 import { SnowballFight } from './SnowballFight';
 import type { Engine, Quality } from '../core/Engine';
 import { isTouchDevice, type Input } from '../core/Input';
@@ -78,7 +80,7 @@ export class Overworld implements OverworldContract {
     spawn.y = this.world.groundY(spawn.x, spawn.z);
     this.player.attach(this.world.physics.world, spawn);
     this.world.scene.add(this.player.object);
-    this.fight = new SnowballFight(this.player, this.hud, (x, z) => this.world.groundY(x, z));
+    this.fight = new SnowballFight(this.player, this.hud, (x, z) => this.world.groundY(x, z), (x, z) => this.world.onSnow(x, z));
     await this.fight.load();
     this.world.scene.add(this.fight.group);
     if (!saved) this.player.faceTowards(Math.PI);
@@ -167,6 +169,8 @@ export class Overworld implements OverworldContract {
         this.openPause();
       } else if (input.justPressed('leaderboard')) {
         this.openLeaderboard();
+      } else if (input.justPressed('profile')) {
+        this.openProfile();
       }
     }
 
@@ -196,7 +200,7 @@ export class Overworld implements OverworldContract {
 
     const pr = this.engine.renderer.getPixelRatio();
     this.fight.update(dt, active ? input : null, this.cam.yaw, pr);
-    this.touch?.setSnowball(this.fight.holding);
+    this.touch?.setThrowReady(this.fight.onSnow);
     this.snow.update(time, this.cam.camera.position, pr);
     this.fireworks.update(dt, pr);
     for (const z of this.zones) {
@@ -255,6 +259,7 @@ export class Overworld implements OverworldContract {
     if (this.multiplayer) return;
     const busy = () => !!this.sceneManager?.inMiniGame;
     this.multiplayer = new Multiplayer(() => this.fight.localState());
+    this.multiplayer.on('status', (on) => this.hud.setOnline(on));
     this.fight.goOnline(this.multiplayer, busy);
     this.multiplayer.connect();
   }
@@ -263,6 +268,22 @@ export class Overworld implements OverworldContract {
     this.paused = true;
     this.input.unlockPointer();
     void showLeaderboard(this.hud).finally(() => this.resume());
+  }
+
+  /** The passport (from the badge, C, or the pause menu), then whatever it asked for. */
+  openProfile() {
+    if (this.paused || this.hud.cardOpen) return;
+    this.paused = true;
+    this.input.unlockPointer();
+    void this.profileFlow().finally(() => this.resume());
+  }
+
+  private async profileFlow() {
+    const next = await showProfile(this.hud, { server: !!serverConfig });
+    if (next === 'character') await changeCharacter(this.hud, this);
+    else if (next === 'leaders') await showLeaderboard(this.hud);
+    else if (next === 'signin') signInAgain();
+    else if (next === 'signout') await signOut();
   }
 
   private openPause() {
@@ -276,12 +297,8 @@ export class Overworld implements OverworldContract {
       ? `<div class="row"><button class="chip" data-fullscreen>${document.fullscreenElement ? '🗗 Exit fullscreen' : '⛶ Fullscreen'}</button></div>`
       : '';
     const me = api.user;
-    const account = me
-      ? `<div class="row account-row"><span class="small">👤 <b>${me.username}</b> · ${CHARACTER_NAMES[me.characterId] ?? me.characterId}</span>
-           <button class="chip" data-character>🧝 Character</button><button class="chip" data-signout>Sign out</button></div>`
-      : serverConfig
-        ? `<div class="row account-row"><span class="small">Playing offline</span><button class="chip" data-signin>Sign in</button></div>`
-        : '';
+    const account = `<div class="row account-row"><span class="small">${me ? `👤 <b>${esc(me.username ?? '')}</b>` : 'Playing as a guest'}</span>
+         <button class="chip" data-profile>🛂 Passport</button></div>`;
     let after: (() => Promise<void>) | null = null;
     this.hud
       .showCard(
@@ -298,16 +315,14 @@ export class Overworld implements OverworldContract {
          <div class="row"><button data-ok autofocus>Resume</button></div>`,
         (card) => {
           const close = () => card.querySelector<HTMLButtonElement>('[data-ok]')!.click();
-          card.querySelector('[data-character]')?.addEventListener('click', () => {
-            after = () => changeCharacter(this.hud, this);
+          card.querySelector('[data-profile]')?.addEventListener('click', () => {
+            after = () => this.profileFlow();
             close();
           });
-          card.querySelector('[data-signout]')?.addEventListener('click', () => void signOut());
           card.querySelector('[data-leaders]')?.addEventListener('click', () => {
             after = () => showLeaderboard(this.hud);
             close();
           });
-          card.querySelector('[data-signin]')?.addEventListener('click', signInAgain);
           card.querySelectorAll<HTMLButtonElement>('[data-quality]').forEach((b) =>
             b.addEventListener('click', () => this.changeQuality(b.dataset.quality as Quality)),
           );
