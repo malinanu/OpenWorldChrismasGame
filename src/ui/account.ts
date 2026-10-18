@@ -184,9 +184,32 @@ export async function chooseCharacter(hud: Hud, characters: string[], current: s
       const key = new THREE.DirectionalLight('#fff1dc', 2.2);
       key.position.set(2, 4, 3);
       scene.add(key);
-      const camera = new THREE.PerspectiveCamera(30, 240 / 260, 0.1, 50);
-      camera.position.set(0, 1.25, 4.6);
-      camera.lookAt(0, 0.9, 0);
+      // Render at the canvas' real size and the screen's pixel ratio (sharp on phones).
+      const w = canvas.clientWidth || 240;
+      const h = canvas.clientHeight || 260;
+      renderer.setSize(w, h, false);
+      const camera = new THREE.PerspectiveCamera(30, w / h, 0.1, 50);
+      // Framing for the current character; the camera eases towards it.
+      const aim = { y: 1.1, look: 1.0, dist: 5.2 };
+      const cam = { ...aim };
+      const place = () => {
+        camera.position.set(0, cam.y, cam.dist);
+        camera.lookAt(0, cam.look, 0);
+      };
+      place();
+      /** Fit the whole figure and the stand in view, whichever way it's turned. */
+      const frame = (model: THREE.Object3D) => {
+        const box = new THREE.Box3().setFromObject(model);
+        const size = box.getSize(new THREE.Vector3());
+        const bottom = Math.min(box.min.y, -0.12);
+        const tall = box.max.y - bottom;
+        const mid = (box.max.y + bottom) / 2;
+        const tanHalf = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+        const across = Math.hypot(size.x, size.z) / camera.aspect;
+        aim.dist = (Math.max(tall, across) / 2) * 1.15 / tanHalf + Math.max(size.x, size.z) / 2;
+        aim.look = mid;
+        aim.y = mid + tall * 0.06;
+      };
       const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.95, 0.12, 40), new THREE.MeshStandardMaterial({ color: '#e9f1fb', roughness: 0.9 }));
       stand.position.y = -0.06;
       scene.add(stand);
@@ -204,6 +227,7 @@ export async function chooseCharacter(hud: Hud, characters: string[], current: s
         if (mine !== token) return;
         turntable.clear();
         turntable.add(model);
+        frame(model);
         mixer = new THREE.AnimationMixer(model);
         mixer.clipAction(idle).play();
       };
@@ -223,6 +247,11 @@ export async function chooseCharacter(hud: Hud, characters: string[], current: s
         const dt = Math.min(clock.getDelta(), 0.05);
         turntable.rotation.y += dt * 0.6;
         mixer?.update(dt);
+        const k = 1 - Math.exp(-dt * 8);
+        cam.y += (aim.y - cam.y) * k;
+        cam.look += (aim.look - cam.look) * k;
+        cam.dist += (aim.dist - cam.dist) * k;
+        place();
         renderer!.render(scene, camera);
       };
       void show(index).then(loop);

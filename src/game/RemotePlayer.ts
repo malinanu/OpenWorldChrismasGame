@@ -41,7 +41,6 @@ function nameTag(text: string): THREE.Sprite {
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthWrite: false, sizeAttenuation: false, transparent: true }));
   const h = 0.045;
   s.scale.set((h * w) / 72, h, 1);
-  s.position.y = 2.35;
   s.renderOrder = 5;
   return s;
 }
@@ -57,6 +56,7 @@ export class RemotePlayer {
   private loadToken = 0;
   private flinch = 0;
   private char = '';
+  private tagY = 2.35;
   name = '';
 
   constructor(
@@ -77,6 +77,7 @@ export class RemotePlayer {
         this.tag.material.dispose();
       }
       this.tag = nameTag(name);
+      this.tag.position.y = this.tagY;
       this.object.add(this.tag);
     }
     if (char !== this.char) {
@@ -91,6 +92,9 @@ export class RemotePlayer {
     if (mine !== this.loadToken) return;
     if (this.model) this.object.remove(this.model);
     this.model = cloneSkinned(g.scene);
+    // Name tag just above the head, helmet or hat (measured before it's placed in the world).
+    this.tagY = new THREE.Box3().setFromObject(this.model).max.y + 0.35;
+    if (this.tag) this.tag.position.y = this.tagY;
     this.object.add(this.model);
     this.mixer = new THREE.AnimationMixer(this.model);
     this.actions.clear();

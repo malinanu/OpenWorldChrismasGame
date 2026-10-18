@@ -267,7 +267,7 @@ body.is-touch .prompt { pointer-events: auto; cursor: pointer; padding: 12px 20p
 .account form button[type=submit]:disabled { opacity: 0.6; }
 .card button.small-btn { font-size: 0.95rem; padding: 8px 18px; min-height: 40px; margin-top: 8px; }
 .char-pick { display: flex; align-items: center; justify-content: center; gap: 4px; }
-.char-pick canvas { width: 240px; height: 260px; max-width: 62vw; touch-action: pan-y; }
+.char-pick canvas { width: min(240px, 62vw); height: auto; aspect-ratio: 240 / 260; touch-action: pan-y; }
 .card button.arrow { font-size: 1.8rem; width: 48px; height: 48px; padding: 0; border-radius: 50%; }
 .char-name { font-size: 1.3rem; font-weight: 700; margin: 2px 0 !important; }
 .char-dots { display: flex; gap: 6px; justify-content: center; }
