@@ -1,19 +1,16 @@
 import * as THREE from 'three';
 import { assets } from '../core/AssetLoader';
 import { audio } from '../core/Audio';
-import { api } from '../net/api';
 import { changeCharacter, serverConfig, signInAgain, signOut } from '../net/session';
 import { Multiplayer } from '../net/Multiplayer';
-import { showLeaderboard } from '../ui/leaderboard';
-import { showProfile } from '../ui/profile';
-import { esc } from '../ui/account';
+import { showProfile, type HubTab } from '../ui/profile';
 import { SnowballFight } from './SnowballFight';
 import type { Engine, Quality } from '../core/Engine';
 import { isTouchDevice, type Input } from '../core/Input';
 import type { Overworld as OverworldContract, SceneManager } from '../core/SceneManager';
 import { MINI_GAME_IDS, type MiniGameId } from '../minigames/MiniGame';
 import { MINI_GAMES } from '../minigames/registry';
-import { canFullscreen, setFullscreen, type Hud } from '../ui/hud';
+import type { Hud } from '../ui/hud';
 import type { TouchControls } from '../ui/touch';
 import { Burst } from '../vfx/Burst';
 import { Snowfall } from '../vfx/Snowfall';
@@ -166,11 +163,11 @@ export class Overworld implements OverworldContract {
         );
       }
       if (input.justPressed('pause')) {
-        this.openPause();
+        this.openProfile('settings');
       } else if (input.justPressed('leaderboard')) {
-        this.openLeaderboard();
+        this.openProfile('leaders');
       } else if (input.justPressed('profile')) {
-        this.openProfile();
+        this.openProfile('passport');
       }
     }
 
@@ -264,99 +261,22 @@ export class Overworld implements OverworldContract {
     this.multiplayer.connect();
   }
 
-  private openLeaderboard() {
-    this.paused = true;
-    this.input.unlockPointer();
-    void showLeaderboard(this.hud).finally(() => this.resume());
-  }
-
-  /** The passport (from the badge, C, or the pause menu), then whatever it asked for. */
-  openProfile() {
+  /**
+   * The passport: the one menu (profile, leaderboard, settings). Opened by the badge / C,
+   * L (leaderboard tab) and Esc / ⏸ (settings tab). The game pauses while it's open.
+   */
+  openProfile(tab: HubTab = 'passport') {
     if (this.paused || this.hud.cardOpen) return;
     this.paused = true;
     this.input.unlockPointer();
-    void this.profileFlow().finally(() => this.resume());
+    void this.profileFlow(tab).finally(() => this.resume());
   }
 
-  private async profileFlow() {
-    const next = await showProfile(this.hud, { server: !!serverConfig });
+  private async profileFlow(tab: HubTab) {
+    const next = await showProfile(this.hud, { server: !!serverConfig, tab, onQuality: (q) => this.changeQuality(q) });
     if (next === 'character') await changeCharacter(this.hud, this);
-    else if (next === 'leaders') await showLeaderboard(this.hud);
     else if (next === 'signin') signInAgain();
     else if (next === 'signout') await signOut();
-  }
-
-  private openPause() {
-    this.paused = true;
-    this.input.unlockPointer();
-    const s = gameState.data.settings;
-    const current = s.quality;
-    const toggle = (k: 'music' | 'sfx', label: string) => `<button class="chip ${s[k] ? 'on' : ''}" data-sound="${k}">${label}</button>`;
-    const chip = (q: Quality, label: string) => `<button class="chip ${q === current ? 'on' : ''}" data-quality="${q}">${label}</button>`;
-    const fs = canFullscreen()
-      ? `<div class="row"><button class="chip" data-fullscreen>${document.fullscreenElement ? '🗗 Exit fullscreen' : '⛶ Fullscreen'}</button></div>`
-      : '';
-    const me = api.user;
-    const account = `<div class="row account-row"><span class="small">${me ? `👤 <b>${esc(me.username ?? '')}</b>` : 'Playing as a guest'}</span>
-         <button class="chip" data-profile>🛂 Passport</button></div>`;
-    let after: (() => Promise<void>) | null = null;
-    this.hud
-      .showCard(
-        `<h2>⏸ Paused</h2>
-         ${account}
-         <p>Ornaments: ${gameState.ornamentCount}/6 · ⭐ ${gameState.totalStars}/18 ${serverConfig ? '<button class="chip" data-leaders>🏆 Leaderboard</button>' : ''}</p>
-         <div class="settings">
-           <div class="row"><span class="small">Graphics</span>${chip('low', 'Fast')}${chip('medium', 'Balanced')}${chip('high', 'Pretty')}</div>
-           <div class="row"><span class="small">World</span><button class="chip ${s.dayNight ? 'on' : ''}" data-daynight>🌗 Day &amp; night</button></div>
-           <div class="row"><span class="small">Sound</span>${toggle('music', '🎵 Music')}${toggle('sfx', '🔔 Effects')}</div>
-           <div class="row"><span class="small">Volume</span><input type="range" min="0" max="1" step="0.05" value="${s.volume}" data-volume aria-label="Volume"></div>
-           ${fs}
-         </div>
-         <div class="row"><button data-ok autofocus>Resume</button></div>`,
-        (card) => {
-          const close = () => card.querySelector<HTMLButtonElement>('[data-ok]')!.click();
-          card.querySelector('[data-profile]')?.addEventListener('click', () => {
-            after = () => this.profileFlow();
-            close();
-          });
-          card.querySelector('[data-leaders]')?.addEventListener('click', () => {
-            after = () => showLeaderboard(this.hud);
-            close();
-          });
-          card.querySelectorAll<HTMLButtonElement>('[data-quality]').forEach((b) =>
-            b.addEventListener('click', () => this.changeQuality(b.dataset.quality as Quality)),
-          );
-          card.querySelectorAll<HTMLButtonElement>('[data-sound]').forEach((b) =>
-            b.addEventListener('click', () => {
-              const k = b.dataset.sound as 'music' | 'sfx';
-              s[k] = !s[k];
-              b.classList.toggle('on', s[k]);
-              audio.configure({ [k]: s[k] });
-              gameState.save();
-            }),
-          );
-          card.querySelector<HTMLButtonElement>('[data-daynight]')!.addEventListener('click', (e) => {
-            s.dayNight = !s.dayNight;
-            (e.currentTarget as HTMLElement).classList.toggle('on', s.dayNight);
-            gameState.save();
-          });
-          const vol = card.querySelector<HTMLInputElement>('[data-volume]')!;
-          vol.addEventListener('input', () => audio.configure({ volume: (s.volume = Number(vol.value)) }));
-          vol.addEventListener('change', () => {
-            gameState.save();
-            audio.sfx('catch');
-          });
-          card.querySelector('[data-fullscreen]')?.addEventListener('click', (e) => {
-            const on = !document.fullscreenElement;
-            void setFullscreen(on);
-            (e.currentTarget as HTMLElement).textContent = on ? '🗗 Exit fullscreen' : '⛶ Fullscreen';
-          });
-        },
-      )
-      .catch(() => {})
-      .then(() => (after as (() => Promise<void>) | null)?.())
-      .catch(() => {})
-      .finally(() => this.resume());
   }
 
   /** Quality is baked into shaders and the forest, so the simplest correct switch is a reload. */

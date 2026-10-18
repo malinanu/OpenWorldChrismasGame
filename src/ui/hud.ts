@@ -27,7 +27,7 @@ export interface GameAction {
   enabled: boolean;
 }
 
-const DESKTOP_HINT = 'WASD move · Mouse look · Shift sprint · Space jump · F snowball · E play · M map · L leaders · C profile · Esc pause';
+const DESKTOP_HINT = 'WASD move · Mouse look · Shift sprint · Space jump · F snowball · E play · M map · C passport · L leaders · Esc settings';
 const TOUCH_HINT = 'Left thumb: move (push far to run) · Right thumb: look · ⤒ jump · ❄️ throw a snowball (in the snow)';
 
 /** All HTML overlay UI: loading, title, prompts, trackers, cards, map, mini-game bar. */

@@ -6,10 +6,15 @@ import { MINI_GAMES } from '../minigames/registry';
 import { api, CHARACTER_NAMES } from '../net/api';
 import { esc } from './account';
 import { mountAvatarStage, type AvatarStage } from './avatar';
+import { mountLeaderboard } from './leaderboard';
+import { mountSettings } from './settings';
+import type { Quality } from '../core/Engine';
 import type { Hud } from './hud';
 
 /** What the player asked for from the passport; the caller runs it once the card has closed. */
-export type ProfileNext = 'character' | 'leaders' | 'signin' | 'signout' | null;
+export type ProfileNext = 'character' | 'signin' | 'signout' | null;
+/** The passport's tabs: one place for your profile, the leaderboards and the settings. */
+export type HubTab = 'passport' | 'leaders' | 'settings';
 
 const SEEN_KEY = 'frostvale.passportStamps';
 /** Each mini-game's stamp ink. */
@@ -67,17 +72,23 @@ function stamp(id: MiniGameId, i: number, fresh: boolean) {
 }
 
 /**
- * The Frostvale Passport: your Adventurer live in 3D, your festive title, a stamp for every
- * mini-game you've won, your snowball record and rank. Renders instantly from local progress;
- * server stats fill in when they arrive.
+ * The Frostvale Passport, the game's one menu, in three tabs:
+ * - Passport: your Adventurer live in 3D, your festive title, a stamp for every mini-game
+ *   you've won, your snowball record and rank. Renders instantly from local progress; server
+ *   stats fill in when they arrive.
+ * - Leaderboard: stars & ornaments, then best score per mini-game.
+ * - Settings: graphics, day & night, sound.
+ * The game is paused while it's open.
  */
-export async function showProfile(hud: Hud, online: { server: boolean }): Promise<ProfileNext> {
+export async function showProfile(hud: Hud, opts: { server: boolean; tab?: HubTab; onQuality: (q: Quality) => void }): Promise<ProfileNext> {
+  const startTab = opts.tab ?? 'passport';
   const user = api.user;
   const stars = gameState.totalStars;
   const { title, next, progress } = titleFor(stars);
   const seen = seenStamps();
   const earned = MINI_GAME_IDS.filter((id) => gameState.hasOrnament(id));
-  const fresh = new Set(earned.filter((id) => !seen.includes(id)));
+  // New stamps thump in only when the passport is what you opened (not hidden behind another tab).
+  const fresh = new Set(startTab === 'passport' ? earned.filter((id) => !seen.includes(id)) : []);
   const charId = user?.characterId ?? 'Rogue_Hooded';
   const since = user?.createdAt ? new Date(user.createdAt).toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : '';
   let result: ProfileNext = null;
@@ -94,9 +105,8 @@ export async function showProfile(hud: Hud, online: { server: boolean }): Promis
 
   const actions = user
     ? `<button class="chip" data-act="character">🎭 Change adventurer</button>
-       <button class="chip" data-act="leaders">🏆 Leaderboard</button>
        <button class="chip ghosty" data-signout>Sign out</button>`
-    : online.server
+    : opts.server
       ? `<button class="chip on" data-act="signin">✨ Sign in</button>`
       : '';
 
@@ -104,6 +114,12 @@ export async function showProfile(hud: Hud, online: { server: boolean }): Promis
     .showCard(
       `<div class="passport">
         <div class="pp-cover"><span class="pp-flake">❄</span> FROSTVALE PASSPORT <span class="pp-flake">❄</span></div>
+        <div class="hub-tabs" role="tablist">
+          <button type="button" class="chip" data-tab="passport">🛂 Passport</button>
+          <button type="button" class="chip" data-tab="leaders">🏆 Leaders</button>
+          <button type="button" class="chip" data-tab="settings">⚙️ Settings</button>
+        </div>
+        <div class="hub-pane" data-pane="passport">
         <div class="pp-page">
           <div class="pp-head">
             <div class="pp-photo" title="Tap me!"><canvas width="132" height="150"></canvas></div>
@@ -124,10 +140,13 @@ export async function showProfile(hud: Hud, online: { server: boolean }): Promis
                    <div class="ticket"><b data-stat="taken">–</b><small>Splatted</small></div>
                    <div class="ticket"><b data-stat="ratio">–</b><small>Hits per splat</small></div>
                  </div>`
-              : `<div class="pp-invite">${online.server ? 'Sign in to keep your passport safe, play with friends and get on the leaderboard.' : 'Online play is unavailable right now. Your stamps are saved on this device.'}</div>`
+              : `<div class="pp-invite">${opts.server ? 'Sign in to keep your passport safe, play with friends and get on the leaderboard.' : 'Online play is unavailable right now. Your stamps are saved on this device.'}</div>`
           }
         </div>
-        <div class="row pp-actions">${actions}</div>
+        ${actions ? `<div class="row pp-actions">${actions}</div>` : ''}
+        </div>
+        <div class="hub-pane" data-pane="leaders"></div>
+        <div class="hub-pane" data-pane="settings"></div>
         <div class="row"><button data-ok>Close</button></div>
       </div>`,
       (card) => {
@@ -151,15 +170,30 @@ export async function showProfile(hud: Hud, online: { server: boolean }): Promis
           }
         });
 
-        // Live portrait: idle and turning slowly; tap it for a cheer.
+        // Tabs. Each pane is built the first time it's shown.
         const photo = card.querySelector<HTMLElement>('.pp-photo')!;
-        stage = mountAvatarStage(photo.querySelector('canvas')!, { spin: 0.35, stand: false });
-        void stage.show(charId);
+        const built = new Set<HubTab>();
+        const showTab = (tab: HubTab) => {
+          card.querySelectorAll<HTMLElement>('[data-tab]').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
+          card.querySelectorAll<HTMLElement>('[data-pane]').forEach((p) => (p.hidden = p.dataset.pane !== tab));
+          if (built.has(tab)) return;
+          built.add(tab);
+          const pane = card.querySelector<HTMLElement>(`[data-pane=${tab}]`)!;
+          if (tab === 'leaders') mountLeaderboard(pane);
+          else if (tab === 'settings') mountSettings(pane, { onQuality: opts.onQuality });
+          else {
+            // Live portrait: idle and turning slowly; tap it for a cheer.
+            stage = mountAvatarStage(photo.querySelector('canvas')!, { spin: 0.35, stand: false });
+            void stage.show(charId);
+          }
+        };
+        card.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab as HubTab)));
         photo.addEventListener('click', () => stage?.play('Cheering'));
+        showTab(startTab);
 
         // New stamps thump down one after another.
         [...fresh].forEach((_, i) => timers.push(window.setTimeout(() => audio.sfx('step', 0.8), (0.35 + i * 0.28) * 1000 + 180)));
-        rememberStamps(earned);
+        if (startTab === 'passport') rememberStamps(earned);
 
         if (!user) return;
         // The card element is reused; this passport is still showing while its root is attached.

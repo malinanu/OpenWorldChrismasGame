@@ -39,10 +39,8 @@ export class TouchControls {
     });
     for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) snow.addEventListener(ev, () => snow.classList.remove('down'));
     this.snow = snow;
-    const trophy = this.button('tbtn small tb-trophy', '🏆', 'Leaderboard');
-    trophy.addEventListener('click', () => input.tap('leaderboard'));
     const map = this.button('tbtn small tb-map', '🗺️', 'Map');
-    const pause = this.button('tbtn small tb-pause', '⏸', 'Pause');
+    const pause = this.button('tbtn small tb-pause', '⚙️', 'Settings');
     jump.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       input.tap('jump');
@@ -53,7 +51,7 @@ export class TouchControls {
     map.addEventListener('click', () => input.tap('map'));
     pause.addEventListener('click', () => input.tap('pause'));
     this.stickZone.append(this.base);
-    this.root.append(this.stickZone, this.lookZone, jump, snow, trophy, map, pause);
+    this.root.append(this.stickZone, this.lookZone, jump, snow, map, pause);
     // Underneath the rest of the HUD, so prompts, cards and the map receive taps first.
     parent.prepend(this.root);
 
