@@ -268,6 +268,8 @@ All audio lives in `src/core/Audio.ts` and is **generated in code**, so there is
 
 ## 🗣️ Languages: English · සිංහල · தமிழ்
 
+> **Currently English only.** Sinhala and Tamil are switched off until their text has been reviewed by native speakers (`docs/Frostvale-translations.xlsx`). To turn them back on, add `'si', 'ta'` to `LANGS` in `src/i18n/index.ts`: the picker, the sign-in switch and the Settings row come back by themselves.
+
 - **Choosing:** the first launch asks for the language before anything else. It can be changed on the sign-in card, or in the passport's ⚙️ Settings tab (the game reloads in it). The choice is saved on the device and on the account (`users.language`); the SMS code is sent in it too.
 - **Where the text lives:** shared UI text is in `src/i18n/ui.ts`, the game names and how-to steps are in `src/minigames/registry.ts`, and each mini-game has its own `strings.ts`. Every table holds `en`, `si` and `ta` side by side, and TypeScript refuses to build if a translation is missing. Sentences are whole templates with `{placeholders}` and `{ one, other }` plural forms.
 - **Fonts:** Noto Sans Sinhala and Noto Sans Tamil, loaded only for those languages; signposts wait for them before they are drawn.

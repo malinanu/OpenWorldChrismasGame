@@ -1,7 +1,7 @@
 import { api, ApiError, CHARACTER_NAMES, type ServerConfig, type User } from '../net/api';
 import { mountAvatarStage, type AvatarStage } from './avatar';
 import { langChips, switchLanguage } from './language';
-import { lang, type Lang } from '../i18n';
+import { lang, LANGS, type Lang } from '../i18n';
 import { t } from '../i18n/ui';
 import type { Hud } from './hud';
 
@@ -48,7 +48,7 @@ function wireForm(card: HTMLElement, submit: () => Promise<void>) {
 type SignInResult = User | 'offline';
 
 /** Language switch at the top of the sign-in card; switching reloads the game in that language. */
-const langRow = () => `<div class="lang-switch">${langChips(lang())}</div>`;
+const langRow = () => (LANGS.length > 1 ? `<div class="lang-switch">${langChips(lang())}</div>` : '');
 function wireLang(card: HTMLElement) {
   card.querySelectorAll<HTMLButtonElement>('[data-setlang]').forEach((b) => b.addEventListener('click', () => void switchLanguage(b.dataset.setlang as Lang)));
 }

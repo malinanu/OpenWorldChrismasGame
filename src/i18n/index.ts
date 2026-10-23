@@ -8,7 +8,13 @@
  */
 
 export type Lang = 'en' | 'si' | 'ta';
-export const LANGS: Lang[] = ['en', 'si', 'ta'];
+/**
+ * Languages offered to players. Sinhala and Tamil are switched off until their text has been
+ * reviewed (docs/Frostvale-translations.xlsx): add 'si' and 'ta' back here to turn them on.
+ * With one language there is no language picker, no switch on the sign-in card and no
+ * language row in Settings.
+ */
+export const LANGS: Lang[] = ['en'];
 
 /** Each language written in its own script, for the pickers. */
 export const LANG_NAMES: Record<Lang, string> = { en: 'English', si: 'සිංහල', ta: 'தமிழ்' };
@@ -27,8 +33,9 @@ export function lang(): Lang {
   return current;
 }
 
+/** A language that is switched on (a saved one that has since been switched off doesn't count). */
 export function isLang(v: unknown): v is Lang {
-  return v === 'en' || v === 'si' || v === 'ta';
+  return LANGS.includes(v as Lang);
 }
 
 export function setLanguage(l: Lang) {
