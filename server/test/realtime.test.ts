@@ -2,39 +2,13 @@ import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 import { WebSocket } from 'ws';
 import { GRAVITY } from '../src/realtime.ts';
-import { startServer } from './helpers.ts';
+import { connectPlayer, startServer } from './helpers.ts';
 
 let s: Awaited<ReturnType<typeof startServer>>;
 before(async () => (s = await startServer()));
 after(async () => s.stop());
 
-/** A scripted player: connects, records every message, can send state and throws. */
-async function player(name: string, characterId = 'Knight') {
-  const reg = await s.api('POST', '/api/auth/register', { email: `${name}@example.com`, password: 'snowball123', username: name });
-  await s.api('PUT', '/api/me', { characterId }, reg.body.token);
-  const ws = new WebSocket(`ws://127.0.0.1:${s.port}/ws?token=${reg.body.token}`);
-  const msgs: any[] = [];
-  ws.on('message', (d) => msgs.push(JSON.parse(String(d))));
-  await new Promise((r, j) => (ws.once('open', r), ws.once('error', j)));
-  const p = {
-    id: reg.body.user.id as number,
-    token: reg.body.token as string,
-    ws,
-    msgs,
-    send: (m: unknown) => ws.send(JSON.stringify(m)),
-    state: (x: number, z: number, extra: object = {}) => p.send({ t: 'state', x, y: 0, z, yaw: 0, a: 'idle', ...extra }),
-    wait: async (pred: (m: any) => boolean, ms = 3000) => {
-      const t0 = Date.now();
-      while (Date.now() - t0 < ms) {
-        const m = msgs.find(pred);
-        if (m) return m;
-        await new Promise((r) => setTimeout(r, 20));
-      }
-      throw new Error(`${name}: timed out waiting`);
-    },
-  };
-  return p;
-}
+const player = (name: string, characterId = 'Knight') => connectPlayer(s, name, characterId);
 
 /** Launch velocity for a lob from `o` landing at `target` after `t` seconds (what the client sends). */
 const lob = (o: number[], target: number[], t: number) => [(target[0] - o[0]) / t, (target[1] - o[1] + 0.5 * GRAVITY * t * t) / t, (target[2] - o[2]) / t];
@@ -62,8 +36,8 @@ test('players see each other, snowballs hit server-side, leaving cleans up', asy
   assert.deepEqual([hitA.from, hitA.to], [a.id, b.id]);
   assert.equal(hitB.k, hitA.k);
   await new Promise((r) => setTimeout(r, 100));
-  assert.deepEqual((await s.api('GET', '/api/me', undefined, a.token)).body.stats, { snowballHits: 1, snowballTaken: 0 });
-  assert.deepEqual((await s.api('GET', '/api/me', undefined, b.token)).body.stats, { snowballHits: 0, snowballTaken: 1 });
+  assert.deepEqual((await s.api('GET', '/api/me', undefined, a.token)).body.stats, { snowballHits: 1, snowballTaken: 0, kos: 0, knockedOut: 0 });
+  assert.deepEqual((await s.api('GET', '/api/me', undefined, b.token)).body.stats, { snowballHits: 0, snowballTaken: 1, kos: 0, knockedOut: 0 });
 
   // A miss, a too-fast throw and a throw from far away don't count.
   const before = a.msgs.filter((m) => m.t === 'hit').length;

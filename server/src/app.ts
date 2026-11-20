@@ -30,6 +30,6 @@ export async function buildApp(cfg: Config, pool: Pool, sms: SmsSender, opts: { 
   app.get('/api/online', async () => realtime.info);
   if (cfg.staticDir) await serveGame(app, cfg.staticDir);
   realtime.attach(app.server);
-  app.addHook('onClose', async () => realtime.close());
+  app.addHook('preClose', async () => realtime.close());
   return { app, auth, progress, realtime };
 }

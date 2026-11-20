@@ -17,7 +17,7 @@ test('register, me, login, logout', async () => {
   assert.equal(me.status, 200);
   assert.equal(me.body.user.id, reg.body.user.id);
   assert.ok(Math.abs(Date.parse(me.body.user.createdAt) - Date.now()) < 24 * 3600e3, 'createdAt is a recent ISO time');
-  assert.deepEqual(me.body.stats, { snowballHits: 0, snowballTaken: 0 });
+  assert.deepEqual(me.body.stats, { snowballHits: 0, snowballTaken: 0, kos: 0, knockedOut: 0 });
 
   const bad = await s.api('POST', '/api/auth/login', { email: 'ada@example.com', password: 'nope-nope' });
   assert.equal(bad.status, 401);

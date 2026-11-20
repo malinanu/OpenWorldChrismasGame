@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { AuthError, LANGS, USERNAME_RE, type Auth, type User } from './auth.ts';
 import type { Config } from './config.ts';
 import { CHARACTERS, isGameId } from './games.ts';
-import type { Progress } from './progress.ts';
+import type { Board, Progress } from './progress.ts';
 
 const email = z.string().trim().toLowerCase().email().max(254);
 const password = z.string().min(8, 'Passwords need at least 8 characters.').max(200);
@@ -106,8 +106,8 @@ export function registerRoutes(app: FastifyInstance, cfg: Config, auth: Auth, pr
 
   app.get('/api/leaderboard', async (req) => {
     const q = z.object({ board: z.string().default('stars') }).parse(req.query);
-    if (q.board !== 'stars' && !isGameId(q.board)) throw new AuthError(400, 'bad_board', 'Unknown leaderboard.');
+    if (q.board !== 'stars' && q.board !== 'fighters' && !isGameId(q.board)) throw new AuthError(400, 'bad_board', 'Unknown leaderboard.');
     const viewer = await auth.userForToken(bearer(req));
-    return progress.leaderboard(q.board as 'stars', viewer?.id ?? null);
+    return progress.leaderboard(q.board as Board, viewer?.id ?? null);
   });
 }

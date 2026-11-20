@@ -16,6 +16,8 @@ export interface LeaderRow {
   /** stars board only: ornaments won (games with at least one star). */
   ornaments?: number;
   stars?: number;
+  /** fighters board: times they were knocked out. */
+  deaths?: number;
 }
 
 /** Mini-game results and the leaderboards built from them. */
@@ -47,8 +49,13 @@ export class Progress {
   }
 
   async stats(userId: number) {
-    const [rows] = await this.db.query<Row[]>('SELECT snowball_hits, snowball_taken FROM stats WHERE user_id = ?', [userId]);
-    return { snowballHits: rows[0]?.snowball_hits ?? 0, snowballTaken: rows[0]?.snowball_taken ?? 0 };
+    const [rows] = await this.db.query<Row[]>('SELECT snowball_hits, snowball_taken, arena_kos, arena_deaths FROM stats WHERE user_id = ?', [userId]);
+    return {
+      snowballHits: rows[0]?.snowball_hits ?? 0,
+      snowballTaken: rows[0]?.snowball_taken ?? 0,
+      kos: rows[0]?.arena_kos ?? 0,
+      knockedOut: rows[0]?.arena_deaths ?? 0,
+    };
   }
 
   async recordHit(fromId: number, toId: number) {
@@ -56,10 +63,24 @@ export class Progress {
     await this.db.query('INSERT INTO stats (user_id, snowball_taken) VALUES (?, 1) ON DUPLICATE KEY UPDATE snowball_taken = snowball_taken + 1', [toId]);
   }
 
+  /** A fighter knocked another out in a fight zone. */
+  async recordKo(fromId: number, toId: number) {
+    await this.db.query(
+      'INSERT INTO stats (user_id, arena_kos, arena_updated_at) VALUES (?, 1, UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE arena_kos = arena_kos + 1, arena_updated_at = UTC_TIMESTAMP()',
+      [fromId],
+    );
+    await this.db.query('INSERT INTO stats (user_id, arena_deaths) VALUES (?, 1) ON DUPLICATE KEY UPDATE arena_deaths = arena_deaths + 1', [toId]);
+  }
+
   /** Top 50 for a board, plus the viewer's own row if they're further down. */
-  async leaderboard(board: 'stars' | GameId, viewerId: number | null): Promise<{ rows: LeaderRow[]; me: LeaderRow | null }> {
+  async leaderboard(board: Board, viewerId: number | null): Promise<{ rows: LeaderRow[]; me: LeaderRow | null }> {
     const ranked =
-      board === 'stars'
+      board === 'fighters'
+        ? `SELECT u.id, u.username, u.character_id, s.arena_kos AS value, s.arena_deaths AS deaths,
+             RANK() OVER (ORDER BY s.arena_kos DESC) AS rnk, s.arena_updated_at AS t
+           FROM stats s JOIN users u ON u.id = s.user_id
+           WHERE s.arena_kos > 0 AND u.username IS NOT NULL AND u.banned_at IS NULL`
+        : board === 'stars'
         ? `SELECT u.id, u.username, u.character_id, SUM(p.best_stars) AS value, SUM(p.best_stars > 0) AS ornaments,
              RANK() OVER (ORDER BY SUM(p.best_stars) DESC, SUM(p.best_stars > 0) DESC) AS rnk, MAX(p.updated_at) AS t
            FROM progress p JOIN users u ON u.id = p.user_id
@@ -69,7 +90,7 @@ export class Progress {
              RANK() OVER (ORDER BY p.best_score DESC) AS rnk, p.updated_at AS t
            FROM progress p JOIN users u ON u.id = p.user_id
            WHERE p.game_id = ? AND p.best_score > 0 AND u.username IS NOT NULL AND u.banned_at IS NULL`;
-    const params: unknown[] = board === 'stars' ? [] : [board];
+    const params: unknown[] = board === 'stars' || board === 'fighters' ? [] : [board];
     const [rows] = await this.db.query<Row[]>(`WITH t AS (${ranked}) SELECT * FROM t WHERE rnk <= 50 OR id = ? ORDER BY rnk, t LIMIT 51`, [...params, viewerId ?? 0]);
     const map = (r: Row): LeaderRow => ({
       rank: Number(r.rnk),
@@ -77,11 +98,13 @@ export class Progress {
       username: r.username,
       characterId: r.character_id,
       value: Number(r.value),
-      ...(board === 'stars' ? { ornaments: Number(r.ornaments) } : { stars: Number(r.stars) }),
+      ...(board === 'stars' ? { ornaments: Number(r.ornaments) } : board === 'fighters' ? { deaths: Number(r.deaths) } : { stars: Number(r.stars) }),
     });
     const all = rows.map(map);
     return { rows: all.filter((r) => r.rank <= 50).slice(0, 50), me: all.find((r) => r.userId === viewerId) ?? null };
   }
 }
 
-export const BOARDS = ['stars', ...GAME_IDS] as const;
+/** Everything a leaderboard can rank: stars, each mini-game's best score, and fight-zone knock-outs. */
+export type Board = 'stars' | 'fighters' | GameId;
+export const BOARDS = ['stars', 'fighters', ...GAME_IDS] as const;

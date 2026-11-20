@@ -1,6 +1,7 @@
 {
   "animations": [
     "Frostvale_Clips.glb",
+    "Frostvale_Combat.glb",
     "Rig_Medium_General.glb",
     "Rig_Medium_MovementBasic.glb",
     "Rig_Medium_Simulation.glb",
@@ -872,5 +873,15 @@
     "trowel",
     "wrench_A",
     "wrench_B"
+  ],
+  "weapons": [
+    "axe_1handed",
+    "axe_2handed",
+    "dagger",
+    "shield_badge",
+    "shield_round",
+    "staff",
+    "sword_1handed",
+    "sword_2handed"
   ]
 }
