@@ -37,6 +37,8 @@ export interface Weapon {
   knock: number;
   /** Share of the damage a guarding fighter holding this weapon blocks (0–1). */
   guard: number;
+  /** Strong weapons cost an extra token to fight with. */
+  premium?: boolean;
 }
 
 /**
@@ -46,15 +48,21 @@ export interface Weapon {
 export const WEAPONS: readonly Weapon[] = [
   { id: 'feather', arena: 'boxing', damage: 6, cooldown: 0.3, reach: 1.7, arc: 70, knock: 1.5, guard: 0.6 },
   { id: 'classic', arena: 'boxing', damage: 10, cooldown: 0.5, reach: 1.8, arc: 70, knock: 2.5, guard: 0.7 },
-  { id: 'heavy', arena: 'boxing', damage: 18, cooldown: 0.9, reach: 1.9, arc: 70, knock: 5, guard: 0.7 },
+  { id: 'heavy', arena: 'boxing', damage: 18, cooldown: 0.9, reach: 1.9, arc: 70, knock: 5, guard: 0.7, premium: true },
   { id: 'dagger', arena: 'sword', damage: 7, cooldown: 0.32, reach: 1.5, arc: 80, knock: 1.5, guard: 0.5 },
   { id: 'sword', arena: 'sword', damage: 12, cooldown: 0.55, reach: 2.3, arc: 90, knock: 3, guard: 0.8 },
-  { id: 'axe', arena: 'sword', damage: 20, cooldown: 0.95, reach: 2.2, arc: 100, knock: 5, guard: 0.6 },
-  { id: 'greatsword', arena: 'sword', damage: 26, cooldown: 1.25, reach: 2.6, arc: 90, knock: 7, guard: 0.6 },
+  { id: 'axe', arena: 'sword', damage: 20, cooldown: 0.95, reach: 2.2, arc: 100, knock: 5, guard: 0.6, premium: true },
+  { id: 'greatsword', arena: 'sword', damage: 26, cooldown: 1.25, reach: 2.6, arc: 90, knock: 7, guard: 0.6, premium: true },
   { id: 'staff', arena: 'sword', damage: 14, cooldown: 0.7, reach: 3.2, arc: 30, knock: 3, guard: 0.7 },
 ];
 
 export const MAX_HP = 100;
+/** Tokens to enter a fight, plus this for a premium weapon. */
+export const FIGHT_COST = 1;
+export const PREMIUM_EXTRA = 1;
+/** Knock-outs a paid entry lasts. */
+export const LIVES = 3;
+export const fightCost = (w: Weapon) => FIGHT_COST + (w.premium ? PREMIUM_EXTRA : 0);
 /** Seconds a knocked-out fighter lies down before getting back up. */
 export const KO_TIME = 3;
 /** Seconds of protection after getting back up. */
@@ -117,4 +125,4 @@ export function facing(defender: Pose, attacker: { x: number; z: number }): bool
 }
 
 /** The tables sent to the client in the welcome message. */
-export const fightTables = () => ({ arenas: ARENAS, weapons: WEAPONS, maxHp: MAX_HP, koTime: KO_TIME });
+export const fightTables = () => ({ arenas: ARENAS, weapons: WEAPONS, maxHp: MAX_HP, koTime: KO_TIME, cost: FIGHT_COST, premiumExtra: PREMIUM_EXTRA, lives: LIVES });

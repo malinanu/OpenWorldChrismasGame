@@ -5,12 +5,14 @@ import {
   type ArenaId,
   arenaIndex,
   facing,
+  fightCost,
   fightTables,
   getArena,
   getWeapon,
   insideArena,
   KO_TIME,
   LEAVE_MARGIN,
+  LIVES,
   MAX_HP,
   REGEN_DELAY,
   REGEN_RATE,
@@ -22,6 +24,7 @@ import {
 } from './arena.ts';
 import type { Auth, User } from './auth.ts';
 import type { Progress } from './progress.ts';
+import type { Tokens } from './tokens.ts';
 
 /**
  * The shared village over WebSocket (`/ws?token=…`).
@@ -81,6 +84,10 @@ interface Conn {
   koUntil: number;
   shieldUntil: number;
   swings: number;
+  /** Knock-outs left on this paid entry. */
+  lives: number;
+  /** Waiting for the token payment to go through (no second join meanwhile). */
+  paying: boolean;
 }
 
 interface Ball {
@@ -111,9 +118,18 @@ export class Realtime {
   private readonly auth: Auth;
   private readonly progress: Progress;
 
-  constructor(auth: Auth, progress: Progress) {
+  private readonly tokens: Tokens;
+
+  constructor(auth: Auth, progress: Progress, tokens: Tokens) {
     this.auth = auth;
     this.progress = progress;
+    this.tokens = tokens;
+  }
+
+  /** A balance changed outside the game (a pack was bought): tell the player if they're here. */
+  tokensChanged(userId: number, n: number) {
+    const c = this.byUser.get(userId);
+    if (c) this.send(c, { t: 'tokens', n });
   }
 
   attach(server: Server) {
@@ -171,7 +187,7 @@ export class Realtime {
       old.ws.close(4000, 'replaced');
     }
     const room = this.rooms.find((r) => r.players.size < ROOM_SIZE) ?? this.newRoom();
-    const conn: Conn = { ws, user, room, state: null, lastThrow: 0, alive: true, arena: null, weapon: null, hp: MAX_HP, lastAttack: 0, lastHurt: 0, koUntil: 0, shieldUntil: 0, swings: 0 };
+    const conn: Conn = { ws, user, room, state: null, lastThrow: 0, alive: true, arena: null, weapon: null, hp: MAX_HP, lastAttack: 0, lastHurt: 0, koUntil: 0, shieldUntil: 0, swings: 0, lives: 0, paying: false };
     room.players.set(user.id, conn);
     this.byUser.set(user.id, conn);
     this.send(conn, { t: 'welcome', id: user.id, room: room.id, players: [...room.players.values()].map((c) => profile(c.user)), fight: fightTables() });
@@ -187,7 +203,7 @@ export class Realtime {
       }
       if (msg.t === 'state') this.onState(conn, msg);
       else if (msg.t === 'throw') this.onThrow(conn, msg);
-      else if (msg.t === 'arena') this.onArena(conn, msg);
+      else if (msg.t === 'arena') void this.onArena(conn, msg).catch(() => this.send(conn, { t: 'arena_err', code: 'server' }));
       else if (msg.t === 'attack') this.onAttack(conn);
     });
     ws.on('pong', () => (conn.alive = true));
@@ -254,34 +270,51 @@ export class Realtime {
 
   // ---------------------------------------------------------------- fight zones
 
-  /** Join a fight zone with a weapon (or re-pick one), or leave it with `a: null`. */
-  private onArena(c: Conn, m: Record<string, unknown>) {
+  /**
+   * Join a fight zone with a weapon, or leave it with `a: null`. Joining costs tokens (more for a
+   * premium weapon) and lasts LIVES knock-outs; changing weapon means leaving and paying again.
+   */
+  private async onArena(c: Conn, m: Record<string, unknown>) {
     if (m.a === null || m.a === undefined) return this.leaveArena(c);
     const arena = getArena(m.a);
     const weapon = getWeapon(m.w);
     const s = c.state;
-    const now = clock();
-    if (!arena || !weapon || weapon.arena !== arena.id || !s || s.busy) return;
-    if (!insideArena(arena, s.x, s.z, 1) || c.koUntil > now) return;
-    // No swapping weapons in the middle of a fight: leave and come back.
-    if (c.arena && c.weapon !== weapon && now - c.lastHurt < REGEN_DELAY) return;
-    if (c.arena !== arena.id) {
-      c.hp = MAX_HP;
-      c.lastHurt = 0;
-      c.shieldUntil = now + 1;
+    if (!arena || !weapon || weapon.arena !== arena.id || !s || s.busy || c.paying) return;
+    if (!insideArena(arena, s.x, s.z, 1)) return;
+    if (c.arena) return; // already fighting: leave first
+    const cost = fightCost(weapon);
+    c.paying = true;
+    let balance: number | null;
+    try {
+      balance = await this.tokens.spend(c.user.id, cost, 'fight', `${arena.id}:${weapon.id}`);
+    } finally {
+      c.paying = false;
     }
+    if (balance === null) {
+      this.send(c, { t: 'arena_err', code: 'no_tokens', need: cost, have: await this.tokens.balance(c.user.id) });
+      return;
+    }
+    this.send(c, { t: 'tokens', n: balance });
+    // Gone while paying (closed the tab): the token is spent, like walking out.
+    if (this.byUser.get(c.user.id) !== c) return;
     c.arena = arena.id;
     c.weapon = weapon;
-    this.broadcast(c.room, { t: 'fighter', id: c.user.id, a: arena.id, w: weapon.id, hp: Math.round(c.hp) });
+    c.hp = MAX_HP;
+    c.lives = LIVES;
+    c.lastHurt = 0;
+    c.koUntil = 0;
+    c.shieldUntil = clock() + 1;
+    this.broadcast(c.room, { t: 'fighter', id: c.user.id, a: arena.id, w: weapon.id, hp: MAX_HP, lives: LIVES });
   }
 
-  private leaveArena(c: Conn) {
+  private leaveArena(c: Conn, why?: 'out') {
     if (!c.arena) return;
     c.arena = null;
     c.weapon = null;
     c.hp = MAX_HP;
     c.koUntil = 0;
-    this.broadcast(c.room, { t: 'fighter', id: c.user.id, a: null, w: null, hp: MAX_HP });
+    c.lives = 0;
+    this.broadcast(c.room, { t: 'fighter', id: c.user.id, a: null, w: null, hp: MAX_HP, ...(why ? { why } : {}) });
   }
 
   /** A swing: everyone sees it; whoever is inside its reach and arc takes the hit. */
@@ -329,7 +362,8 @@ export class Realtime {
     });
     if (to.hp <= 0) {
       to.koUntil = now + KO_TIME;
-      this.broadcast(from.room, { t: 'ko', from: from.user.id, to: to.user.id, w: w.id });
+      to.lives = Math.max(0, to.lives - 1);
+      this.broadcast(from.room, { t: 'ko', from: from.user.id, to: to.user.id, w: w.id, lives: to.lives });
       void this.progress.recordKo(from.user.id, to.user.id).catch(() => {});
     }
   }
@@ -346,7 +380,8 @@ export class Realtime {
         continue;
       }
       if (c.hp <= 0) {
-        if (now >= c.koUntil) this.getUp(c, arena, now);
+        // Back up for another round, or out of the fight when the paid lives are used up.
+        if (now >= c.koUntil) c.lives > 0 ? this.getUp(c, arena, now) : this.leaveArena(c, 'out');
       } else if (c.hp < MAX_HP && now - c.lastHurt > REGEN_DELAY) {
         c.hp = Math.min(MAX_HP, c.hp + REGEN_RATE * dt);
       }

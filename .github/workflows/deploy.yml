@@ -184,6 +184,11 @@ jobs:
           DB_USER: ${{ vars.FROSTVALE_DB_USER || 'frostvale' }}
           APP_PORT: ${{ vars.FROSTVALE_PORT || '3089' }}
           AUTH_MODE: ${{ vars.FROSTVALE_AUTH_MODE || 'email' }}
+          # Token packs (PayHere). Without the merchant ID and secret, the shop says "coming soon".
+          PAYHERE_MERCHANT_ID: ${{ secrets.PAYHERE_MERCHANT_ID }}
+          PAYHERE_MERCHANT_SECRET: ${{ secrets.PAYHERE_MERCHANT_SECRET }}
+          PAYHERE_SANDBOX: ${{ vars.PAYHERE_SANDBOX || 'true' }}
+          PUBLIC_URL: ${{ vars.FROSTVALE_PUBLIC_URL || 'https://openworldchrismasgame.3logiq.com' }}
         run: |
           DIR="${SERVER_PATH:-/home/$SSH_USER/frostvale-server}"
           SSH="ssh -i $HOME/.ssh/deploy_key -p $PORT -o StrictHostKeyChecking=yes"
@@ -197,6 +202,8 @@ jobs:
             printf '%s\n' "PORT=$APP_PORT" "HOST=127.0.0.1" "DB_HOST=127.0.0.1" "DB_PORT=3306" \
               "DB_NAME=$DB_NAME" "DB_USER=$DB_USER" "DB_PASSWORD=$DB_PASSWORD" "AUTH_MODE=$AUTH_MODE" \
               "SMS_PROVIDER=console" "SESSION_DAYS=30" "STATIC_DIR=$TARGET" \
+              "PAYHERE_MERCHANT_ID=$PAYHERE_MERCHANT_ID" "PAYHERE_MERCHANT_SECRET=$PAYHERE_MERCHANT_SECRET" \
+              "PAYHERE_SANDBOX=$PAYHERE_SANDBOX" "PUBLIC_URL=$PUBLIC_URL" \
               | $SSH "$SSH_USER@$HOST" "umask 077 && cat > '$DIR/.env'"
           fi
           $SSH "$SSH_USER@$HOST" DIR="$DIR" TARGET="$TARGET" bash -s <<'REMOTE'

@@ -15,6 +15,17 @@ export interface Config {
    * forwards every request here; leave unset when nginx serves the files itself.
    */
   staticDir: string | null;
+  /** PayHere (token packs). Payments are off until the merchant ID and secret are set. */
+  payhere: PayHereConfig;
+}
+
+export interface PayHereConfig {
+  merchantId: string;
+  merchantSecret: string;
+  /** sandbox.payhere.lk instead of www.payhere.lk (true until the live account is approved). */
+  sandbox: boolean;
+  /** The site's public address, for PayHere's return and notify links. */
+  publicUrl: string;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -34,5 +45,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     sessionDays: Number(env.SESSION_DAYS ?? 30),
     origin: env.ORIGIN ?? null,
     staticDir: env.STATIC_DIR || null,
+    payhere: {
+      merchantId: env.PAYHERE_MERCHANT_ID ?? '',
+      merchantSecret: env.PAYHERE_MERCHANT_SECRET ?? '',
+      sandbox: env.PAYHERE_SANDBOX !== 'false',
+      publicUrl: (env.PUBLIC_URL ?? 'https://openworldchrismasgame.3logiq.com').replace(/\/+$/, ''),
+    },
   };
 }

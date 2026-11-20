@@ -5,6 +5,8 @@ import { Auth } from './auth.ts';
 import type { Config } from './config.ts';
 import type { Pool } from './db.ts';
 import { Progress } from './progress.ts';
+import { PayHere } from './payhere.ts';
+import { Tokens } from './tokens.ts';
 import { Realtime } from './realtime.ts';
 import { registerRoutes } from './routes.ts';
 import type { SmsSender } from './sms.ts';
@@ -25,11 +27,15 @@ export async function buildApp(cfg: Config, pool: Pool, sms: SmsSender, opts: { 
   }
   const auth = new Auth(pool, sms, cfg.sessionDays);
   const progress = new Progress(pool);
-  const realtime = new Realtime(auth, progress);
-  registerRoutes(app, cfg, auth, progress, { onProfile: (u) => realtime.updateProfile(u) });
+  const tokens = new Tokens(pool);
+  const payhere = new PayHere(cfg.payhere, pool, tokens);
+  const realtime = new Realtime(auth, progress, tokens);
+  // A pack bought while playing shows up in the game straight away.
+  payhere.onBalance = (userId, n) => realtime.tokensChanged(userId, n);
+  registerRoutes(app, cfg, auth, progress, { tokens, payhere }, { onProfile: (u) => realtime.updateProfile(u) });
   app.get('/api/online', async () => realtime.info);
   if (cfg.staticDir) await serveGame(app, cfg.staticDir);
   realtime.attach(app.server);
   app.addHook('preClose', async () => realtime.close());
-  return { app, auth, progress, realtime };
+  return { app, auth, progress, realtime, tokens, payhere };
 }
