@@ -113,7 +113,7 @@ export class SnowballFight {
       else if (this.onSnow) this.throwBall(cameraYaw);
       else this.roadHint();
     }
-    for (const [id, r] of this.remotes) r.update(dt, this.mp?.players.get(id)?.snaps ?? []);
+    for (const [id, r] of this.remotes) r.update(dt, this.mp?.players.get(id)?.snaps ?? [], this.player.position);
     this.updateBalls(dt);
     this.puffs.update(dt, pr);
   }

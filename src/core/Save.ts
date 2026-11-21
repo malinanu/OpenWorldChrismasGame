@@ -11,7 +11,7 @@ export interface SaveData {
   discovered: MiniGameId[];
   playerPosition: [number, number, number] | null;
   finaleSeen: boolean;
-  settings: { language?: Lang; volume: number; music: boolean; sfx: boolean; dayNight: boolean; quality: Quality; invertY: boolean; sensitivity: number };
+  settings: { language?: Lang; volume: number; music: boolean; sfx: boolean; dayNight: boolean; quality: Quality; invertY: boolean; sensitivity: number; autoQuality: boolean };
 }
 
 const KEY = 'frostvale.save.v1';
@@ -25,7 +25,7 @@ export function defaultSave(): SaveData {
     discovered: [],
     playerPosition: null,
     finaleSeen: false,
-    settings: { volume: 0.8, music: true, sfx: true, dayNight: true, quality: isTouchDevice ? 'medium' : 'high', invertY: false, sensitivity: 1 },
+    settings: { volume: 0.8, music: true, sfx: true, dayNight: true, quality: isTouchDevice ? 'medium' : 'high', invertY: false, sensitivity: 1, autoQuality: true },
   };
 }
 

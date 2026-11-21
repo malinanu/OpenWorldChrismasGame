@@ -7,14 +7,14 @@ import { lang, LANGS, type Lang } from '../i18n';
 import { langChips } from './language';
 
 /** The passport's Settings tab, "Travel preferences" on the passport paper: graphics, day & night, sound, volume, fullscreen. */
-export function mountSettings(root: HTMLElement, opts: { onQuality: (q: Quality) => void; onLanguage: (l: Lang) => void }) {
+export function mountSettings(root: HTMLElement, opts: { onQuality: (q: Quality) => void; onLanguage: (l: Lang) => void; onAuto?: (on: boolean) => void }) {
   const s = gameState.data.settings;
   const toggle = (k: 'music' | 'sfx', label: string) => `<button type="button" class="pchip ${s[k] ? 'on' : ''}" data-sound="${k}">${label}</button>`;
   const chip = (q: Quality, label: string) => `<button type="button" class="pchip ${q === s.quality ? 'on' : ''}" data-quality="${q}">${label}</button>`;
   const row = (label: string, controls: string) => `<div class="pref"><span class="pref-l">${label}</span><div class="pref-c">${controls}</div></div>`;
   root.innerHTML = `<h3 class="pp-sub">${t('prefs')}</h3>
     ${LANGS.length > 1 ? row(t('language'), langChips(lang())) : ''}
-    ${row(t('graphics'), `<div class="seg">${chip('low', t('fast'))}${chip('medium', t('balanced'))}${chip('high', t('pretty'))}</div>`)}
+    ${row(t('graphics'), `<div class="seg">${chip('low', t('fast'))}${chip('medium', t('balanced'))}${chip('high', t('pretty'))}</div><button type="button" class="pchip ${s.autoQuality ? 'on' : ''}" data-auto>${t('autoQuality')}</button>`)}
     ${row(t('world'), `<button type="button" class="pchip ${s.dayNight ? 'on' : ''}" data-daynight>${t('dayNight')}</button>`)}
     ${row(t('sound'), `${toggle('music', t('music'))}${toggle('sfx', t('effects'))}`)}
     ${row(t('volume'), `<input type="range" class="cane" min="0" max="1" step="0.05" value="${s.volume}" data-volume aria-label="${t('volumeAria')}">`)}
@@ -32,6 +32,13 @@ export function mountSettings(root: HTMLElement, opts: { onQuality: (q: Quality)
       gameState.save();
     }),
   );
+  // Lowers the resolution by itself when the device can't keep up, and sharpens back when it can.
+  root.querySelector<HTMLButtonElement>('[data-auto]')!.addEventListener('click', (e) => {
+    s.autoQuality = !s.autoQuality;
+    (e.currentTarget as HTMLElement).classList.toggle('on', s.autoQuality);
+    gameState.save();
+    opts.onAuto?.(s.autoQuality);
+  });
   root.querySelector<HTMLButtonElement>('[data-daynight]')!.addEventListener('click', (e) => {
     s.dayNight = !s.dayNight;
     (e.currentTarget as HTMLElement).classList.toggle('on', s.dayNight);

@@ -76,7 +76,10 @@ function stamp(id: MiniGameId, i: number, fresh: boolean) {
  * - Settings: graphics, day & night, sound.
  * The game is paused while it's open.
  */
-export async function showProfile(hud: Hud, opts: { server: boolean; tab?: HubTab; onQuality: (q: Quality) => void; onLanguage: (l: Lang) => void }): Promise<ProfileNext> {
+export async function showProfile(
+  hud: Hud,
+  opts: { server: boolean; tab?: HubTab; onQuality: (q: Quality) => void; onLanguage: (l: Lang) => void; onAuto?: (on: boolean) => void },
+): Promise<ProfileNext> {
   const startTab = opts.tab ?? 'passport';
   const user = api.user;
   const stars = gameState.totalStars;
@@ -181,7 +184,7 @@ export async function showProfile(hud: Hud, opts: { server: boolean; tab?: HubTa
         const photo = card.querySelector<HTMLElement>('.pp-photo')!;
         mountLeaderboard(card.querySelector<HTMLElement>('[data-pane=leaders] .pane-page')!);
         mountShop(card.querySelector<HTMLElement>('[data-pane=shop] .pane-page')!);
-        mountSettings(card.querySelector<HTMLElement>('[data-pane=settings] .pane-page')!, { onQuality: opts.onQuality, onLanguage: opts.onLanguage });
+        mountSettings(card.querySelector<HTMLElement>('[data-pane=settings] .pane-page')!, { onQuality: opts.onQuality, onLanguage: opts.onLanguage, onAuto: opts.onAuto });
         const showTab = (tab: HubTab) => {
           card.querySelectorAll<HTMLElement>('[data-tab]').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
           card.querySelectorAll<HTMLElement>('[data-pane]').forEach((p) => p.classList.toggle('off', p.dataset.pane !== tab));

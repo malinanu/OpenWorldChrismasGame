@@ -107,7 +107,12 @@ export class World {
   readonly scatterPlaced = new Map<number, number>();
 
   /** `forest` scales scatter counts (quality setting); `shadowSize` 0 turns sun shadows off. */
-  async load(opts: { forest: number; shadowSize: number }, onStep?: (label: string) => void) {
+  /** Nearest lantern spots for the real point lights, refreshed a few times a second. */
+  private nearest: { pos: THREE.Vector3; color: THREE.Color }[] = [];
+  private nearestAge = Infinity;
+
+  /** `forest` scales scatter counts; `shadowSize` 0 turns sun shadows off; `lights` real lamp lights. */
+  async load(opts: { forest: number; shadowSize: number; lights?: number }, onStep?: (label: string) => void) {
     this.highShadows = opts.shadowSize >= 2048;
     // The physics engine, the layout and every model download side by side.
     const physicsReady = initPhysics();
@@ -142,14 +147,16 @@ export class World {
     // The fight arenas: their own meshes and colliders, plus lanterns, walls and torches as props.
     const arenaDefs = d.arenas ?? ARENAS;
     d.props.push(...arenaProps(arenaDefs));
-    this.arenas = await buildArenas(arenaDefs, { scene: this.scene, physics: this.physics.world, groundY: (x, z) => this.groundY(x, z) });
+    this.arenas = await buildArenas(arenaDefs, { scene: this.scene, physics: this.physics.world, groundY: (x, z) => this.groundY(x, z), detailShadows: this.highShadows });
 
     onStep?.(t('growingForest'));
     await Promise.all(d.scatter.map((s) => this.scatter({ ...s, count: Math.round(s.count * opts.forest) })));
     onStep?.(t('decorating'));
     await Promise.all(d.props.map((p) => this.prop(p)));
 
-    for (let i = 0; i < 4; i++) {
+    // Every lamp's pool of light is baked into the ground at night; only the nearest few are real
+    // lights (each one costs on every pixel), and fewer on lighter presets.
+    for (let i = 0; i < (opts.lights ?? 4); i++) {
       const l = new THREE.PointLight('#ffc070', 0, 16, 2);
       this.lightPool.push(l);
       this.scene.add(l);
@@ -355,9 +362,12 @@ export class World {
       if (!cells.has(key)) cells.set(key, []);
       cells.get(key)!.push(pl);
     }
+    // Below the Pretty preset, small props (presents, stools, lamps) skip the shadow pass.
+    const size = modelBounds(g.scene).getSize(new THREE.Vector3());
+    const small = Math.max(size.x, size.y, size.z) * (p.scale ?? 1) < 1.6;
     for (const group of cells.values()) {
       const mesh = buildInstanced(g.scene, group, p.snow ?? 0);
-      if (p.shadow === false) mesh.traverse((o) => (o.castShadow = false));
+      if (p.shadow === false || (small && !this.highShadows)) mesh.traverse((o) => (o.castShadow = false));
       this.scene.add(mesh);
     }
     if (p.collider) this.addColliders(g.scene, placements, p.collider);
@@ -402,19 +412,30 @@ export class World {
   update(dt: number, focus: THREE.Vector3, time: number) {
     this.physics.update(dt);
     this.lighting.follow(focus);
-    // Hand the few real point lights to the nearest lantern spots.
-    const nearest = [...this.lightSpots]
-      .map((s) => ({ s, d: s.pos.distanceToSquared(focus) }))
-      .sort((a, b) => a.d - b.d)
-      .slice(0, this.lightPool.length);
+    // Hand the few real point lights to the nearest lantern spots (looked up 4× a second).
+    this.nearestAge += dt;
+    if (this.nearestAge > 0.25 && this.lightPool.length) {
+      this.nearestAge = 0;
+      const n = this.lightPool.length;
+      const best: { s: { pos: THREE.Vector3; color: THREE.Color }; d: number }[] = [];
+      for (const s of this.lightSpots) {
+        const d = s.pos.distanceToSquared(focus);
+        if (best.length < n || d < best[best.length - 1].d) {
+          best.push({ s, d });
+          best.sort((a, b) => a.d - b.d);
+          if (best.length > n) best.pop();
+        }
+      }
+      this.nearest = best.map((b) => b.s);
+    }
     this.lightPool.forEach((l, i) => {
-      const n = nearest[i];
+      const n = this.nearest[i];
       if (!n) {
         l.intensity = 0;
         return;
       }
-      l.position.copy(n.s.pos);
-      l.color.copy(n.s.color);
+      l.position.copy(n.pos);
+      l.color.copy(n.color);
       // Barely noticeable in daylight; at night the lanterns pool warm light on the cobbles.
       const night = this.lighting.night;
       l.intensity = THREE.MathUtils.lerp(8, 45, night) * (0.94 + 0.06 * Math.sin(time * 9 + i * 2.1));

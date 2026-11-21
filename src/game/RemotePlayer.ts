@@ -7,6 +7,11 @@ import { equip, prepareAction } from '../fight/WeaponModels';
 
 /** Rendered this far behind the newest snapshot, so there are always two to interpolate between. */
 const DELAY_MS = 110;
+/** Level of detail by distance from the camera's player (metres). */
+const HIDE_BEYOND = 60;
+const TAGS_WITHIN = 40;
+const HALF_RATE_BEYOND = 25;
+const SHADOW_WITHIN = 20;
 const ANIM: Record<string, string> = {
   idle: 'Idle_A',
   walk: 'Walking_A',
@@ -94,6 +99,9 @@ export class RemotePlayer {
   private barHp = -1;
   /** Fight zones: standing still plays this (a fighting stance). */
   idleClip = 'Idle_A';
+  private shadows = true;
+  private skipFrame = false;
+  private animDt = 0;
   name = '';
 
   constructor(
@@ -134,6 +142,7 @@ export class RemotePlayer {
     if (this.tag) this.tag.position.y = this.tagY;
     this.object.add(this.model);
     this.mixer = new THREE.AnimationMixer(this.model);
+    this.shadows = true; // a fresh model casts shadows until the distance check says otherwise
     this.actions.clear();
     this.current = undefined;
     this.oneShot = false;
@@ -218,7 +227,7 @@ export class RemotePlayer {
     return this.object.position.clone().setY(this.object.position.y + 1.1);
   }
 
-  update(dt: number, snaps: Snapshot[]) {
+  update(dt: number, snaps: Snapshot[], viewer?: THREE.Vector3) {
     const renderAt = performance.now() - DELAY_MS;
     let a = snaps[0];
     let b = snaps[0];
@@ -231,10 +240,22 @@ export class RemotePlayer {
       if (snaps[i + 1].t < renderAt) a = b = snaps[i + 1];
     }
     if (!a) return;
-    // Busy players are inside a mini-game, not in the village.
-    this.object.visible = !b.busy && !!this.model;
     const k = b.t > a.t ? THREE.MathUtils.clamp((renderAt - a.t) / (b.t - a.t), 0, 1) : 1;
     this.object.position.set(THREE.MathUtils.lerp(a.x, b.x, k), THREE.MathUtils.lerp(a.y, b.y, k), THREE.MathUtils.lerp(a.z, b.z, k));
+    // Busy players are inside a mini-game, not in the village. Far-away players aren't drawn or
+    // animated at all; distant ones animate at half rate, without shadows, name tags or HP bars.
+    const dist = viewer ? Math.hypot(this.object.position.x - viewer.x, this.object.position.z - viewer.z) : 0;
+    this.object.visible = !b.busy && !!this.model && dist < HIDE_BEYOND;
+    if (!this.object.visible) return;
+    const near = dist < SHADOW_WITHIN;
+    if (near !== this.shadows && this.model) {
+      this.shadows = near;
+      this.model.traverse((o) => {
+        if ((o as THREE.Mesh).isMesh) o.castShadow = near;
+      });
+    }
+    if (this.tag) this.tag.visible = dist < TAGS_WITHIN;
+    if (this.bar) this.bar.sprite.visible = dist < TAGS_WITHIN;
     const dyaw = Math.atan2(Math.sin(b.yaw - a.yaw), Math.cos(b.yaw - a.yaw));
     if (this.model) {
       this.model.rotation.y = a.yaw + dyaw * k;
@@ -247,7 +268,11 @@ export class RemotePlayer {
     // A knock-out always shows, even over a swing that was still playing.
     if (b.a === 'ko' && this.oneShot && this.current !== this.actions.get('Death_A')) this.oneShot = false;
     if (!this.oneShot) this.play(this.actions.has(anim) ? anim : 'Idle_A');
-    this.mixer?.update(dt);
+    this.animDt += dt;
+    this.skipFrame = dist > HALF_RATE_BEYOND && !this.skipFrame;
+    if (this.skipFrame) return;
+    this.mixer?.update(this.animDt);
+    this.animDt = 0;
   }
 
   dispose() {

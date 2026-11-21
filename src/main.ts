@@ -34,6 +34,15 @@ async function boot() {
   const hud = new Hud(uiRoot);
   const engine = new Engine(canvas);
   engine.setQuality(gameState.data.settings.quality);
+  engine.auto = gameState.data.settings.autoQuality;
+  // A device that couldn't keep up even at a lower resolution starts one step lower next time.
+  engine.onTooSlow = () => {
+    const s = gameState.data.settings;
+    if (s.quality !== 'low') {
+      s.quality = s.quality === 'high' ? 'medium' : 'low';
+      gameState.save();
+    }
+  };
   const input = new Input(canvas);
   const touch = new TouchControls(uiRoot, input);
   input.onTouchDetected = () => hud.refreshDeviceMode();

@@ -73,7 +73,13 @@ export class Overworld implements OverworldContract {
 
   async load(onStep: (label: string) => void) {
     const q = this.engine.settings;
-    await Promise.all([this.world.load({ forest: q.forest, shadowSize: q.shadows }, onStep), this.player.load()]);
+    await Promise.all([this.world.load({ forest: q.forest, shadowSize: q.shadows, lights: q.lights }, onStep), this.player.load()]);
+    // Automatic quality may switch the sun's shadows off: every material then recompiles once.
+    this.engine.shadowsChanged = () =>
+      this.world.scene.traverse((o) => {
+        const m = (o as THREE.Mesh).material;
+        if (m) for (const x of Array.isArray(m) ? m : [m]) x.needsUpdate = true;
+      });
     const [snowflake, sparkle, glow] = await Promise.all([
       assets.texture('vfx/snowflake.png'),
       assets.texture('vfx/sparkle.png'),
@@ -143,6 +149,7 @@ export class Overworld implements OverworldContract {
 
   resume() {
     this.paused = false;
+    this.engine.settle();
     this.input.lockPointer();
   }
 
@@ -295,7 +302,7 @@ export class Overworld implements OverworldContract {
   }
 
   private async profileFlow(tab: HubTab) {
-    const next = await showProfile(this.hud, { server: !!serverConfig, tab, onQuality: (q) => this.changeQuality(q), onLanguage: (l) => this.changeLanguage(l) });
+    const next = await showProfile(this.hud, { server: !!serverConfig, tab, onQuality: (q) => this.changeQuality(q), onLanguage: (l) => this.changeLanguage(l), onAuto: (on) => (this.engine.auto = on) });
     if (next === 'character') await changeCharacter(this.hud, this);
     else if (next === 'signin') signInAgain();
     else if (next === 'signout') await signOut();

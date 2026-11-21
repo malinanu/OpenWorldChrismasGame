@@ -581,6 +581,18 @@ Seven textures were picked from the 73 MB bundle and resized (≈ 550 KB total):
 | Draw calls (world) | < 150 |
 | Triangles on screen | < 300k |
 | Frame rate | 60 fps desktop · 30+ fps mid-range mobile |
+
+**Staying smooth on every device:**
+- **Automatic quality** (Settings → ⚡ Smooth (auto), on by default):
+  - Under about 45 fps for 2 s, the game renders at a lower resolution, one step at a time.
+  - At the lowest step it switches the sun's shadows off and remembers the device, so the next visit starts on a lighter preset.
+  - When frames are fast again it sharpens back, but never to a resolution that was already too slow.
+- **Antialiasing** only on screens with a pixel ratio of 1.5 or less. High-density screens are sharp without it, and it costs them most.
+- **Real lamp lights:** 4 on Pretty, 2 on Balanced, 0 on Fast. The lamp pools at night are baked into the ground either way.
+- **Shadows:** small props cast them on Pretty only.
+- **Other players:** beyond 60 m they aren't drawn. Beyond 25 m they animate at half rate. Beyond 20 m they cast no shadow. Beyond 40 m their name tags are hidden.
+- **Damage numbers** reuse their textures and sprites.
+- Open the game with `?stats` to see FPS and CPU/GPU time on a real phone.
 | Shadow-casting lights | 1 (the sun) |
 
 **Graphics presets** (pause menu; phones default to *Balanced*, desktops to *Pretty*):

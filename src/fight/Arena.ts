@@ -240,6 +240,8 @@ export interface ArenaBuildContext {
   scene: THREE.Scene;
   physics: RAPIER.World;
   groundY: (x: number, z: number) => number;
+  /** Small pieces (posts, pads, the bell) cast shadows too (Pretty preset only). */
+  detailShadows?: boolean;
 }
 
 /** The raised ring, ropes and posts, the arena floor, the gate arches and the practice snowmen. */
@@ -361,6 +363,15 @@ export async function buildArenas(defs: ArenaDef[], ctx: ArenaBuildContext): Pro
       plane.position.set(archX + (back ? -0.03 : 0.03), archH - 0.35, 0);
       plane.rotation.y = back ? -Math.PI / 2 : Math.PI / 2;
       group.add(plane);
+    }
+
+    if (!ctx.detailShadows) {
+      group.traverse((o) => {
+        const m = o as THREE.Mesh;
+        if (!m.isMesh) return;
+        m.geometry.computeBoundingSphere();
+        if ((m.geometry.boundingSphere?.radius ?? 0) * m.scale.x < 1.5) m.castShadow = false;
+      });
     }
 
     // The practice snowman, away from the gate.
