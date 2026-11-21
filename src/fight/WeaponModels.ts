@@ -58,8 +58,19 @@ export async function equip(rig: THREE.Object3D, weaponId: string | null) {
     const load = async (name: string) => (await assets.model(`weapons/${name}`)).scene.clone(true);
     const [right, left] = await Promise.all([look.right ? load(look.right) : null, look.left ? load(look.left) : null]).catch(() => [null, null]);
     if (tokens.get(rig) !== mine) return; // changed weapon while this one was loading
-    if (right) parts.push([slot(rig, 'r'), right]);
-    if (left) parts.push([slot(rig, 'l'), left]);
+    // KayKit's own grip (from the Adventurers 1.0 Knight, whose hand bones match ours): right-hand
+    // weapons sit a little up the slot, turned half round about it; shields sit out on the forearm.
+    if (right) {
+      const hold = new THREE.Group().add(right);
+      hold.position.set(0, 0.033, 0);
+      hold.rotation.y = Math.PI;
+      parts.push([slot(rig, 'r'), hold]);
+    }
+    if (left) {
+      const hold = new THREE.Group().add(left);
+      hold.position.set(0, 0.017, look.left?.startsWith('shield') ? 0.156 : 0);
+      parts.push([slot(rig, 'l'), hold]);
+    }
   }
   for (const [bone, obj] of parts) {
     if (!bone) continue;
