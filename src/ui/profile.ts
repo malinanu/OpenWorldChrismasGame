@@ -11,13 +11,15 @@ import { fmtMonthYear, fmtNumber, type Lang } from '../i18n';
 import { t } from '../i18n/ui';
 import { mountLeaderboard } from './leaderboard';
 import { mountSettings } from './settings';
+import { mountShop } from './shop';
+import { ft } from '../fight/strings';
 import type { Quality } from '../core/Engine';
 import type { Hud } from './hud';
 
 /** What the player asked for from the passport; the caller runs it once the card has closed. */
 export type ProfileNext = 'character' | 'signin' | 'signout' | null;
 /** The passport's tabs: one place for your profile, the leaderboards and the settings. */
-export type HubTab = 'passport' | 'leaders' | 'settings';
+export type HubTab = 'passport' | 'leaders' | 'shop' | 'settings';
 
 const SEEN_KEY = 'frostvale.passportStamps';
 
@@ -111,6 +113,7 @@ export async function showProfile(hud: Hud, opts: { server: boolean; tab?: HubTa
         <div class="hub-tabs" role="tablist">
           <button type="button" class="chip" data-tab="passport">${t('tabPassport')}</button>
           <button type="button" class="chip" data-tab="leaders">${t('tabLeaders')}</button>
+          <button type="button" class="chip" data-tab="shop">${ft('tabShop')}</button>
           <button type="button" class="chip" data-tab="settings">${t('tabSettings')}</button>
         </div>
         <div class="hub-panes">
@@ -134,6 +137,12 @@ export async function showProfile(hud: Hud, opts: { server: boolean; tab?: HubTa
                    <div class="ticket"><b data-stat="hits">–</b><small>${t('hits')}</small></div>
                    <div class="ticket"><b data-stat="taken">–</b><small>${t('splatted')}</small></div>
                    <div class="ticket"><b data-stat="ratio">–</b><small>${t('ratio')}</small></div>
+                 </div>
+                 <h3 class="pp-sub">🥊 ${ft('record')}</h3>
+                 <div class="tickets">
+                   <div class="ticket"><b data-stat="kos">–</b><small>${ft('recKos')}</small></div>
+                   <div class="ticket"><b data-stat="kod">–</b><small>${ft('recKod')}</small></div>
+                   <div class="ticket"><b data-stat="koratio">–</b><small>${ft('recRatio')}</small></div>
                  </div>`
               : `<div class="pp-invite">${opts.server ? t('inviteServer') : t('inviteOffline')}</div>`
           }
@@ -141,6 +150,7 @@ export async function showProfile(hud: Hud, opts: { server: boolean; tab?: HubTa
         ${actions ? `<div class="row pp-actions">${actions}</div>` : ''}
         </div>
         <div class="hub-pane fill" data-pane="leaders"><div class="pp-page pane-page"></div></div>
+        <div class="hub-pane fill" data-pane="shop"><div class="pp-page pane-page"></div></div>
         <div class="hub-pane fill" data-pane="settings"><div class="pp-page pane-page"></div></div>
         </div>
         <div class="row"><button data-ok>${t('close')}</button></div>
@@ -170,6 +180,7 @@ export async function showProfile(hud: Hud, opts: { server: boolean; tab?: HubTa
         // size whichever tab is showing; Leaders and Settings fill it and scroll inside.
         const photo = card.querySelector<HTMLElement>('.pp-photo')!;
         mountLeaderboard(card.querySelector<HTMLElement>('[data-pane=leaders] .pane-page')!);
+        mountShop(card.querySelector<HTMLElement>('[data-pane=shop] .pane-page')!);
         mountSettings(card.querySelector<HTMLElement>('[data-pane=settings] .pane-page')!, { onQuality: opts.onQuality, onLanguage: opts.onLanguage });
         const showTab = (tab: HubTab) => {
           card.querySelectorAll<HTMLElement>('[data-tab]').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
@@ -197,6 +208,11 @@ export async function showProfile(hud: Hud, opts: { server: boolean; tab?: HubTa
           card.querySelector('[data-stat=hits]')!.textContent = String(h);
           card.querySelector('[data-stat=taken]')!.textContent = String(t);
           card.querySelector('[data-stat=ratio]')!.textContent = h + t === 0 ? '–' : t === 0 ? `${h}` : (h / t).toFixed(1);
+          const k = me.stats.kos ?? 0;
+          const d = me.stats.knockedOut ?? 0;
+          card.querySelector('[data-stat=kos]')!.textContent = String(k);
+          card.querySelector('[data-stat=kod]')!.textContent = String(d);
+          card.querySelector('[data-stat=koratio]')!.textContent = k + d === 0 ? '–' : d === 0 ? `${k}` : (k / d).toFixed(1);
         });
         void api
           .leaderboard('stars')

@@ -1,7 +1,7 @@
 import { assets } from './core/AssetLoader';
 import { audio } from './core/Audio';
 import { api } from './net/api';
-import { startSession } from './net/session';
+import { handlePaymentReturn, startSession } from './net/session';
 import { maybeShowStats } from './core/DebugStats';
 import { Engine } from './core/Engine';
 import { Input, isTouchDevice } from './core/Input';
@@ -74,7 +74,10 @@ async function boot() {
   if (isTouchDevice && canFullscreen()) void setFullscreen(true);
   // Sign in (or continue offline), pick a character, sync progress; then into the village.
   hud.onProfile = () => overworld.openProfile();
-  if (await startSession(hud, overworld)) overworld.goOnline();
+  if (await startSession(hud, overworld)) {
+    overworld.goOnline();
+    void handlePaymentReturn(hud);
+  } else void handlePaymentReturn(hud);
   overworld.resume();
 
   // Desktop mouse-look needs pointer lock, which browsers only grant from a click.

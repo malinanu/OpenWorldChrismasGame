@@ -1,4 +1,7 @@
 import { gameState } from '../game/GameState';
+import { wallet } from './wallet';
+import { ft } from '../fight/strings';
+import { audio } from '../core/Audio';
 import type { Overworld } from '../game/Overworld';
 import { MINI_GAME_IDS, type MiniGameId } from '../minigames/MiniGame';
 import type { Hud } from '../ui/hud';
@@ -60,6 +63,8 @@ export async function startSession(hud: Hud, overworld: Overworld): Promise<bool
   if (user.language !== lang()) void api.updateMe({ language: lang() }).catch(() => {});
   await overworld.player.setCharacter(user.characterId);
   refreshBadge(hud);
+  wallet.payments = !!serverConfig.payments;
+  wallet.set(me.tokens ?? 0);
   await syncProgress(me.progress);
   hud.renderTracker();
   overworld.refreshOrnaments();
@@ -109,4 +114,42 @@ export async function signOut() {
 export function signInAgain() {
   store(sessionStorage, OFFLINE_KEY, '');
   location.reload();
+}
+
+/**
+ * Back from PayHere (`?paid=<order>` or `?paycancel=<order>`): wait for PayHere's confirmation to
+ * reach the server, then show the new tokens. The address is tidied either way.
+ */
+export async function handlePaymentReturn(hud: Hud) {
+  const q = new URLSearchParams(location.search);
+  const paid = q.get('paid');
+  const cancelled = q.get('paycancel');
+  if (!paid && !cancelled) return;
+  q.delete('paid');
+  q.delete('paycancel');
+  history.replaceState(null, '', `${location.pathname}${q.size ? `?${q}` : ''}${location.hash}`);
+  if (cancelled) {
+    hud.toast(ft('payCancelled'), 3500);
+    return;
+  }
+  if (!api.user || !paid) return;
+  for (let i = 0; i < 15; i++) {
+    try {
+      const r = await api.order(paid);
+      if (r.order.status === 'paid') {
+        wallet.set(r.tokens);
+        audio.sfx('gift');
+        hud.toast(ft('paidToast', { n: r.order.tokens, total: r.tokens }), 5000);
+        return;
+      }
+      if (r.order.status !== 'pending') {
+        hud.toast(ft('payCancelled'), 3500);
+        return;
+      }
+    } catch {
+      return;
+    }
+    if (i === 1) hud.toast(ft('payPending'), 4500);
+    await new Promise((r) => setTimeout(r, 2000));
+  }
 }

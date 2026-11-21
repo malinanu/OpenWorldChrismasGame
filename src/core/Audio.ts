@@ -14,7 +14,8 @@ export type Sfx =
   | 'throw' | 'hit' | 'golden' | 'bad' | 'tick' | 'go'
   | 'catch' | 'munch' | 'powerup' | 'magic' | 'rotate' | 'whistle' | 'deliver' | 'crash'
   | 'pick' | 'build' | 'blueprint' | 'chest' | 'spotted'
-  | 'dice' | 'hop' | 'gift' | 'star' | 'fanfare' | 'fail' | 'firework';
+  | 'dice' | 'hop' | 'gift' | 'star' | 'fanfare' | 'fail' | 'firework'
+  | 'whoosh' | 'punch' | 'slash' | 'clang' | 'ko' | 'bellRing';
 
 const NOTE: Record<string, number> = { C: 0, 'C#': 1, D: 2, 'D#': 3, E: 4, F: 5, 'F#': 6, G: 7, 'G#': 8, A: 9, 'A#': 10, B: 11 };
 const midi = (n: string) => {
@@ -354,6 +355,26 @@ class AudioEngine {
         this.noiseHit(t, 0.25, 'lowpass', 1800, 0.35, out, 300);
         this.tone(160, t, 0.15, 0.25, 'sine', 70);
         break;
+      // Fight zones: a swing through the air, a glove landing, a blade landing, a guarded hit, a knock-out, the ring bell.
+      case 'whoosh': this.noiseHit(t, 0.16, 'bandpass', 500 * p, 0.14, out, 2200 * p, 2.5); break;
+      case 'punch':
+        this.noiseHit(t, 0.12, 'lowpass', 1200 * p, 0.4, out, 200);
+        this.tone(120 * p, t, 0.12, 0.3, 'sine', 55);
+        break;
+      case 'slash':
+        this.noiseHit(t, 0.18, 'highpass', 2500 * p, 0.22, out, 6000);
+        this.tone(220 * p, t, 0.1, 0.18, 'sine', 90);
+        break;
+      case 'clang':
+        this.bell(1400 * p, t, 0.35, 0.12, out);
+        this.bell(2150 * p, t, 0.25, 0.08, out);
+        this.noiseHit(t, 0.05, 'highpass', 4000, 0.15, out);
+        break;
+      case 'ko':
+        this.tone(330, t, 0.5, 0.2, 'triangle', 110);
+        [79, 76, 72].forEach((m, i) => this.bell(hz(m), t + 0.25 + i * 0.12, 0.5, 0.12, out));
+        break;
+      case 'bellRing': [0, 0.14, 0.28].forEach((d) => this.bell(hz(88), t + d, 0.9, 0.2, out)); break;
       case 'golden': [84, 88, 91].forEach((m, i) => this.bell(hz(m), t + i * 0.06, 0.8, 0.22, out)); break;
       case 'bad':
         this.tone(140, t, 0.25, 0.18, 'square', 90);

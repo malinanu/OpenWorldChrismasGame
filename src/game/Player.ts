@@ -4,11 +4,13 @@ import { audio } from '../core/Audio';
 import { assets } from '../core/AssetLoader';
 import type { Input } from '../core/Input';
 import { RAPIER } from '../core/Physics';
+import { equip, prepareAction } from '../fight/WeaponModels';
 
 /** Just the clips the game plays, merged by tools/optimize-assets.mjs. */
 const ANIM_PACKS = ['animations/Frostvale_Clips.glb'];
 
-type AnimName = 'Idle_A' | 'Walking_A' | 'Running_A' | 'Jump_Idle' | 'Jump_Start' | 'Jump_Land' | 'Cheering' | 'Waving' | 'Interact';
+/** Built-in clip names, or any clip added later with addClips (the combat clips). */
+type AnimName = 'Idle_A' | 'Walking_A' | 'Running_A' | 'Jump_Idle' | 'Jump_Start' | 'Jump_Land' | 'Cheering' | 'Waving' | 'Interact' | (string & {});
 
 const WALK = 5.5;
 const RUN = 10;
@@ -31,6 +33,20 @@ export class Player {
   private grounded = true;
   private facing = 0;
   private oneShot = false;
+  /** The current one-shot keeps playing while walking (a swing), instead of giving way to the walk. */
+  private sticky = false;
+  /** Fight zones: movement speed multiplier (slower while guarding or swinging). */
+  speedScale = 1;
+  /** Fight zones: a shove (m/s, x and z) from a hit, fading out quickly. */
+  readonly knock = new THREE.Vector2();
+  /** Fight zones: no moving or jumping (knocked out). */
+  frozen = false;
+  /** A looping clip that replaces idle and walking (guard), or a held pose (knocked down). */
+  hold: string | null = null;
+  /** Standing still plays this (a fighting stance while holding a weapon). */
+  idleClip = 'Idle_A';
+  /** What the character holds (fight zones), re-attached when the character changes. */
+  private weaponId: string | null = null;
   private airTime = 0;
   private stepTimer = 0;
   /** Last finite body position, restored if the physics ever hands back NaN. */
@@ -76,7 +92,7 @@ export class Player {
     this.current = undefined;
     this.oneShot = false;
     this.mixer = new THREE.AnimationMixer(model);
-    for (const clip of this.clips) this.actions.set(clip.name, this.mixer.clipAction(clip));
+    for (const clip of this.clips) this.addAction(clip);
     for (const n of ['Jump_Start', 'Jump_Land', 'Cheering', 'Waving', 'Interact'] as const) {
       const a = this.actions.get(n);
       if (a) {
@@ -84,10 +100,40 @@ export class Player {
         a.clampWhenFinished = true;
       }
     }
-    this.mixer.addEventListener('finished', () => {
+    this.mixer.addEventListener('finished', (e) => {
+      if (e.action !== this.current) return;
       this.oneShot = false;
+      this.sticky = false;
     });
     this.play('Idle_A', 0);
+    if (this.weaponId) void equip(model, this.weaponId);
+  }
+
+  private addAction(clip: THREE.AnimationClip) {
+    if (this.actions.has(clip.name)) return;
+    const a = this.mixer.clipAction(clip);
+    prepareAction(clip.name, a);
+    this.actions.set(clip.name, a);
+  }
+
+  /** More clips, loaded later (the combat pack). They survive character changes. */
+  addClips(clips: THREE.AnimationClip[]) {
+    for (const c of clips) {
+      if (!this.clips.includes(c)) this.clips.push(c);
+      this.addAction(c);
+    }
+  }
+
+  /** Duration of a clip in seconds (0 if it isn't loaded). */
+  clipLength(name: string) {
+    return this.actions.get(name)?.getClip().duration ?? 0;
+  }
+
+  /** Hold a weapon (fight zones) or nothing. */
+  setWeapon(id: string | null) {
+    if (id === this.weaponId) return;
+    this.weaponId = id;
+    void equip(this.model, id);
   }
 
   attach(world: RAPIER.World, spawn: THREE.Vector3) {
@@ -131,25 +177,35 @@ export class Player {
     this.current = next;
   }
 
-  /** Play a non-looping clip (cheer, wave) that blocks locomotion anims until it ends. */
-  playOnce(name: AnimName) {
+  /**
+   * Play a non-looping clip (cheer, wave, a swing) that blocks locomotion anims until it ends.
+   * `sticky` clips aren't cut short by walking; `timeScale` speeds a clip up to fit a cooldown.
+   */
+  playOnce(name: AnimName, opts: { sticky?: boolean; timeScale?: number; fade?: number } = {}) {
+    const a = this.actions.get(name);
+    if (!a) return;
+    a.timeScale = opts.timeScale ?? 1;
     this.oneShot = true;
-    this.current = undefined;
-    this.play(name, 0.15);
+    this.sticky = !!opts.sticky;
+    if (this.current === a) this.current = undefined; // restart the same clip (combo punches)
+    const prev = this.current;
+    a.reset().setEffectiveWeight(1).fadeIn(opts.fade ?? 0.12).play();
+    if (prev && prev !== a) prev.fadeOut(opts.fade ?? 0.12);
+    this.current = a;
   }
 
   update(dt: number, input: Input, cameraYaw: number) {
-    const move = input.move();
-    const sprint = input.isDown('sprint');
+    const move = this.frozen ? { x: 0, y: 0 } : input.move();
+    const sprint = input.isDown('sprint') && this.speedScale >= 1;
     // Camera-relative movement: forward is away from the camera.
     const fwd = new THREE.Vector3(-Math.sin(cameraYaw), 0, -Math.cos(cameraYaw));
     const right = new THREE.Vector3(-fwd.z, 0, fwd.x);
     const dir = fwd.multiplyScalar(move.y).add(right.multiplyScalar(move.x));
     const moving = dir.lengthSq() > 0.01;
-    const speed = (sprint ? RUN : WALK) * Math.min(1, dir.length());
+    const speed = (sprint ? RUN : WALK) * Math.min(1, dir.length()) * this.speedScale;
     if (moving) dir.normalize();
 
-    if (this.grounded && input.justPressed('jump')) {
+    if (this.grounded && !this.frozen && this.hold === null && input.justPressed('jump')) {
       this.velocityY = JUMP;
       audio.sfx('jump');
       this.grounded = false;
@@ -157,7 +213,9 @@ export class Player {
     }
     this.velocityY += GRAVITY * dt;
 
-    const desired = { x: dir.x * speed * dt, y: this.velocityY * dt, z: dir.z * speed * dt };
+    // A shove from a hit rides on top of walking and fades out in about a third of a second.
+    const desired = { x: (dir.x * speed + this.knock.x) * dt, y: this.velocityY * dt, z: (dir.z * speed + this.knock.y) * dt };
+    this.knock.multiplyScalar(Math.exp(-dt * 9));
     this.controller.computeColliderMovement(this.collider, desired);
     const m = this.controller.computedMovement();
     const t = this.body.translation();
@@ -184,7 +242,7 @@ export class Player {
       audio.sfx('step', 0.85 + Math.random() * 0.3);
     }
 
-    if (moving) {
+    if (moving && this.hold === null) {
       const target = Math.atan2(dir.x, dir.z);
       let delta = target - this.facing;
       delta = Math.atan2(Math.sin(delta), Math.cos(delta));
@@ -192,11 +250,13 @@ export class Player {
       this.model.rotation.y = this.facing;
     }
 
-    if (moving && this.oneShot) this.oneShot = false;
+    if (moving && this.oneShot && !this.sticky) this.oneShot = false;
     if (!this.oneShot) {
-      if (!this.grounded && this.velocityY < 2) this.play('Jump_Idle', 0.15);
-      else if (this.grounded && !wasGrounded) this.play(moving ? (sprint ? 'Running_A' : 'Walking_A') : 'Idle_A', 0.15);
-      else if (this.grounded) this.play(moving ? (sprint ? 'Running_A' : 'Walking_A') : 'Idle_A');
+      const idle = this.actions.has(this.idleClip) ? this.idleClip : 'Idle_A';
+      if (this.hold !== null && this.actions.has(this.hold)) this.play(this.hold, 0.12);
+      else if (!this.grounded && this.velocityY < 2) this.play('Jump_Idle', 0.15);
+      else if (this.grounded && !wasGrounded) this.play(moving ? (sprint ? 'Running_A' : 'Walking_A') : idle, 0.15);
+      else if (this.grounded) this.play(moving ? (sprint ? 'Running_A' : 'Walking_A') : idle);
     }
     this.mixer.update(dt);
   }

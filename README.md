@@ -309,6 +309,33 @@ Browser ── https ──► nginx (CloudPanel Node.js site) ──► Node se
 
 ---
 
+## 🥊 Fight zones: Boxing Ring & Sword Arena
+
+Two free-for-all arenas off the plaza: the **🥊 Boxing Ring** (east, a raised candy-cane ring) and the **⚔️ Sword Arena** (west, a walled stone pit). Walk in, press **E / ▶ Fight**, pick a weapon and fight everyone else inside. A practice snowman stands in each, so there is always something to hit, even offline.
+
+| Arena | Weapon | Damage | Cooldown | Reach | Feel | Tokens |
+|---|---|---|---|---|---|---|
+| 🥊 | Featherweight gloves | 6 | 0.30 s | 1.7 m | fast combos | 1 |
+| 🥊 | Classic gloves | 10 | 0.50 s | 1.8 m | balanced | 1 |
+| 🥊 | Heavyweight gloves | 18 | 0.90 s | 1.9 m | knockout punch | **2** |
+| ⚔️ | Dagger | 7 | 0.32 s | 1.5 m | fastest | 1 |
+| ⚔️ | Sword & shield | 12 | 0.55 s | 2.3 m | best guard | 1 |
+| ⚔️ | Hand axe | 20 | 0.95 s | 2.2 m | wide cleave | **2** |
+| ⚔️ | Greatsword | 26 | 1.25 s | 2.6 m | huge, slow | **2** |
+| ⚔️ | Quarterstaff | 14 | 0.70 s | 3.2 m | long, narrow | 1 |
+
+- **Fighting:** 100 HP. Attack: J, click, ATTACK button or RT. Guard (hold): K, right-click, GUARD button or LT. A guard blocks most of a hit from the front and stops the shove.
+- **Knock-outs:** a knocked-out fighter lies down for 3 s, gets up at the ring's edge with 2 s of protection, and loses a ❤️. Health regenerates after 5 s without a hit. Walking out, the ✕ button or opening any menu leaves the fight. There are no snowballs inside the arenas.
+- **Server-decided:** the server checks every swing's reach, arc, cooldown and the guard direction. The weapon table lives in `server/src/arena.ts`, mirrored in `src/fight/weapons.ts`; `npm run check-fight` keeps them, and the world layout, in step. KOs count towards the **🥊 Fighters** board in the Hall of Fame and the passport's Arena record.
+- **Tokens:** a fight costs **1 token** (2 for the strong weapons) and lasts **3 lives**.
+  - Every account gets **3 free tokens**.
+  - Packs are bought in Passport → 🪙 Shop through **PayHere**: Rs 100 = 10, Rs 200 = 22, Rs 500 = 60 tokens.
+  - Only PayHere's signed server-to-server call adds tokens. The setup and going live are in `deploy/CLOUDPANEL.md` §6.
+  - Practice with the snowman is free.
+- **Assets:** weapons and melee, guard and hit clips come from KayKit's Adventurers 1.0 pack (CC0), grafted onto our rig by `tools/build-combat-clips.mjs`. They are loaded only when someone fights. The gloves are built from simple shapes.
+
+---
+
 ## ⚠️ Still missing
 
 | Need | Recommended source | Notes |
@@ -588,6 +615,8 @@ Seven textures were picked from the 73 MB bundle and resized (≈ 550 KB total):
 | Map | 🗺️ button (tap to close) | M | Select / Back |
 | Pause / settings | ⏸ button | Esc or P | Start |
 | Leave a mini-game | ✕ button (asks first) | Esc (asks first) | Start |
+| Attack (fight zones) | 💥 ATTACK | J or left-click | RT / R2 |
+| Guard (hold, fight zones) | 🛡️ GUARD | K or right-click | LT / L2 |
 
 **In mini-games:**
 - **Snowball Showdown:** tap where the snowball should land; hold and drag to keep throwing.

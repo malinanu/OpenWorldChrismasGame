@@ -114,3 +114,46 @@ Then push, or **Actions → Deploy → Re-run**. The deploy writes `~/frostvale-
 - Logs, as the site user: `source ~/.nvm/nvm.sh && pm2 logs frostvale-server`.
 
 If `/ws` doesn't connect (players never appear), check that the vhost is the one from section 3. Its `@app` block carries the WebSocket `Upgrade` headers.
+
+## 6. Token payments with PayHere
+
+Fights in the Boxing Ring and the Sword Arena cost tokens. Players buy packs (Rs 100 = 10, Rs 200 = 22, Rs 500 = 60) through PayHere's hosted checkout. Until the merchant ID and secret are set, the shop says "coming soon" and everyone fights with their 3 free tokens.
+
+### 6.1 Sandbox (testing, no real money)
+1. Sign up at **https://sandbox.payhere.lk** (a separate account from the live one).
+2. **Settings → Domains & Credentials → Add Domain/App**: add `openworldchrismasgame.3logiq.com`. PayHere shows a **Merchant Secret** for that domain. The secret is per domain, so add each domain you test on.
+3. Copy your **Merchant ID**, shown on the same page or the account's Integrations page.
+4. GitHub → **Settings → Environments → `CLOUDPANEL_STAGING`**:
+
+| Kind | Name | Value |
+|---|---|---|
+| Secret | `PAYHERE_MERCHANT_ID` | the merchant ID |
+| Secret | `PAYHERE_MERCHANT_SECRET` | the merchant secret for the domain |
+| Variable | `PAYHERE_SANDBOX` | `true` (the default; leave unset) |
+| Variable | `FROSTVALE_PUBLIC_URL` | only if the site isn't `https://openworldchrismasgame.3logiq.com` |
+
+5. Re-run the deploy. Then open the game, sign in, and go to Passport → 🪙 Shop → pick a pack. Pay with one of the **test cards** listed in PayHere's sandbox documentation. You come back to the game and a "+22 tokens" message appears.
+
+How it works and why it's safe:
+- The server creates each order at its own price.
+- The player's browser is sent to PayHere with a signed form.
+- PayHere then calls `https://<site>/api/payhere/notify` server-to-server. Only that call adds tokens, after checking PayHere's signature, the merchant ID, and that the amount matches the order.
+- Repeat calls never add tokens twice.
+- Chargebacks take the tokens back.
+- Every change to a balance is recorded in the `token_ledger` table, and every order in `payments`.
+
+The notify URL must be reachable from the internet. On the staging site it is, through the `/api` route of the vhost.
+
+### 6.2 Going live
+1. Apply for a live PayHere merchant account. PayHere reviews the site, which links to the **Terms, Privacy and Refund** pages (`/terms.html`, `/privacy.html`, `/refunds.html`). **Read them first:** they are templates. Check the company name, the support email and the refund promise, and edit `public/*.html` as needed.
+2. In the live account, add the domain and get its merchant secret.
+3. Replace the two secrets with the live ones and set the variable `PAYHERE_SANDBOX` to `false`. Re-deploy.
+
+### 6.3 Support
+- Look up a player's purchases: `SELECT * FROM payments WHERE user_id = ?`.
+- Look up their token history: `SELECT * FROM token_ledger WHERE user_id = ? ORDER BY id`.
+- Give tokens by hand (a refund in tokens), inside one transaction:
+  ```sql
+  UPDATE users SET tokens = tokens + 5 WHERE id = ?;
+  INSERT INTO token_ledger (user_id, delta, reason, ref, balance) SELECT id, 5, 'admin', 'support', tokens FROM users WHERE id = ?;
+  ```

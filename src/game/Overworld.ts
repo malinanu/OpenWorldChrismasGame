@@ -24,6 +24,9 @@ import type { Lang } from '../i18n';
 import { api } from '../net/api';
 import { switchLanguage } from '../ui/language';
 import { Player } from './Player';
+import { ArenaCombat } from '../fight/ArenaCombat';
+import { ft } from '../fight/strings';
+import { ARENA_EMOJI } from '../fight/weapons';
 
 /** Seconds for a full day and night in the village. */
 const DAY_LENGTH = 480;
@@ -51,6 +54,8 @@ export class Overworld implements OverworldContract {
   /** Time of day, 0..1 (0 = midnight, 0.5 = noon). */
   dayTime = START_TIME;
   fight!: SnowballFight;
+  /** The Boxing Ring and the Sword Arena. */
+  combat!: ArenaCombat;
   multiplayer: Multiplayer | null = null;
   private finaleTime = -1;
   private touchShown = false;
@@ -84,6 +89,16 @@ export class Overworld implements OverworldContract {
     this.fight = new SnowballFight(this.player, this.hud, (x, z) => this.world.groundY(x, z), (x, z) => this.world.onSnow(x, z));
     await this.fight.load();
     this.world.scene.add(this.fight.group);
+    this.combat = new ArenaCombat(this.player, this.hud, this.world.arenas, (x, z) => this.world.groundY(x, z), this.fight, {
+      touch: this.touch,
+      signedIn: () => !!api.user,
+      openShop: () => this.openProfile('shop'),
+    });
+    await this.combat.load();
+    this.world.scene.add(this.combat.group);
+    this.fight.blockThrow = () => this.combat.inArena;
+    this.fight.onBlockedThrow = () => this.combat.noThrowHint();
+    this.fight.animOverride = () => this.combat.stateAnim;
     if (!saved) this.player.faceTowards(Math.PI);
     this.cam.snapBehind(saved ? 0 : Math.PI);
     const s = gameState.data.settings;
@@ -164,6 +179,7 @@ export class Overworld implements OverworldContract {
           // Frame the map on the games and roads, not the empty hills at the edge.
           Math.max(...this.zones.map((z) => Math.max(Math.abs(z.position.x), Math.abs(z.position.z)))) + 30,
           this.world.roads.lines,
+          this.world.arenas.map((a) => ({ emoji: ARENA_EMOJI[a.def.id], label: ft(`arena_${a.def.id}`), x: a.def.x, z: a.def.z })),
         );
       }
       if (input.justPressed('pause')) {
@@ -201,7 +217,8 @@ export class Overworld implements OverworldContract {
 
     const pr = this.engine.renderer.getPixelRatio();
     this.fight.update(dt, active ? input : null, this.cam.yaw, pr);
-    this.touch?.setThrowReady(this.fight.onSnow);
+    const fightPrompt = this.combat.update(dt, active ? input : null, this.cam.yaw, active, pr);
+    this.touch?.setThrowReady(this.fight.onSnow && !this.combat.inArena);
     this.snow.update(time, this.cam.camera.position, pr);
     this.fireworks.update(dt, pr);
     for (const z of this.zones) {
@@ -226,7 +243,7 @@ export class Overworld implements OverworldContract {
         this.hud.hidePrompt();
         void this.sceneManager.enter(zone.id);
       }
-    } else if (active) {
+    } else if (active && !fightPrompt) {
       this.hud.hidePrompt();
     }
 
@@ -262,6 +279,7 @@ export class Overworld implements OverworldContract {
     this.multiplayer = new Multiplayer(() => this.fight.localState());
     this.multiplayer.on('status', (on) => this.hud.setOnline(on));
     this.fight.goOnline(this.multiplayer, busy);
+    this.combat.goOnline(this.multiplayer);
     this.multiplayer.connect();
   }
 

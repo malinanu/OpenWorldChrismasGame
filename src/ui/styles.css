@@ -453,3 +453,80 @@ html[lang=si] .tbtn.throw span:last-child, html[lang=ta] .tbtn.throw span:last-c
 /* Tamil words run long ("சாண்டாவின்"): a touch smaller and the full stamp width, so they don't split. */
 html[lang=ta] .stamp { padding: 4px; }
 html[lang=ta] .stamp b { font-size: 0.5rem; max-width: 100%; }
+
+/* ---------- Fight zones: weapon picker, fight bar, ATTACK / GUARD ---------- */
+.weapon-pick .wp-lead { margin: 0 0 6px; font-size: 0.88rem; color: #4d473b; }
+.weapon-pick .wp-note { margin: 0 0 8px; font-size: 0.85rem; color: #1d3a66; background: rgba(47,111,214,0.1); border: 2px dashed rgba(47,111,214,0.35); border-radius: 10px; padding: 6px 10px; }
+.weapon-pick .wp-wallet { display: flex; gap: 8px; justify-content: center; margin: 0 0 8px; }
+.weapon-pick .wp-wallet span { background: #fff; border: 2px dashed #c8bfae; border-radius: 999px; padding: 2px 12px; font-weight: 700; color: #1d3a66; font-size: 0.9rem; }
+.wp-list { display: grid; gap: 8px; }
+.card button.wp-ticket { display: grid; grid-template-columns: 44px 1fr auto; gap: 8px; align-items: center; text-align: left; width: 100%;
+  background: #fff; color: #2b2a33; border: 2px dashed #c8bfae; border-radius: 14px; padding: 8px 10px; box-shadow: 0 3px 0 #e2d8c4; font-size: 1rem; min-height: 0; }
+.card button.wp-ticket:hover { border-color: #c8263a; border-style: solid; transform: translateY(-1px); }
+.card button.wp-ticket.premium { background: linear-gradient(135deg, #fffaf0, #fff1c9); }
+.card button.wp-ticket.poor { opacity: 0.5; filter: grayscale(0.7); }
+.wp-ico { font-size: 1.9rem; text-align: center; }
+.wp-main { display: grid; gap: 1px; min-width: 0; }
+.wp-main b { color: #1d3a66; font-size: 1rem; }
+.wp-main > small { font-size: 0.78rem; color: #6b6455; font-weight: 400; }
+.wp-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 10px; margin-top: 3px; }
+.wp-stat { display: flex; justify-content: space-between; gap: 4px; font-size: 0.7rem; color: #7a7262; font-weight: 600; }
+.wp-stat i { font-style: normal; color: #c8263a; letter-spacing: 1px; }
+.wp-stat em { font-style: normal; color: #e3dccd; }
+.wp-cost { background: #ffd25a; color: #3a2400; font-weight: 800; border-radius: 999px; padding: 3px 9px; font-size: 0.85rem; white-space: nowrap; box-shadow: 0 2px 0 #c99a1e; }
+.gamebar .fb-hp { position: relative; width: 140px; height: 20px; border-radius: 10px; background: rgba(255,255,255,0.15); overflow: hidden; }
+.gamebar .fb-hp i { position: absolute; inset: 0 auto 0 0; background: linear-gradient(180deg, #7ee07e, #3fae4a); transition: width 0.2s; }
+.gamebar .fb-hp.mid i { background: linear-gradient(180deg, #ffd25a, #e0a020); }
+.gamebar .fb-hp.low i { background: linear-gradient(180deg, #ff7a7a, #d63a3a); }
+.gamebar .fb-hp b { position: relative; display: block; text-align: center; font-size: 0.75rem; line-height: 20px; text-shadow: 0 1px 2px rgba(0,0,0,0.6); }
+.gamebar .fb-lives { letter-spacing: 1px; font-size: 0.85rem; }
+.gamebar .fb-practice { background: rgba(255,255,255,0.14); border-radius: 10px; padding: 1px 8px; font-size: 0.85rem; }
+.gamebar .fb-hint { font-size: 0.78rem; color: var(--muted); }
+.gamebar .fb-hint kbd { background: rgba(255,255,255,0.18); border-radius: 4px; padding: 0 4px; font-family: inherit; }
+.tbtn.attack, .tbtn.guard { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; transition: opacity 0.2s, transform 0.2s, visibility 0.2s; }
+.tbtn.attack { width: 76px; height: 76px; right: calc(124px + var(--safe-r)); bottom: calc(150px + var(--safe-b));
+  background: radial-gradient(circle at 50% 28%, #ffb37a 0%, #f06a2a 50%, #b23a12 100%); border: 3px solid #ffe2c4; box-shadow: 0 5px 0 #7a2408, 0 8px 14px rgba(0,0,0,0.3); }
+.tbtn.guard { width: 60px; height: 60px; right: calc(206px + var(--safe-r)); bottom: calc(110px + var(--safe-b));
+  background: radial-gradient(circle at 50% 28%, #b9dcff 0%, #4f8fd6 55%, #2a5a99 100%); border: 3px solid #e2f0ff; box-shadow: 0 5px 0 #1d3a66, 0 8px 14px rgba(0,0,0,0.3); }
+.tbtn.attack .ico { font-size: 1.5rem; line-height: 1; }
+.tbtn.guard .ico { font-size: 1.2rem; line-height: 1; }
+.tbtn.attack span:last-child, .tbtn.guard span:last-child { font-size: 0.58rem; letter-spacing: 0.06em; font-weight: 800; }
+.tbtn.attack.down, .tbtn.guard.down { transform: translateY(4px) scale(0.95); }
+.tbtn.attack.off, .tbtn.guard.off { opacity: 0; visibility: hidden; transform: scale(0.6); pointer-events: none; }
+.pin.place label { background: rgba(255, 236, 200, 0.92); }
+
+/* ---------- Tokens: badge chip and the Shop tab ---------- */
+.pf-tok { font-size: 0.8rem; font-weight: 700; background: rgba(255, 210, 90, 0.18); color: var(--gold); border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+body.is-touch .profile-badge .pf-tok { position: absolute; right: -4px; bottom: -14px; font-size: 0.7rem; background: rgba(20,34,58,0.9); padding: 1px 6px; }
+.shop-bal { font-weight: 800; }
+.shop-lead { margin: 0 0 10px; font-size: 0.86rem; color: #4d473b; }
+.packs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.card button.pack { position: relative; display: grid; justify-items: center; gap: 2px; background: #fff; color: #2b2a33; border: 2px dashed #c8bfae; border-radius: 16px;
+  padding: 14px 4px 10px; box-shadow: 0 3px 0 #e2d8c4; font-size: 1rem; min-height: 0; }
+.card button.pack:hover { border-color: #d9a520; border-style: solid; transform: translateY(-2px); }
+.card button.pack.best { background: linear-gradient(180deg, #fff8e0, #ffe9a8); border: 2px solid #d9a520; }
+.pack-flag { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: #c8263a; color: #fff; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.04em;
+  border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+.pack-coins { font-size: 1.8rem; line-height: 1.1; }
+.pack b { color: #1d3a66; font-size: 0.98rem; }
+.pack-bonus { color: #2a8a3e; font-weight: 700; font-size: 0.72rem; }
+.pack-price { margin-top: 4px; background: #1d3a66; color: #fff; border-radius: 999px; padding: 3px 12px; font-weight: 700; font-size: 0.9rem; }
+.shop-legal { text-align: center; font-size: 0.75rem; margin: 12px 0 0; color: #7a7262; }
+.shop-legal a { color: #1d3a66; }
+.pay-form .pay-pack { text-align: center; margin: 0 0 8px; color: #1d3a66; }
+.pay-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.pay-f { display: grid; gap: 2px; font-size: 0.75rem; color: #6b6455; font-weight: 600; }
+.pay-f input { font: inherit; font-size: 0.95rem; padding: 7px 10px; border: 2px solid #d8cfbd; border-radius: 10px; background: #fff; color: #2b2a33; user-select: text; -webkit-user-select: text; }
+.pay-f input:focus { outline: none; border-color: #2f6fd6; }
+.pay-note { font-size: 0.78rem; color: #6b6455; margin: 8px 0 0; }
+.pay-err { color: #c8263a; font-size: 0.85rem; margin: 6px 0 0; }
+.card button.pay-go { background: #2a8a3e; box-shadow: 0 4px 0 #1a5a28; font-size: 1rem; }
+@media (max-width: 420px) {
+  .packs { gap: 5px; }
+  .pack b { font-size: 0.85rem; }
+  .pay-grid { grid-template-columns: 1fr; }
+  .card .hub-tabs .chip { font-size: 0.8rem; padding: 6px 4px; }
+}
+/* While fighting, the fight bar replaces the ornament tracker, the badge and the key hints. */
+#ui.fighting .tracker, #ui.fighting .profile-badge, #ui.fighting .hint { display: none; }
+.pp-page .row button.ghost { color: #1d3a66; box-shadow: inset 0 0 0 2px #b9ad95; background: transparent; }

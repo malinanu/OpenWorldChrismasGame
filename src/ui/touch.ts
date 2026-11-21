@@ -1,5 +1,6 @@
 import { haptic, type Input } from '../core/Input';
 import { t } from '../i18n/ui';
+import { ft } from '../fight/strings';
 
 const STICK_RADIUS = 56;
 
@@ -20,6 +21,9 @@ export class TouchControls {
   private stickZone = el('stick-zone');
   private lookZone = el('look-zone');
   private snow: HTMLButtonElement;
+  private attack: HTMLButtonElement;
+  private guard: HTMLButtonElement;
+  private fightMode = false;
   private base = el('stick-base idle', '<div class="stick-knob"></div>');
   private knob: HTMLDivElement;
   private stickId: number | null = null;
@@ -40,6 +44,33 @@ export class TouchControls {
     });
     for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) snow.addEventListener(ev, () => snow.classList.remove('down'));
     this.snow = snow;
+    // Fight zones: ATTACK (tap) and GUARD (hold) take the snowball button's place.
+    const attack = this.button('tbtn attack off', '', ft('attack'));
+    attack.innerHTML = `<span class="ico">💥</span><span>${ft('attack')}</span>`;
+    attack.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      input.tap('attack');
+      haptic(8);
+      attack.classList.add('down');
+    });
+    const guard = this.button('tbtn guard off', '', ft('guard'));
+    guard.innerHTML = `<span class="ico">🛡️</span><span>${ft('guard')}</span>`;
+    guard.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      guard.setPointerCapture(e.pointerId);
+      input.hold('guard', true);
+      guard.classList.add('down');
+    });
+    for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+      attack.addEventListener(ev, () => attack.classList.remove('down'));
+      guard.addEventListener(ev, () => {
+        input.hold('guard', false);
+        guard.classList.remove('down');
+      });
+    }
+    attack.addEventListener('pointerleave', () => attack.classList.remove('down'));
+    this.attack = attack;
+    this.guard = guard;
     const map = this.button('tbtn small tb-map', '🗺️', t('mapAria'));
     const pause = this.button('tbtn small tb-pause', '⚙️', t('settingsAria'));
     jump.addEventListener('pointerdown', (e) => {
@@ -52,7 +83,7 @@ export class TouchControls {
     map.addEventListener('click', () => input.tap('map'));
     pause.addEventListener('click', () => input.tap('pause'));
     this.stickZone.append(this.base);
-    this.root.append(this.stickZone, this.lookZone, jump, snow, map, pause);
+    this.root.append(this.stickZone, this.lookZone, jump, snow, attack, guard, map, pause);
     // Underneath the rest of the HUD, so prompts, cards and the map receive taps first.
     parent.prepend(this.root);
 
@@ -75,8 +106,20 @@ export class TouchControls {
     });
   }
 
-  /** Throwing needs snow underfoot: the button hides on the cobbled roads. */
+  /** In a fight: ATTACK and GUARD instead of the snowball button. */
+  setFightMode(on: boolean) {
+    if (on === this.fightMode) return;
+    this.fightMode = on;
+    for (const b of [this.attack, this.guard]) {
+      b.classList.toggle('off', !on);
+      b.setAttribute('aria-hidden', String(!on));
+    }
+    if (on) this.setThrowReady(false);
+  }
+
+  /** Throwing needs snow underfoot: the button hides on the cobbled roads (and in a fight). */
   setThrowReady(onSnow: boolean) {
+    if (this.fightMode) onSnow = false;
     if (this.snow.classList.contains('off') === !onSnow) return;
     this.snow.classList.toggle('off', !onSnow);
     this.snow.setAttribute('aria-hidden', String(!onSnow));

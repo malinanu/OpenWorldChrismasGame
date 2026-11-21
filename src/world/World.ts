@@ -6,7 +6,10 @@ import { cottageNight, cottagePorch } from './Cottages';
 import { buildInstanced, modelBounds, type Placement } from './Instancing';
 import { Lighting } from './Lighting';
 import { MINI_GAMES } from '../minigames/registry';
-import { buildSignposts, Roads, type RoadDef } from './Roads';
+import { arenaProps, buildArenas, type ArenaSite } from '../fight/Arena';
+import { ft } from '../fight/strings';
+import { ARENA_EMOJI, ARENAS, type ArenaDef } from '../fight/weapons';
+import { buildSignposts, Roads, type RoadDef, type Signpost } from './Roads';
 import { applyNightLight, createSnowGroundMaterial, type NightLightUniforms } from './SnowGround';
 import { fontsReady } from '../i18n';
 import { t } from '../i18n/ui';
@@ -37,7 +40,7 @@ interface ScatterDef {
   shadow?: boolean | 'high';
 }
 
-interface PropDef {
+export interface PropDef {
   model: string;
   at?: Vec3[];
   line?: { from: Vec3; to: Vec3; step: number };
@@ -64,6 +67,8 @@ export interface WorldData {
   roads: RoadDef[];
   flats: FlatSpot[];
   zones: ZoneDef[];
+  /** The Boxing Ring and the Sword Arena (src/fight/Arena.ts builds them). */
+  arenas?: ArenaDef[];
   scatter: ScatterDef[];
   props: PropDef[];
 }
@@ -96,6 +101,8 @@ export class World {
   private readonly night: NightLightUniforms = { uNightMap: { value: null }, uNight: { value: 0 }, uHalf: { value: 1 } };
   private highShadows = false;
   roads!: Roads;
+  /** The built fight arenas, with their practice snowmen. */
+  arenas: ArenaSite[] = [];
   /** How many of each scatter set (by seed) found a clear spot; for tests and tuning. */
   readonly scatterPlaced = new Map<number, number>();
 
@@ -130,7 +137,12 @@ export class World {
     const signs = this.roads.signposts;
     // The names are baked into a texture, so the Sinhala/Tamil font must be there first.
     await fontsReady();
-    this.scene.add(buildSignposts(signs, signs.map((s) => `${MINI_GAMES[s.to].emoji} ${MINI_GAMES[s.to].title}`), (x, z) => this.groundY(x, z)));
+    const signLabel = (to: Signpost['to']) => (to in MINI_GAMES ? `${MINI_GAMES[to as MiniGameId].emoji} ${MINI_GAMES[to as MiniGameId].title}` : `${ARENA_EMOJI[to as ArenaDef['id']]} ${ft(`arena_${to as ArenaDef['id']}`)}`);
+    this.scene.add(buildSignposts(signs, signs.map((s) => signLabel(s.to)), (x, z) => this.groundY(x, z)));
+    // The fight arenas: their own meshes and colliders, plus lanterns, walls and torches as props.
+    const arenaDefs = d.arenas ?? ARENAS;
+    d.props.push(...arenaProps(arenaDefs));
+    this.arenas = await buildArenas(arenaDefs, { scene: this.scene, physics: this.physics.world, groundY: (x, z) => this.groundY(x, z) });
 
     onStep?.(t('growingForest'));
     await Promise.all(d.scatter.map((s) => this.scatter({ ...s, count: Math.round(s.count * opts.forest) })));

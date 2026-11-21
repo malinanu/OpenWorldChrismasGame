@@ -1,4 +1,5 @@
 import { api } from './api';
+import { setFightTables } from '../fight/weapons';
 
 /** Server physics for snowballs (server/src/realtime.ts) — the client draws the same arcs. */
 export const SNOW_GRAVITY = 20;
@@ -18,6 +19,24 @@ export interface Snapshot {
   yaw: number;
   a: string;
   busy: boolean;
+  /** Fight zones (1-based indices; 0 = not fighting) and health. */
+  arena: number;
+  weapon: number;
+  hp: number;
+}
+
+/** A hit in a fight zone, decided by the server. */
+export interface Melee {
+  from: number;
+  to: number;
+  w: string;
+  /** Damage dealt and the target's health after it. */
+  d: number;
+  hp: number;
+  /** Shove (m/s, x and z); zero when guarded. */
+  kb: [number, number];
+  blk: number;
+  at: [number, number, number];
 }
 
 export interface LocalState {
@@ -35,6 +54,16 @@ type Events = {
   throw: (from: number, o: number[], v: number[]) => void;
   hit: (from: number, to: number, at: number[]) => void;
   status: (online: boolean) => void;
+  /** Someone joined (a = arena) or left (a = null) a fight zone. `why` = 'out' when out of lives. */
+  fighter: (m: { id: number; a: string | null; w: string | null; hp: number; lives?: number; why?: string }) => void;
+  swing: (id: number, w: string) => void;
+  melee: (m: Melee) => void;
+  ko: (from: number, to: number, w: string, lives?: number) => void;
+  respawn: (id: number, at: [number, number], yaw: number) => void;
+  /** Our token balance changed (paid to fight, or bought more). */
+  tokens: (n: number) => void;
+  /** The server refused to let us fight (e.g. not enough tokens). */
+  arenaError: (m: { code: string; need?: number; have?: number }) => void;
 };
 
 /**
@@ -49,7 +78,9 @@ export class Multiplayer {
   private retry = 0;
   private closed = false;
   private sendTimer = 0;
-  private listeners: { [K in keyof Events]: Events[K][] } = { join: [], leave: [], throw: [], hit: [], status: [] };
+  private listeners: { [K in keyof Events]: Events[K][] } = {
+    join: [], leave: [], throw: [], hit: [], status: [], fighter: [], swing: [], melee: [], ko: [], respawn: [], tokens: [], arenaError: [],
+  };
   connected = false;
 
   constructor(private readonly state: () => LocalState | null) {}
@@ -103,6 +134,23 @@ export class Multiplayer {
     this.send({ t: 'throw', o, v });
   }
 
+  /** Join a fight zone with a weapon, or leave it (`null`). Our position goes first so the server sees us inside. */
+  arena(a: string | null, w: string | null = null) {
+    this.sendState();
+    this.send({ t: 'arena', a, w });
+  }
+
+  /** A swing; the server decides what it hits from where we are right now. */
+  attack() {
+    this.sendState();
+    this.send({ t: 'attack' });
+  }
+
+  /** Send our state now instead of at the next tick (guard up or down). */
+  sendNow() {
+    this.sendState();
+  }
+
   private send(m: unknown) {
     if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(m));
   }
@@ -128,6 +176,7 @@ export class Multiplayer {
     switch (m.t) {
       case 'welcome':
         this.myId = m.id;
+        setFightTables(m.fight);
         for (const p of m.players as RemoteProfile[]) this.upsert(p);
         break;
       case 'join':
@@ -138,10 +187,10 @@ export class Multiplayer {
         break;
       case 'snap': {
         const now = performance.now();
-        for (const [id, x, y, z, yaw, a, busy] of m.p as [number, number, number, number, number, string, number][]) {
+        for (const [id, x, y, z, yaw, a, busy, arena, weapon, hp] of m.p as [number, number, number, number, number, string, number, number?, number?, number?][]) {
           const p = this.players.get(id);
           if (!p) continue;
-          p.snaps.push({ t: now, x, y, z, yaw, a, busy: !!busy });
+          p.snaps.push({ t: now, x, y, z, yaw, a, busy: !!busy, arena: arena ?? 0, weapon: weapon ?? 0, hp: hp ?? 100 });
           if (p.snaps.length > 12) p.snaps.shift();
         }
         break;
@@ -151,6 +200,27 @@ export class Multiplayer {
         break;
       case 'hit':
         this.emit('hit', m.from, m.to, m.at);
+        break;
+      case 'fighter':
+        this.emit('fighter', m);
+        break;
+      case 'swing':
+        this.emit('swing', m.id, m.w);
+        break;
+      case 'melee':
+        this.emit('melee', m as Melee);
+        break;
+      case 'ko':
+        this.emit('ko', m.from, m.to, m.w, m.lives);
+        break;
+      case 'respawn':
+        this.emit('respawn', m.id, m.at, m.yaw);
+        break;
+      case 'tokens':
+        this.emit('tokens', m.n);
+        break;
+      case 'arena_err':
+        this.emit('arenaError', m);
         break;
     }
   }

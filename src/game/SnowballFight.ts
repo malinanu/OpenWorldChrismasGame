@@ -32,7 +32,13 @@ export class SnowballFight {
   private ballModel!: THREE.Object3D;
   private puffs!: Burst;
   private balls: Ball[] = [];
-  private remotes = new Map<number, RemotePlayer>();
+  /** Everyone else in the village (the fight zones dress and animate them too). */
+  readonly remotes = new Map<number, RemotePlayer>();
+  /** Fight zones: no snowballs inside an arena (and what to say if someone tries). */
+  blockThrow?: () => boolean;
+  onBlockedThrow?: () => void;
+  /** Fight zones: an animation name for our state messages ('guard'), or null for the usual. */
+  animOverride?: () => string | null;
   private clips: THREE.AnimationClip[] = [];
   private throwAnim = 0;
   private roadHintAt = -Infinity;
@@ -57,6 +63,12 @@ export class SnowballFight {
     this.clips = clips.animations;
     this.puffs = new Burst(smoke, 400, false, -4);
     this.group.add(this.puffs.points);
+  }
+
+  /** More clips for everyone (the combat pack, loaded when someone fights). */
+  addClips(clips: THREE.AnimationClip[]) {
+    for (const c of clips) if (!this.clips.includes(c)) this.clips.push(c);
+    for (const r of this.remotes.values()) r.refreshClips();
   }
 
   /** Standing in snow, so a snowball can be made right here. */
@@ -89,7 +101,7 @@ export class SnowballFight {
   /** What we tell the server each tick. */
   localState(): LocalState {
     const p = this.player.position;
-    const a = this.throwAnim > 0 ? 'throw' : !this.player.isGrounded ? 'jump' : this.player.speed > 7 ? 'run' : this.player.speed > 0.5 ? 'walk' : 'idle';
+    const a = this.animOverride?.() ?? (this.throwAnim > 0 ? 'throw' : !this.player.isGrounded ? 'jump' : this.player.speed > 7 ? 'run' : this.player.speed > 0.5 ? 'walk' : 'idle');
     return { x: +p.x.toFixed(2), y: +p.y.toFixed(2), z: +p.z.toFixed(2), yaw: +this.player.facingAngle.toFixed(2), a, busy: this.busy() };
   }
 
@@ -97,7 +109,8 @@ export class SnowballFight {
     this.cooldown -= dt;
     this.throwAnim = Math.max(0, this.throwAnim - dt);
     if (input?.justPressed('throw') && this.cooldown <= 0) {
-      if (this.onSnow) this.throwBall(cameraYaw);
+      if (this.blockThrow?.()) this.onBlockedThrow?.();
+      else if (this.onSnow) this.throwBall(cameraYaw);
       else this.roadHint();
     }
     for (const [id, r] of this.remotes) r.update(dt, this.mp?.players.get(id)?.snaps ?? []);

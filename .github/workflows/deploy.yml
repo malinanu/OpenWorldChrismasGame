@@ -70,6 +70,9 @@ jobs:
       - name: Check the Sinhala and Tamil text
         run: npm run check-i18n
 
+      - name: Check the fight tables match (server, client, world)
+        run: npm run check-fight
+
       - name: Type-check and build
         run: npm run build
 

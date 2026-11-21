@@ -9,7 +9,7 @@ walk('src');
 const TAMIL = /[஀-௿]/;
 const SINHALA = /[඀-෿]/;
 // English that may stay: brand, keys, units, abbreviations.
-const OK = new Set(['Frostvale', 'WASD', 'Space', 'Shift', 'Esc', 'SMS', 'Enter']);
+const OK = new Set(['Frostvale', 'WASD', 'Space', 'Shift', 'Esc', 'SMS', 'Enter', 'PayHere', 'Cash', 'mCash', 'Genie']);
 let problems = 0;
 for (const file of files) {
   // Comments can hold apostrophes ("Krampus' Cellar") that would throw the quote matching off.

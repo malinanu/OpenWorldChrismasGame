@@ -1,11 +1,12 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { FONT_STACK } from '../i18n';
+import type { ArenaId } from '../fight/weapons';
 import type { MiniGameId } from '../minigames/MiniGame';
 
 export interface RoadDef {
-  /** Game zone this road leads to (gets a signpost at the plaza end). */
-  to?: MiniGameId;
+  /** Game zone or fight arena this road leads to (gets a signpost at the plaza end). */
+  to?: MiniGameId | ArenaId;
   points: [number, number][];
   loop?: boolean;
   /** Layout hint for tools/layout-world.py: line this street with houses. */
@@ -16,7 +17,7 @@ export interface Signpost {
   position: THREE.Vector3;
   /** Direction along the road (unit, XZ). */
   dir: THREE.Vector3;
-  to: MiniGameId;
+  to: MiniGameId | ArenaId;
 }
 
 const WIDTH = 5;

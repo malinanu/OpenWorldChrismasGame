@@ -11,7 +11,8 @@
     "manifest": "node tools/build-manifest.mjs",
     "check-levels": "node --experimental-strip-types --no-warnings tools/check-levels.mjs",
     "optimize-assets": "node tools/optimize-assets.mjs",
-    "check-i18n": "node tools/check-i18n.mjs"
+    "check-i18n": "node tools/check-i18n.mjs",
+    "check-fight": "node --experimental-strip-types --no-warnings tools/check-fight.mjs"
   },
   "dependencies": {
     "@dimforge/rapier3d": "^0.21.0",

@@ -21,6 +21,30 @@ export interface User {
 export interface ServerConfig {
   authMode: 'email' | 'phone';
   characters: string[];
+  /** Token packs can be bought (PayHere is set up on the server). */
+  payments?: boolean;
+}
+
+export interface Me {
+  user: User;
+  progress: Record<string, { score: number; stars: number }>;
+  stats: { snowballHits: number; snowballTaken: number; kos?: number; knockedOut?: number };
+  /** Fight tokens. */
+  tokens?: number;
+}
+
+export interface Pack {
+  id: string;
+  /** Price in rupees. */
+  amount: number;
+  tokens: number;
+}
+
+export interface Customer {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
 }
 
 export interface LeaderRow {
@@ -31,6 +55,8 @@ export interface LeaderRow {
   value: number;
   ornaments?: number;
   stars?: number;
+  /** Fighters board: times knocked out. */
+  deaths?: number;
 }
 
 export class ApiError extends Error {
@@ -139,10 +165,10 @@ class Api {
   }
 
   /** Restores a saved session. Null if there's none or it expired. */
-  async me(): Promise<{ user: User; progress: Record<string, { score: number; stars: number }>; stats: { snowballHits: number; snowballTaken: number } } | null> {
+  async me(): Promise<Me | null> {
     if (!this.token) return null;
     try {
-      const r = await this.call<{ user: User; progress: Record<string, { score: number; stars: number }>; stats: { snowballHits: number; snowballTaken: number } }>('GET', '/me');
+      const r = await this.call<Me>('GET', '/me');
       this.user = r.user;
       return r;
     } catch {
@@ -168,6 +194,21 @@ class Api {
 
   async leaderboard(board: string) {
     return this.call<{ rows: LeaderRow[]; me: LeaderRow | null }>('GET', `/leaderboard?board=${encodeURIComponent(board)}`);
+  }
+
+  /** Fight tokens: the balance, the packs for sale and what fights cost. */
+  async tokens() {
+    return this.call<{ tokens: number; packs: Pack[]; fightCost: number; premiumExtra: number; lives: number; premium: string[]; payments: boolean }>('GET', '/tokens');
+  }
+
+  /** Starts buying a pack: our order, and the form fields to post to PayHere. */
+  async checkout(pack: string, customer: Customer) {
+    return this.call<{ action: string; orderId: string; fields: Record<string, string> }>('POST', '/payhere/checkout', { pack, ...customer });
+  }
+
+  /** One of our orders (after coming back from PayHere). */
+  async order(id: string) {
+    return this.call<{ order: { orderId: string; tokens: number; status: string; amount: number }; tokens: number }>('GET', `/payhere/order/${encodeURIComponent(id)}`);
   }
 
   /** WebSocket URL for the shared village. */

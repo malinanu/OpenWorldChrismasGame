@@ -1,4 +1,4 @@
-export type Action = 'forward' | 'back' | 'left' | 'right' | 'jump' | 'sprint' | 'interact' | 'pause' | 'map' | 'fire' | 'throw' | 'leaderboard' | 'profile';
+export type Action = 'forward' | 'back' | 'left' | 'right' | 'jump' | 'sprint' | 'interact' | 'pause' | 'map' | 'fire' | 'throw' | 'leaderboard' | 'profile' | 'attack' | 'guard';
 
 const KEYS: Record<string, Action> = {
   KeyW: 'forward', ArrowUp: 'forward',
@@ -13,10 +13,14 @@ const KEYS: Record<string, Action> = {
   KeyF: 'throw',
   KeyL: 'leaderboard',
   KeyC: 'profile',
+  // Fight zones.
+  KeyJ: 'attack',
+  KeyK: 'guard',
 };
 
 // Standard gamepad mapping: A=0, X=2, LB=4, RT=7, Back=8, Start=9.
-const PAD: Partial<Record<Action, number>> = { jump: 0, interact: 2, sprint: 4, throw: 5, map: 8, pause: 9, fire: 7 };
+// In a fight zone RT (fire) attacks and LT guards.
+const PAD: Partial<Record<Action, number>> = { jump: 0, interact: 2, sprint: 4, throw: 5, map: 8, pause: 9, fire: 7, guard: 6 };
 
 /** Pixels of touch drag are worth more than mouse pixels: phones are small. */
 const TOUCH_LOOK_SCALE = 2.4;
@@ -80,12 +84,19 @@ export class Input {
     canvas.addEventListener('pointerdown', (e) => {
       this.notePointerType(e);
       this.setPointer(e);
-      // Right-click scoops / throws a snowball in the village.
-      if (e.button === 2) this.pressed.add('throw');
+      // Right-click scoops / throws a snowball in the village, and guards (held) in a fight zone.
+      if (e.button === 2) {
+        this.pressed.add('throw');
+        if (!this.down.has('guard')) this.pressed.add('guard');
+        this.down.add('guard');
+      }
       if (e.button !== 0 || this.firePointer !== null) return;
       this.firePointer = e.pointerId;
       this.pressed.add('fire');
       this.down.add('fire');
+    });
+    window.addEventListener('pointerup', (e) => {
+      if (e.button === 2) this.down.delete('guard');
     });
     const release = (e: PointerEvent) => {
       if (e.pointerId !== this.firePointer) return;

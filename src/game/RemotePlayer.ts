@@ -3,6 +3,7 @@ import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js
 import { assets } from '../core/AssetLoader';
 import { FONT_STACK } from '../i18n';
 import type { Snapshot } from '../net/Multiplayer';
+import { equip, prepareAction } from '../fight/WeaponModels';
 
 /** Rendered this far behind the newest snapshot, so there are always two to interpolate between. */
 const DELAY_MS = 110;
@@ -14,7 +15,36 @@ const ANIM: Record<string, string> = {
   scoop: 'Interact',
   throw: 'Interact',
   cheer: 'Cheering',
+  guard: 'Blocking',
+  ko: 'Death_A',
 };
+
+/** A small health bar that floats above a fighter's name. */
+function hpBar(): { sprite: THREE.Sprite; draw: (hp: number, max: number) => void } {
+  const c = document.createElement('canvas');
+  c.width = 128;
+  c.height = 20;
+  const g = c.getContext('2d')!;
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthWrite: false, sizeAttenuation: false, transparent: true }));
+  sprite.scale.set(0.09, 0.014, 1);
+  sprite.renderOrder = 5;
+  const draw = (hp: number, max: number) => {
+    const f = Math.max(0, Math.min(1, hp / max));
+    g.clearRect(0, 0, 128, 20);
+    g.fillStyle = 'rgba(20, 34, 58, 0.85)';
+    g.beginPath();
+    g.roundRect(1, 1, 126, 18, 9);
+    g.fill();
+    g.fillStyle = f > 0.5 ? '#5fd35f' : f > 0.25 ? '#ffc23a' : '#ff4d4d';
+    g.beginPath();
+    g.roundRect(4, 4, Math.max(0.01, 120 * f), 12, 6);
+    g.fill();
+    tex.needsUpdate = true;
+  };
+  return { sprite, draw };
+}
 
 /** A name tag that always faces the camera and stays readable at any distance. */
 function nameTag(text: string): THREE.Sprite {
@@ -58,6 +88,12 @@ export class RemotePlayer {
   private flinch = 0;
   private char = '';
   private tagY = 2.35;
+  private oneShot = false;
+  private weaponId: string | null = null;
+  private bar: ReturnType<typeof hpBar> | null = null;
+  private barHp = -1;
+  /** Fight zones: standing still plays this (a fighting stance). */
+  idleClip = 'Idle_A';
   name = '';
 
   constructor(
@@ -100,8 +136,68 @@ export class RemotePlayer {
     this.mixer = new THREE.AnimationMixer(this.model);
     this.actions.clear();
     this.current = undefined;
-    for (const clip of this.clips) this.actions.set(clip.name, this.mixer.clipAction(clip));
+    this.oneShot = false;
+    this.mixer.addEventListener('finished', (e) => {
+      if (e.action === this.current) this.oneShot = false;
+    });
+    this.refreshClips();
     this.play('Idle_A');
+    if (this.weaponId) void equip(this.model, this.weaponId);
+  }
+
+  /** Picks up clips added to the shared list since (the combat pack, loaded on demand). */
+  refreshClips() {
+    if (!this.mixer) return;
+    for (const clip of this.clips) {
+      if (this.actions.has(clip.name)) continue;
+      const a = this.mixer.clipAction(clip);
+      prepareAction(clip.name, a);
+      this.actions.set(clip.name, a);
+    }
+  }
+
+  /** Fight zones: what they hold and their health (null when not fighting). */
+  setFighter(weaponId: string | null, hp: number | null, maxHp: number, idle: string) {
+    if (weaponId !== this.weaponId) {
+      this.weaponId = weaponId;
+      if (this.model) void equip(this.model, weaponId);
+    }
+    this.idleClip = idle;
+    if (hp === null) {
+      if (this.bar) {
+        this.object.remove(this.bar.sprite);
+        this.bar.sprite.material.map?.dispose();
+        this.bar.sprite.material.dispose();
+        this.bar = null;
+        this.barHp = -1;
+      }
+      return;
+    }
+    if (!this.bar) {
+      this.bar = hpBar();
+      this.object.add(this.bar.sprite);
+    }
+    this.bar.sprite.position.y = this.tagY + 0.32;
+    if (Math.round(hp) !== this.barHp) {
+      this.barHp = Math.round(hp);
+      this.bar.draw(hp, maxHp);
+    }
+  }
+
+  /** A one-off clip (a swing, a flinch) that plays over walking until it ends. */
+  playOnce(name: string, timeScale = 1) {
+    const a = this.actions.get(name);
+    if (!a) return;
+    a.timeScale = timeScale;
+    const prev = this.current;
+    a.reset().setEffectiveWeight(1).fadeIn(0.1).play();
+    if (prev && prev !== a) prev.fadeOut(0.1);
+    this.current = a;
+    this.oneShot = true;
+  }
+
+  get facing() {
+    return this.model?.rotation.y ?? 0;
   }
 
   private play(name: string) {
@@ -147,7 +243,10 @@ export class RemotePlayer {
         this.model.rotation.z = Math.sin(this.flinch * 40) * this.flinch * 0.5;
       } else this.model.rotation.z = 0;
     }
-    this.play(ANIM[b.a] ?? 'Idle_A');
+    const anim = b.a === 'idle' && this.actions.has(this.idleClip) ? this.idleClip : (ANIM[b.a] ?? 'Idle_A');
+    // A knock-out always shows, even over a swing that was still playing.
+    if (b.a === 'ko' && this.oneShot && this.current !== this.actions.get('Death_A')) this.oneShot = false;
+    if (!this.oneShot) this.play(this.actions.has(anim) ? anim : 'Idle_A');
     this.mixer?.update(dt);
   }
 

@@ -3,6 +3,7 @@ import { gameState } from '../game/GameState';
 import { titleFor } from '../game/titles';
 import { portrait } from './avatar';
 import { t } from '../i18n/ui';
+import { wallet } from '../net/wallet';
 import { MINI_GAME_IDS, type MiniGameId, type MiniGameResult, type Stars } from '../minigames/MiniGame';
 import { MINI_GAMES } from '../minigames/registry';
 import './styles.css';
@@ -78,6 +79,7 @@ export class Hud {
     this.renderTracker();
     this.renderProfile();
     this.refreshDeviceMode();
+    wallet.on(() => this.renderTokens());
   }
 
   /** Re-render device-specific text after switching between mouse and touch. */
@@ -146,6 +148,12 @@ export class Hud {
     this.prompt.classList.remove('hidden');
   }
 
+  /** A prompt with ready-made HTML (the fight zones' "Press E to fight"). */
+  showPrompt(html: string) {
+    if (this.prompt.innerHTML !== html) this.prompt.innerHTML = html;
+    this.prompt.classList.remove('hidden');
+  }
+
   hidePrompt() {
     this.prompt.classList.add('hidden');
   }
@@ -179,7 +187,8 @@ export class Hud {
     this.profileBtn.classList.toggle('guest', !p);
     this.profileBtn.title = p ? `${p.name} · ${title.name}` : t('guestBadge');
     this.profileBtn.innerHTML = `<span class="pf-ava"><img alt="" hidden><span class="pf-ghost">${p ? '🧝' : '👤'}</span><i class="pf-dot"></i></span>
-      <span class="pf-txt"><b></b><small>${title.icon} ${title.name}</small></span><kbd>C</kbd>`;
+      <span class="pf-txt"><b></b><small>${title.icon} ${title.name}</small></span><span class="pf-tok" hidden></span><kbd>C</kbd>`;
+    this.renderTokens();
     this.profileBtn.querySelector('b')!.textContent = p ? p.name : t('guest');
     if (!p) return;
     const img = this.profileBtn.querySelector('img')!;
@@ -189,6 +198,14 @@ export class Hud {
       img.hidden = false;
       this.profileBtn.querySelector('.pf-ghost')?.remove();
     });
+  }
+
+  /** Fight tokens next to the name (signed-in players only). */
+  private renderTokens() {
+    const el = this.profileBtn.querySelector<HTMLElement>('.pf-tok');
+    if (!el) return;
+    el.hidden = wallet.tokens === null || !this.profile;
+    el.textContent = `🪙 ${wallet.tokens ?? 0}`;
   }
 
   renderTracker() {
@@ -214,7 +231,7 @@ export class Hud {
     return !this.mapBox.classList.contains('hidden');
   }
 
-  toggleMap(markers: MapMarker[], player: { x: number; z: number }, half: number, roads: [number, number][][] = []) {
+  toggleMap(markers: MapMarker[], player: { x: number; z: number }, half: number, roads: [number, number][][] = [], places: { emoji: string; label: string; x: number; z: number }[] = []) {
     if (this.mapOpen) {
       this.mapBox.classList.add('hidden');
       return;
@@ -235,7 +252,7 @@ export class Hud {
     const svg = `<svg class="map-roads" viewBox="${-half} ${-half} ${half * 2} ${half * 2}" preserveAspectRatio="none">${lines}</svg>`;
     this.mapBox.innerHTML = `<div class="map-inner"><h2>${t('mapTitle')}</h2><div class="map-area">${svg}
       <div class="pin hub" style="${pos(0, 0)}"><span>🎄</span><label>${t('greatTree')}</label></div>
-      ${pins}<div class="pin me" style="${pos(player.x, player.z)}"><span>📍</span></div></div>
+      ${pins}${places.map((p) => `<div class="pin place" style="${pos(p.x, p.z)}"><span>${p.emoji}</span><label>${p.label}</label></div>`).join('')}<div class="pin me" style="${pos(player.x, player.z)}"><span>📍</span></div></div>
       <p class="small muted">${isTouchDevice ? t('mapCloseTouch') : t('mapCloseDesk')}</p></div>`;
     this.mapBox.classList.remove('hidden');
   }
@@ -323,6 +340,9 @@ export class Hud {
         ok ? resolve() : reject();
       };
       const onKey = (e: KeyboardEvent) => {
+        // Typing in a form inside the card (the shop's payment details) is just typing.
+        const el = e.target as HTMLElement | null;
+        if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') && e.code !== 'Escape') return;
         if (e.code === 'Enter' || e.code === 'KeyE') {
           e.stopPropagation();
           e.preventDefault();
